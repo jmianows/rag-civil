@@ -1,0 +1,7 @@
+.venv/
+vectordb/
+docs/
+ingestion/failed_chunks.jsonl
+__pycache__/
+*.pyc
+.env
