@@ -246,7 +246,7 @@ def tag_metadata(chunk: dict, pdf_path: Path) -> dict:
     # Section identifiers start with a digit and contain dots, dashes, 
     # parentheticals, or brackets before hitting whitespace or text
     section  = detect_section(chunk["text"])
-    doc_page = detect_doc_page(chunk["text"], section)
+    doc_page = "UNKNOWN"  # filled in by retag.py after ingestion
 
     # Doc page detection — dash format page numbers like 1320-5, 13-205
     # Search first 300 chars, prefer patterns that look like division-page
