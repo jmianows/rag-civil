@@ -14,7 +14,7 @@ CHUNK_SIZE    = 220   # words — at 1.3 tokens/word ≈ 286 tokens, safe headro
 CHUNK_OVERLAP = 20    # words
 MAX_CHARS     = 900   # characters — roughly 180 words, hard safety ceiling
 
-FORCE_RERUN = False
+FORCE_RERUN = True
 
 FAILED_LOG = Path("/home/justin/rag-civil/ingestion/failed_chunks.jsonl")
 
@@ -65,7 +65,7 @@ def extract_text_from_pdf(pdf_path: Path) -> list[dict]:
 
     use_ocr = is_scanned_pdf(doc)
     if use_ocr:
-        print(f"  [scanned document detected] using OCR for {pdf_path.name}, {len(pages)} pages long.")
+        print(f"  [scanned document detected] using OCR for {pdf_path.name}, {len(doc)} pages long.")
     
     for page_num in range(len(doc)):
         page = doc[page_num]
@@ -280,14 +280,11 @@ def tag_metadata(chunk: dict, pdf_path: Path) -> dict:
 #init_chromadb — creates or opens your persistent ChromaDB database in the vectordb/ folder. Using cosine similarity which is the best metric for text retrieval. If you re-run ingestion it won't duplicate chunks — upsert updates existing ones.
 #store_chunks — builds up batches of chunks with their embeddings and metadata and writes them to ChromaDB in one operation. Wraps each embedding in a try/except so one bad chunk doesn't crash the whole ingestion run.
 #The chunk ID format filename__p142__c3 means page 142, chunk index 3 — unique and human readable so you can trace any retrieved chunk back to its exact location.
-def get_embedding(text: str, is_query: bool = False) -> list[float]:
-    import json
-    import re
+def get_embedding(text: str) -> list[float]:
+    words = text.split()
+    if len(words) > 250:
+        text = " ".join(words[:250])
 
-    if is_query:
-        text = f"Represent this sentence for searching relevant passages: {text}"
-
-    # strip ellipsis chains for embedding only — they bloat token count
     embed_text = re.sub(r'[\u2026\.]{3,}', ' ', text)
     embed_text = re.sub(r'[ \t]+', ' ', embed_text).strip()
 
@@ -311,6 +308,7 @@ def get_embedding(text: str, is_query: bool = False) -> list[float]:
                 )
                 return response["embedding"]
             except Exception as e2:
+                import json
                 with open(FAILED_LOG, "a") as f:
                     json.dump({
                         "error":      str(e2),
@@ -337,12 +335,13 @@ def init_db() -> lancedb.table.LanceTable:
         pa.field("state",        pa.string()),
         pa.field("locality",     pa.string()),
         pa.field("section",      pa.string()),
+        pa.field("llm_corrected_section", pa.bool_()),
         pa.field("doc_page",     pa.string()),
         pa.field("page",         pa.int32()),
         pa.field("chunk_index",  pa.int32()),
     ])
 
-    if "civil_engineering_codes" in db.table_names():
+    if "civil_engineering_codes" in db.db.list_tables():
         table = db.open_table("civil_engineering_codes")
         print(f"  LanceDB opened — {table.count_rows()} existing chunks")
     else:
@@ -380,6 +379,7 @@ def store_chunks(table: lancedb.table.LanceTable, chunks: list[dict]) -> None:
             "state":        chunk["state"],
             "locality":     chunk["locality"],
             "section":      chunk["section"],
+            "llm_corrected_section": False,
             "doc_page":     chunk.get("doc_page", "UNKNOWN"),
             "page":         int(chunk["page"]),
             "chunk_index":  int(chunk["chunk_index"]),
@@ -440,7 +440,7 @@ def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable) -> None:
 def reset_db() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
     
-    if "civil_engineering_codes" in db.table_names():
+    if "civil_engineering_codes" in db.db.list_tables():
         db.drop_table("civil_engineering_codes")
         print("  Existing table deleted")
 
@@ -454,6 +454,7 @@ def reset_db() -> lancedb.table.LanceTable:
         pa.field("state",        pa.string()),
         pa.field("locality",     pa.string()),
         pa.field("section",      pa.string()),
+        pa.field("llm_corrected_section", pa.bool_()),
         pa.field("doc_page",     pa.string()),
         pa.field("page",         pa.int32()),
         pa.field("chunk_index",  pa.int32()),

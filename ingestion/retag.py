@@ -77,6 +77,66 @@ def retag():
     new_table = db.create_table("civil_engineering_codes", data=updated_rows)
     print(f"Done — {new_table.count_rows()} chunks written")
 
+    print("\nApplying corrections...")
+    apply_corrections(new_table)
+
+CORRECTIONS_LOG = Path("/home/justin/rag-civil/ingestion/corrections.jsonl")
+
+
+def log_correction(
+    source_file: str,
+    page: int,
+    chunk_index: int,
+    old_section: str,
+    correct_section: str,
+) -> None:
+    import json
+    from datetime import datetime
+    with open(CORRECTIONS_LOG, "a") as f:
+        json.dump({
+            "source_file":     source_file,
+            "page":            page,
+            "chunk_index":     chunk_index,
+            "old_section":     old_section,
+            "correct_section": correct_section,
+            "timestamp":       datetime.now().isoformat(),
+        }, f)
+        f.write("\n")
+    print(f"  Logged correction: {source_file} p{page} c{chunk_index} -> {correct_section}")
+
+
+def apply_corrections(table) -> int:
+    import json
+    if not CORRECTIONS_LOG.exists():
+        print("  No corrections log found")
+        return 0
+
+    applied = 0
+    with open(CORRECTIONS_LOG) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            correction = json.loads(line)
+            chunk_id = (
+                f"{correction['source_file']}"
+                f"__p{correction['page']}"
+                f"__c{correction['chunk_index']}"
+            )
+            try:
+                table.update(
+                    where=f"id = '{chunk_id}'",
+                    values={
+                        "section":               correction["correct_section"],
+                        "llm_corrected_section": True,
+                    }
+                )
+                applied += 1
+            except Exception as e:
+                print(f"  Failed to apply correction {chunk_id}: {e}")
+
+    print(f"  Applied {applied} corrections")
+    return applied
 
 if __name__ == "__main__":
     retag()
