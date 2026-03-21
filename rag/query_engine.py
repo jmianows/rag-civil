@@ -1,13 +1,16 @@
 import ollama
 import lancedb
+import re
 from pathlib import Path
 from dataclasses import dataclass
 
 VECTORDB_DIR  = Path("/home/justin/rag-civil/vectordb")
 EMBED_MODEL   = "mxbai-embed-large"
-LLM_MODEL     = "qwen3:8b"
+LLM_MODEL = "qwen3:4b-instruct"
 N_RESULTS     = 5
-CONTEXT_WINDOW = 1
+CONTEXT_WINDOW_BEFORE = 1
+CONTEXT_WINDOW_AFTER  = 2
+MAX_CHUNK_CHARS = 1000 
 #This sets up the configuration and a clean dataclass to carry retrieved chunk data through the pipeline.
 @dataclass
 class RetrievedChunk:
@@ -84,20 +87,18 @@ def retrieve_chunks(
 def expand_context(
     chunk: RetrievedChunk,
     table: lancedb.table.LanceTable,
-    window: int = CONTEXT_WINDOW,
+    window_before: int = 1,
+    window_after: int = 2,
 ) -> str:
-    source_file = chunk.source_file
-    page        = chunk.page
-    chunk_index = chunk.chunk_index
+    source_file  = chunk.source_file
+    page         = chunk.page
+    chunk_index  = chunk.chunk_index
 
     neighbors = []
-    for offset in range(-window, window + 1):
-        if offset == 0:
-            neighbors.append((chunk_index, chunk.text))
-            continue
 
+    # fetch chunks before
+    for offset in range(-window_before, 0):
         neighbor_id = f"{source_file}__p{page}__c{chunk_index + offset}"
-
         try:
             result = table.search() \
                 .where(f"id = '{neighbor_id}'") \
@@ -107,6 +108,36 @@ def expand_context(
                 neighbors.append((chunk_index + offset, result[0]["text"]))
         except Exception:
             continue
+
+    # always include the chunk itself
+    neighbors.append((chunk_index, chunk.text))
+
+    # fetch chunks after — look across page boundaries too
+    for offset in range(1, window_after + 1):
+        neighbor_id = f"{source_file}__p{page}__c{chunk_index + offset}"
+        try:
+            result = table.search() \
+                .where(f"id = '{neighbor_id}'") \
+                .limit(1) \
+                .to_list()
+            if result:
+                neighbors.append((chunk_index + offset, result[0]["text"]))
+                continue
+        except Exception:
+            pass
+
+        # if not found on same page try next page chunk 0
+        if offset == 1:
+            next_page_id = f"{source_file}__p{page + 1}__c0"
+            try:
+                result = table.search() \
+                    .where(f"id = '{next_page_id}'") \
+                    .limit(1) \
+                    .to_list()
+                if result:
+                    neighbors.append((page + 1, result[0]["text"]))
+            except Exception:
+                pass
 
     neighbors.sort(key=lambda x: x[0])
     texts = [t for _, t in neighbors]
@@ -165,6 +196,11 @@ def group_chunks(
                 item["chunk"].section == other["chunk"].section
                 and item["chunk"].section != "UNKNOWN"
             )
+
+            if same_section:
+                group.append(other)
+                used.add(j)
+
             close_pages = (
                 abs(item["chunk"].page - other["chunk"].page) <= 2
             )
@@ -186,35 +222,37 @@ def group_chunks(
 ### THE SYSTEM PROMPT IS HERE SUPER IMPORTANT!!!!!!!!!! 
 SYSTEM_PROMPT = """You are a civil engineering code and standards lookup tool.
 
-Your job is to read the retrieved code sections provided and present their requirements clearly and accurately.
+Your job is to read the retrieved code sections and present their requirements accurately.
 
-Rules you must follow without exception:
-- Only use information from the retrieved sections provided. Do not add your own knowledge, but you are allowed to add vocabulary to smooth things out between passages.
-- Do not change words like "shall" "should" or "may", because in the MUTCD they define how mandatory standards are.
-- If the retrieved sections do not contain relevant information, say exactly: "The provided standards do not address this query. Think I should? Request manuals to add using the bottom right!"
-- Never provide general engineering advice, opinions, or recommendations.
-- Never fill gaps with assumed knowledge even if you are confident in the answer.
-- If multiple standards address the same topic, present each one separately.
-- Always include the full citation block at the end of each passage.
+Rules:
+- Present only information from the retrieved sections. Never add outside knowledge.
+- Copy requirement language verbatim. Do not paraphrase or reword. Truncate with "..." if too long.
+- Preserve exact wording of shall, should, and may — these define mandatory vs guidance vs optional.
+- Present only directly applicable requirements. Omit background, context, and procedural setup.
+- Prioritize shall statements. Include should and may only if no shall statements exist or the query asks for guidance.
+- Show most local jurisdiction first, expanding to federal below.
+- Present each standard separately with its own citation block.
+- Present ALL retrieved sections that contain relevant information, each with its own citation block.
+- Do not stop after the first relevant section.
+- If ALL retrieved sections contain no relevant information say exactly: "The provided standards do not address this query. Think I should? Request manuals to add using the bottom right!"
+- Only use the "not addressed" message if NO retrieved sections are relevant. Do not append it after presenting relevant results.
+- Never provide engineering advice, opinions, or recommendations.
+- Even if two sections cover similar topics, present both separately if they contain distinct requirements.
 
-Response format:
-- Write out each relevant passage cleanly and completely.
-- At the end of each passage include a citation block in this exact format:
+Format:
+- Bullet points per requirement.
+- Citation block at the end of each passage:
 
   [SOURCE]
-  Document: <source_file>
-  Section: <section>
-  Document Page: <doc_page>
-  PDF Page: <page>
+  Document: <source_file> <section>, page <doc_page>
 
-- Group passages from the same section together under one citation block.
-- Do not add preamble, summaries, or conclusions. Always include exceptions found.
-- Do not restate the question. """
+- No preamble, summaries, or conclusions.
+- Do not restate the question."""
 
 
 def format_context(groups: list[dict]) -> str:
     context_blocks = []
-
+    
     for group in groups:
         # combine all text in the group
         combined_texts = []
@@ -233,15 +271,14 @@ def format_context(groups: list[dict]) -> str:
         if chunk.llm_corrected_section:
             section_display = f"{chunk.section} [llm corrected]"
 
+        if len(combined) > MAX_CHUNK_CHARS:
+            combined = combined[:MAX_CHUNK_CHARS] + "..."
+
         block = f"""--- RETRIEVED SECTION ---
 {combined}
 
 [SOURCE]
-Document: {chunk.source_file}
-Agency: {chunk.agency}
-Jurisdiction: {chunk.jurisdiction}
-Section: {section_display}
-Document Page: {chunk.doc_page}
+Document: {chunk.source_file} {section_display}, page {chunk.doc_page}
 PDF Page: {chunk.page}
 ---"""
 
@@ -249,62 +286,46 @@ PDF Page: {chunk.page}
 
     return "\n\n".join(context_blocks)
 
+def strip_thinking(text: str) -> str:
+    # remove any thinking blocks Qwen3 emits despite think=False
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    return text.strip()
 
-def generate_response(
-    query: str,
-    context: str,
-) -> str:
-    messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT,
-        },
-        {
-            "role": "user",
-            "content": f"Query: {query}\n\nRetrieved sections:\n\n{context}",
-        }
-    ]
+def generate_response(query: str, context: str) -> str:
+    import requests
+    import json
 
-    response = ollama.chat(
-        model=LLM_MODEL,
-        messages=messages,
-        options={
+    payload = {
+        "model": LLM_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": f"Query: {query}\n\nRetrieved sections:\n\n{context}",
+            }
+        ],
+        "stream": False,
+        "think": False,
+        "options": {
             "temperature":    0.1,
             "num_ctx":        4096,
-            "num_predict":    2048,
+            "num_predict":    1024,
             "repeat_penalty": 1.1,
-        },
-        think=False,
+            "num_gpu":        999,
+        }
+    }
+
+    response = requests.post(
+        "http://localhost:11434/api/chat",
+        json=payload
     )
 
-    return response["message"]["content"].strip()
-#this is the script to try and find sections when the automatic parser cannot. 
-def enrich_section(text: str, source_file: str) -> str:
-    prompt = f"""You are reading a chunk from {source_file}.
-Identify the section number this chunk belongs to.
-Return ONLY the section number (e.g. '1926.502', '1310.02(13)(b)', '6-02.3').
-If you cannot determine a section number return UNKNOWN.
-Do not explain your answer.
-
-Text:
-{text[:500]}"""
-
-    response = ollama.chat(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        options={
-            "temperature": 0,
-            "num_predict": 20,
-        },
-        think=False,
-    )
-    result = response["message"]["content"].strip()
-
-    # validate result looks like a section number
-    import re
-    if re.match(r'^[\d][\d\.\-\(\)\[\]a-zA-Z]*$', result) and len(result) >= 3:
-        return result
-    return "UNKNOWN"
+    data = response.json()
+    content = data["message"]["content"].strip()
+    return strip_thinking(content)
 #if the parser finds a section it will go back, correct it, and then flag it did so for us.
 def correct_section(
     source_file: str,
@@ -339,6 +360,38 @@ def correct_section(
 
     log_correction(source_file, page, chunk_index, old_section, new_section)
     return True
+def enrich_section(text: str, source_file: str) -> str:
+    import requests
+
+    payload = {
+        "model": LLM_MODEL,
+        "messages": [
+            {
+                "role": "user",
+                "content": f"You are reading a chunk from {source_file}.\nIdentify the section number this chunk belongs to.\nReturn ONLY the section number (e.g. '1926.502', '1310.02(13)(b)', '6-02.3').\nIf you cannot determine a section number return UNKNOWN.\nDo not explain your answer.\n\nText:\n{text[:500]}",
+            }
+        ],
+        "stream": False,
+        "think": False,
+        "options": {
+            "temperature": 0,
+            "num_predict": 20,
+        }
+    }
+
+    response = requests.post(
+        "http://localhost:11434/api/chat",
+        json=payload
+    )
+
+    data = response.json()
+    result = data["message"]["content"].strip()
+    result = strip_thinking(result)
+
+    import re
+    if re.match(r'^[\d][\d\.\-\(\)\[\]a-zA-Z]*$', result) and len(result) >= 3:
+        return result
+    return "UNKNOWN"
 
 def query(
     user_query: str,
@@ -348,9 +401,10 @@ def query(
     enrich_unknown_sections: bool = True,
 ) -> dict:
 
+    print("  [1/5] Connecting to database...")
     table = get_db_table()
 
-    # retrieve chunks
+    print("  [2/5] Embedding query...")
     chunks = retrieve_chunks(
         query=user_query,
         table=table,
@@ -359,6 +413,7 @@ def query(
         filter_jurisdiction=filter_jurisdiction,
         filter_state=filter_state,
     )
+    print(f"  [3/5] Retrieved {len(chunks)} chunks")
 
     if not chunks:
         return {
@@ -367,34 +422,35 @@ def query(
             "chunks":   [],
         }
 
-    # enrich UNKNOWN sections with LLM if enabled
     if enrich_unknown_sections:
-        for chunk in chunks:
-            if chunk.section == "UNKNOWN":
+        unknown = [c for c in chunks if c.section == "UNKNOWN"]
+        if unknown:
+            print(f"  [4/5] Enriching {len(unknown)} unknown sections...")
+            for chunk in unknown:
                 chunk.section = enrich_section(chunk.text, chunk.source_file)
+        else:
+            print("  [4/5] All sections known — skipping enrichment")
+    else:
+        print("  [4/5] Section enrichment disabled")
 
-    # group and expand context
+    print("  [5/5] Generating response...")
     groups = group_chunks(chunks, table)
-
-    # format context for LLM
     context = format_context(groups)
-
-    # generate response
     response = generate_response(user_query, context)
 
     return {
         "query":    user_query,
         "response": response,
-         "chunks": [
+        "chunks":   [
             {
                 "source_file":           c.source_file,
                 "agency":                c.agency,
                 "jurisdiction":          c.jurisdiction,
                 "section":               c.section,
-                "llm_corrected_section": c.llm_corrected_section,
                 "doc_page":              c.doc_page,
                 "page":                  c.page,
                 "distance":              c.distance,
+                "llm_corrected_section": c.llm_corrected_section,
             }
             for c in chunks
         ],
