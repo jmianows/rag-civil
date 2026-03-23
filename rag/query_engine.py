@@ -231,40 +231,35 @@ Rules:
 - Present only directly applicable requirements. Omit background, context, and procedural setup.
 - Prioritize shall statements. Include should and may only if no shall statements exist or the query asks for guidance.
 - Show most local jurisdiction first, expanding to federal below.
-- Present each standard separately with its own citation block.
-- Present every retrieved section that contains at least one relevant requirement, each with its own citation block.
+- Present each standard separately. Do not interleave content from different sources.
+- Present every retrieved section that contains at least one relevant requirement.
 - Sections with no relevant requirements may be omitted silently.
 - If no retrieved sections contain relevant requirements, say exactly: "The provided standards do not address this query. Think I should? Request manuals to add using the bottom right!"
 - Never provide engineering advice, opinions, or recommendations.
 
 Format:
 - Bullet points per requirement.
-- Citation block at the end of each passage:
-
-  [SOURCE]
-  Document: <source_file> <section>, page <doc_page>
-
+- Structure output source by source. For each source you use:
+    1. Present all relevant requirements from that source as bullet points.
+       Finish all content from one source before moving to the next.
+    2. After the last bullet from that source, place [[SRC_N]] on its own line
+       (N matches the "--- SOURCE N ---" header in the retrieved context).
+- Only emit [[SRC_N]] for sources you actually cite. Omit the flag entirely for unused sources.
 - No preamble, summaries, or conclusions.
 - Do not restate the question."""
 
 
-def format_context(groups: list[dict]) -> str:
+def format_context(groups: list[dict]) -> tuple[str, list[dict]]:
     context_blocks = []
-    
-    for group in groups:
-        # combine all text in the group
-        combined_texts = []
-        for item in group:
-            combined_texts.append(item["text"])
+    source_groups = []
 
-        # deduplicate overlapping text between group items
+    for i, group in enumerate(groups, start=1):
+        combined_texts = [item["text"] for item in group]
         combined = combined_texts[0]
-        for i in range(1, len(combined_texts)):
-            combined = remove_overlap(combined, combined_texts[i])
+        for j in range(1, len(combined_texts)):
+            combined = remove_overlap(combined, combined_texts[j])
 
-        # use metadata from first chunk in group
         chunk = group[0]["chunk"]
-
         section_display = chunk.section
         if chunk.llm_corrected_section:
             section_display = f"{chunk.section} [llm corrected]"
@@ -272,17 +267,28 @@ def format_context(groups: list[dict]) -> str:
         if len(combined) > MAX_CHUNK_CHARS:
             combined = combined[:MAX_CHUNK_CHARS] + "..."
 
-        block = f"""--- RETRIEVED SECTION ---
+        block = f"""--- SOURCE {i} ---
 {combined}
 
-[SOURCE]
-Document: {chunk.source_file} {section_display}, page {chunk.doc_page}
-PDF Page: {chunk.page}
+[SRC_{i}] Document: {chunk.source_file} {section_display}, page {chunk.doc_page}
 ---"""
 
         context_blocks.append(block)
+        source_groups.append({
+            "idx":                   i,
+            "source_file":           chunk.source_file,
+            "agency":                chunk.agency,
+            "jurisdiction":          chunk.jurisdiction,
+            "section":               chunk.section,
+            "doc_page":              chunk.doc_page,
+            "page":                  chunk.page,
+            "chunk_index":           chunk.chunk_index,
+            "distance":              chunk.distance,
+            "llm_corrected_section": chunk.llm_corrected_section,
+            "text":                  combined,
+        })
 
-    return "\n\n".join(context_blocks)
+    return "\n\n".join(context_blocks), source_groups
 
 def strip_thinking(text: str) -> str:
     # remove any thinking blocks Qwen3 emits despite think=False
@@ -391,18 +397,19 @@ def enrich_section(text: str, source_file: str) -> str:
         return result
     return "UNKNOWN"
 
-def query(
+def query_prepare(
     user_query: str,
     filter_agency: str = None,
     filter_jurisdiction: str = None,
     filter_state: str = None,
     enrich_unknown_sections: bool = True,
 ) -> dict:
-
-    print("  [1/5] Connecting to database...")
+    """Run retrieval + formatting pipeline without calling the LLM.
+    Returns {context, source_groups, chunks} or {empty: True, ...} if no results."""
+    print("  [1/4] Connecting to database...")
     table = get_db_table()
 
-    print("  [2/5] Embedding query...")
+    print("  [2/4] Embedding query and retrieving chunks...")
     chunks = retrieve_chunks(
         query=user_query,
         table=table,
@@ -411,35 +418,30 @@ def query(
         filter_jurisdiction=filter_jurisdiction,
         filter_state=filter_state,
     )
-    print(f"  [3/5] Retrieved {len(chunks)} chunks")
+    print(f"  Retrieved {len(chunks)} chunks")
 
     if not chunks:
-        return {
-            "query":    user_query,
-            "response": "The provided standards do not address this query.",
-            "chunks":   [],
-        }
+        return {"empty": True, "source_groups": [], "chunks": [], "context": ""}
 
     if enrich_unknown_sections:
         unknown = [c for c in chunks if c.section == "UNKNOWN"]
         if unknown:
-            print(f"  [4/5] Enriching {len(unknown)} unknown sections...")
+            print(f"  [3/4] Enriching {len(unknown)} unknown sections...")
             for chunk in unknown:
                 chunk.section = enrich_section(chunk.text, chunk.source_file)
         else:
-            print("  [4/5] All sections known — skipping enrichment")
+            print("  [3/4] All sections known — skipping enrichment")
     else:
-        print("  [4/5] Section enrichment disabled")
+        print("  [3/4] Section enrichment disabled")
 
-    print("  [5/5] Generating response...")
+    print("  [4/4] Building context...")
     groups = group_chunks(chunks, table)
-    context = format_context(groups)
-    response = generate_response(user_query, context)
+    context, source_groups = format_context(groups)
 
     return {
-        "query":    user_query,
-        "response": response,
-        "chunks":   [
+        "context":       context,
+        "source_groups": source_groups,
+        "chunks": [
             {
                 "source_file":           c.source_file,
                 "agency":                c.agency,
@@ -447,11 +449,101 @@ def query(
                 "section":               c.section,
                 "doc_page":              c.doc_page,
                 "page":                  c.page,
+                "chunk_index":           c.chunk_index,
                 "distance":              c.distance,
                 "llm_corrected_section": c.llm_corrected_section,
             }
             for c in chunks
         ],
+    }
+
+
+def generate_response_stream(user_query: str, context: str):
+    """Generator: streams LLM response, yields source_block events + final done event.
+    Detects [[SRC_N]] flags and yields a source_block when each one completes."""
+    import requests as _req
+    import json as _json
+    import re as _re
+
+    payload = {
+        "model": LLM_MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": f"Query: {user_query}\n\nRetrieved sections:\n\n{context}"},
+        ],
+        "stream": True,
+        "think":  False,
+        "options": {
+            "temperature":    0.1,
+            "num_ctx":        4096,
+            "num_predict":    1024,
+            "repeat_penalty": 1.1,
+            "num_gpu":        999,
+        },
+    }
+
+    resp = _req.post("http://localhost:11434/api/chat", json=payload, stream=True)
+    flag_re = _re.compile(r'\[\[SRC_(\d+)\]\]')
+    buffer    = ""
+    full_text = ""
+
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        data  = _json.loads(line)
+        token = data.get("message", {}).get("content", "")
+        buffer    += token
+        full_text += token
+
+        m = flag_re.search(buffer)
+        if m:
+            text_before = strip_thinking(buffer[:m.start()])
+            n = int(m.group(1))
+            buffer = buffer[m.end():]
+            yield {"type": "source_block", "text": text_before, "n": n}
+
+        if data.get("done"):
+            break
+
+    # any remaining text after the last flag (or entire output if no flags were used)
+    remainder = strip_thinking(buffer)
+    if remainder.strip():
+        yield {"type": "text", "text": remainder}
+
+    print(f"\n── LLM RAW OUTPUT ──\n{full_text}\n── END ──\n", flush=True)
+    yield {"type": "done", "raw": full_text}
+
+
+def query(
+    user_query: str,
+    filter_agency: str = None,
+    filter_jurisdiction: str = None,
+    filter_state: str = None,
+    enrich_unknown_sections: bool = True,
+) -> dict:
+    prep = query_prepare(
+        user_query=user_query,
+        filter_agency=filter_agency,
+        filter_jurisdiction=filter_jurisdiction,
+        filter_state=filter_state,
+        enrich_unknown_sections=enrich_unknown_sections,
+    )
+    if prep.get("empty"):
+        return {
+            "query":         user_query,
+            "response":      "The provided standards do not address this query.",
+            "chunks":        [],
+            "source_groups": [],
+        }
+
+    print("  [5/5] Generating response...")
+    response = generate_response(user_query, prep["context"])
+
+    return {
+        "query":         user_query,
+        "response":      response,
+        "chunks":        prep["chunks"],
+        "source_groups": prep["source_groups"],
     }
 
 

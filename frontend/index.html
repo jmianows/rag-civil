@@ -1,403 +1,126 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="evolve-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAG-CIVIL // CODE LOOKUP</title>
-<style>
-  :root {
-    --bg:       #0a0a0a;
-    --bg1:      #111111;
-    --bg2:      #1a1a1a;
-    --bg3:      #222222;
-    --border:   #2a2a2a;
-    --border2:  #333333;
-    --text:     #c8c8c8;
-    --dim:      #666666;
-    --dim2:     #444444;
-    --accent:   #4a9eff;
-    --accent2:  #2a6acc;
-    --green:    #4aff8a;
-    --green2:   #1a8a4a;
-    --yellow:   #ffcc44;
-    --red:      #ff4a4a;
-    --orange:   #ff8a2a;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 13px;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* ── header ── */
-  #header {
-    background: var(--bg1);
-    border-bottom: 1px solid var(--border);
-    padding: 6px 12px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-  }
-  #header .logo {
-    color: var(--accent);
-    font-size: 15px;
-    font-weight: bold;
-    letter-spacing: 2px;
-    white-space: nowrap;
-  }
-  #header .tagline {
-    color: var(--dim);
-    font-size: 11px;
-  }
-  #header .spacer { flex: 1; }
-  #status-bar {
-    font-size: 11px;
-    color: var(--dim);
-  }
-  #status-bar .ok  { color: var(--green); }
-  #status-bar .err { color: var(--red); }
-
-  /* ── layout ── */
-  #layout {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    margin: 0 2ch;
-  }
-
-  /* ── sidebar ── */
-  #sidebar {
-    width: 220px;
-    min-width: 220px;
-    background: var(--bg1);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  .sidebar-label {
-    color: var(--dim);
-    font-size: 10px;
-    letter-spacing: 1px;
-    padding: 8px 10px 4px;
-    border-bottom: 1px solid var(--border);
-    text-transform: uppercase;
-  }
-  #history-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 4px 0;
-  }
-  .history-item {
-    padding: 6px 10px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    color: var(--dim);
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: background 0.1s, color 0.1s;
-  }
-  .history-item:hover { background: var(--bg2); color: var(--text); }
-  .history-item.active { background: var(--bg3); color: var(--accent); }
-  .history-item .ts {
-    display: block;
-    font-size: 10px;
-    color: var(--dim2);
-  }
-  #history-empty {
-    padding: 12px 10px;
-    color: var(--dim2);
-    font-size: 11px;
-  }
-
-  /* ── main panel ── */
-  #main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* ── query area ── */
-  #query-panel {
-    background: var(--bg1);
-    border-bottom: 1px solid var(--border);
-    padding: 8px 12px;
-    flex-shrink: 0;
-  }
-  #query-row {
-    display: flex;
-    gap: 6px;
-    align-items: flex-start;
-  }
-  #query-input {
-    flex: 1;
-    background: var(--bg2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
-    padding: 6px 8px;
-    resize: none;
-    outline: none;
-    min-height: 36px;
-    max-height: 120px;
-    overflow-y: auto;
-  }
-  #query-input:focus { border-color: var(--accent2); }
-  #query-input::placeholder { color: var(--dim2); }
-
-  #submit-btn {
-    background: var(--accent2);
-    border: 1px solid var(--accent);
-    color: #fff;
-    font-family: inherit;
-    font-size: 12px;
-    padding: 6px 14px;
-    cursor: pointer;
-    white-space: nowrap;
-    letter-spacing: 1px;
-    transition: background 0.1s;
-    height: 36px;
-  }
-  #submit-btn:hover:not(:disabled) { background: var(--accent); }
-  #submit-btn:disabled { opacity: 0.4; cursor: default; }
-
-  #filter-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 6px;
-    align-items: center;
-  }
-  .filter-label { color: var(--dim); font-size: 11px; }
-  select.filter {
-    background: var(--bg2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 12px;
-    padding: 3px 6px;
-    outline: none;
-  }
-  select.filter:focus { border-color: var(--accent2); }
-
-  /* ── output area ── */
-  #output-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  /* ── response block ── */
-  #response-block {
-    display: none;
-  }
-  .section-label {
-    color: var(--dim);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-  #response-text {
-    background: var(--bg1);
-    border: 1px solid var(--border);
-    padding: 10px 12px;
-    white-space: pre-wrap;
-    line-height: 1.6;
-    color: var(--text);
-    font-size: 13px;
-  }
-
-  /* ── citations ── */
-  #citations-block {
-    display: none;
-  }
-  .citation {
-    background: var(--bg1);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent2);
-    padding: 8px 10px;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .citation + .citation { margin-top: 6px; }
-  .citation-meta {
-    flex: 1;
-    min-width: 0;
-  }
-  .citation-file {
-    color: var(--accent);
-    font-size: 12px;
-    font-weight: bold;
-  }
-  .citation-detail {
-    color: var(--dim);
-    font-size: 11px;
-    margin-top: 2px;
-  }
-  .citation-detail span { color: var(--text); font-weight: bold; }
-  .citation-corrected {
-    color: var(--orange);
-    font-size: 10px;
-    margin-top: 2px;
-  }
-  .citation-distance {
-    color: var(--dim2);
-    font-size: 10px;
-    white-space: nowrap;
-    padding-top: 2px;
-  }
-  .correct-btn {
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    color: var(--yellow);
-    font-family: inherit;
-    font-size: 11px;
-    padding: 3px 8px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.1s;
-  }
-  .correct-btn:hover { background: var(--bg2); border-color: var(--yellow); }
-
-  /* ── correct modal ── */
-  #modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  #modal-overlay.visible { display: flex; }
-  #modal {
-    background: var(--bg1);
-    border: 1px solid var(--border2);
-    padding: 16px;
-    min-width: 380px;
-    max-width: 520px;
-  }
-  #modal h3 {
-    color: var(--yellow);
-    font-size: 12px;
-    letter-spacing: 1px;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-  }
-  #modal .modal-info {
-    color: var(--dim);
-    font-size: 11px;
-    margin-bottom: 10px;
-    line-height: 1.5;
-  }
-  #modal .modal-info span { color: var(--text); }
-  #modal label {
-    color: var(--dim);
-    font-size: 11px;
-    display: block;
-    margin-bottom: 4px;
-  }
-  #modal-input {
-    width: 100%;
-    background: var(--bg2);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
-    padding: 6px 8px;
-    outline: none;
-    margin-bottom: 10px;
-  }
-  #modal-input:focus { border-color: var(--yellow); }
-  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
-  .modal-btn {
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 12px;
-    padding: 5px 14px;
-    cursor: pointer;
-  }
-  .modal-btn.confirm {
-    border-color: var(--yellow);
-    color: var(--yellow);
-  }
-  .modal-btn:hover { background: var(--bg2); }
-
-  /* ── progress / spinner ── */
-  #progress {
-    display: none;
-    color: var(--accent);
-    font-size: 12px;
-    padding: 8px 0;
-  }
-  .spinner { animation: blink 0.8s step-end infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-
-  /* ── error ── */
-  #error-msg {
-    display: none;
-    color: var(--red);
-    background: var(--bg1);
-    border: 1px solid var(--red);
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); }
-</style>
+<title>Civil Standards Smart Dictionary</title>
+<link rel="stylesheet" href="index.css">
 </head>
 <body>
 
+<!-- ══ HEADER ══ -->
 <div id="header">
-  <div class="logo">RAG-CIVIL</div>
-  <div class="tagline">civil engineering code lookup // v0.4</div>
+  <div class="logo">Civil Standards Smart Dictionary</div>
+  <div class="tagline">civil engineering code lookup // v0.5</div>
   <div class="spacer"></div>
   <div id="status-bar">API: <span id="api-status">checking...</span></div>
+  <button id="request-btn">Request codes to add!</button>
 </div>
 
+<!-- ══ LAYOUT ══ -->
 <div id="layout">
 
-  <!-- sidebar: history -->
+  <!-- ══ SIDEBAR ══ -->
   <div id="sidebar">
-    <div class="sidebar-label">Query History</div>
-    <div id="history-list">
-      <div id="history-empty">no queries yet</div>
+    <div id="sidebar-tabs">
+      <button class="tab-btn active" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+      <button class="tab-btn" data-tab="about">About</button>
     </div>
-  </div>
 
-  <!-- main -->
+    <!-- History tab -->
+    <div id="tab-history" class="tab-panel active">
+      <div id="history-list">
+        <div id="history-empty">no queries yet</div>
+      </div>
+    </div>
+
+    <!-- Settings tab -->
+    <div id="tab-settings" class="tab-panel">
+
+      <div class="settings-section">
+        <span class="settings-label">Theme</span>
+        <select id="settings-theme-select">
+          <option value="evolve-light">evolve light</option>
+          <option value="evolve">evolve dark</option>
+        </select>
+      </div>
+
+      <div class="settings-section" id="evolve-mode-row">
+        <span class="settings-label">Evolve Mode</span>
+        <div class="seg-toggle">
+          <button class="seg-btn" id="evolve-dark-btn">dark</button>
+          <button class="seg-btn" id="evolve-light-btn">light</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <button id="adv-toggle">
+          <span id="adv-arrow">▶</span> Advanced Settings
+        </button>
+        <div id="adv-content">
+          <div class="adv-row">
+            <span>Result count</span>
+            <input type="number" value="5" min="1" max="20"
+              data-tooltip="Max source chunks returned per query">
+          </div>
+          <div class="adv-row">
+            <span>Expand context</span>
+            <input type="checkbox"
+              data-tooltip="Include surrounding chunks for more context">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- About tab -->
+    <div id="tab-about" class="tab-panel">
+      <div class="about-content">
+
+        <div>
+          <div class="about-section-label">How to Use</div>
+          <ol class="how-to-list">
+            <li data-n="1">Type a question and press Enter. Use Shift+Enter for a new line.</li>
+            <li data-n="2">Filter by agency or jurisdiction using the dropdowns to narrow results.</li>
+            <li data-n="3">Sources appear inline within the response as each standard is cited.</li>
+            <li data-n="4">Hover the source filename on a citation to preview its chunk text.</li>
+            <li data-n="5">Hover <em>d=0.xxx</em> on a citation to see its vector similarity score.</li>
+            <li data-n="6">Click <strong>[flag error]</strong> on a citation to report an incorrect response.</li>
+            <li data-n="7">Past queries are saved in the History tab — click any entry to replay it.</li>
+          </ol>
+        </div>
+
+        <!-- To display a photo: set src="filename.jpg" below (place file in frontend/) -->
+        <img id="bio-photo" src="" alt="Profile photo">
+
+        <div>
+          <div class="about-section-label">About the Project</div>
+          <p class="about-text">RAG-CIVIL is a retrieval-augmented generation system for querying civil engineering codes and standards. PDFs from agencies such as OSHA, FHWA, and AASHTO are ingested, parsed into sections, embedded into a local vector database, and queried using a local LLM — producing cited, traceable answers without sending data to external services.</p>
+        </div>
+
+        <div>
+          <div class="about-section-label">About the Author</div>
+          <!-- Add your bio here -->
+          <p class="about-text about-bio">[ your bio ]</p>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ══ MAIN ══ -->
   <div id="main">
+
     <div id="query-panel">
       <div id="query-row">
         <textarea id="query-input" rows="1"
-          placeholder="enter query... (enter to submit, shift+enter for newline)"></textarea>
+          placeholder="Ask a question..."></textarea>
         <button id="submit-btn">QUERY</button>
       </div>
       <div id="filter-row">
-        <span class="filter-label">FILTER:</span>
+        <span class="filter-label">Filter:</span>
         <select class="filter" id="filter-agency">
           <option value="">all agencies</option>
         </select>
@@ -407,28 +130,24 @@
       </div>
     </div>
 
-    <div id="output-area">
+    <!-- ══ LLM CHAT WINDOW ══ -->
+    <div id="chat-window">
       <div id="progress"><span class="spinner">█</span> <span id="progress-text">running query...</span></div>
       <div id="error-msg"></div>
-
-      <div id="response-block">
-        <div class="section-label">Response</div>
-        <div id="response-text"></div>
-      </div>
-
-      <div id="citations-block">
-        <div class="section-label">Citations (<span id="citation-count">0</span>)</div>
-        <div id="citations-list"></div>
-      </div>
+      <!-- result cards appended here by renderResult() / streamed by runQuery() -->
     </div>
-  </div>
+    <!-- ══ /LLM CHAT WINDOW ══ -->
 
-</div>
+    <div id="disclaimer">This tool retrieves relevant code sections to assist with research. Always verify requirements against official current publications. Not a substitute for professional judgment.</div>
 
-<!-- correction modal -->
+  </div><!-- /main -->
+
+</div><!-- /layout -->
+
+<!-- ══ CORRECTION MODAL ══ -->
 <div id="modal-overlay">
   <div id="modal">
-    <h3>Correct Section Number</h3>
+    <h3>Flag Source Error</h3>
     <div class="modal-info" id="modal-info"></div>
     <label>New section number:</label>
     <input id="modal-input" type="text" placeholder="e.g. 1926.502(d)">
@@ -439,49 +158,244 @@
   </div>
 </div>
 
-<script>
-const API = '';  // same origin
+<!-- ══ REQUEST MODAL ══ -->
+<div id="req-overlay">
+  <div id="req-modal">
+    <h3>Request a Document or Standard</h3>
+    <p class="req-desc">Let me know what engineering codes or standards you'd like added to this tool.</p>
+    <label>Your name <span class="req-opt">(optional)</span></label>
+    <input id="req-name"  type="text" maxlength="80"  autocomplete="off" placeholder="Name">
+    <label>Document / standard to add <span class="req-required">*</span></label>
+    <input id="req-doc"   type="text" maxlength="200" autocomplete="off" placeholder="e.g. AASHTO Green Book 2018">
+    <label>Notes <span class="req-opt">(optional)</span></label>
+    <textarea id="req-notes" maxlength="500" placeholder="Agency, jurisdiction, reason for inclusion..."></textarea>
+    <div class="modal-btns">
+      <button class="modal-btn" id="req-cancel">Cancel</button>
+      <button class="modal-btn confirm" id="req-send">Send Request</button>
+    </div>
+    <div id="req-status"></div>
+  </div>
+</div>
 
-// ── state ──
-let history = [];
+<!-- ══ TOOLTIP ══ -->
+<div id="tooltip"></div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════
+   TOOLTIP SYSTEM
+   Usage: add data-tooltip="your text" to any element.
+   No additional JS setup needed — this block handles everything.
+══════════════════════════════════════════════════════════════ */
+(function() {
+  const tip = document.getElementById('tooltip');
+  document.addEventListener('mouseover', e => {
+    const t = e.target.closest('[data-tooltip]');
+    if (!t) return;
+    tip.textContent = t.dataset.tooltip;
+    tip.style.display = 'block';
+  });
+  document.addEventListener('mousemove', e => {
+    if (tip.style.display !== 'block') return;
+    const pad = 14;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let lx = e.clientX + pad, ty = e.clientY - th - pad;
+    if (lx + tw > window.innerWidth  - pad) lx = e.clientX - tw - pad;
+    if (ty < pad)                           ty = e.clientY + pad;
+    tip.style.left = lx + 'px';
+    tip.style.top  = ty + 'px';
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('[data-tooltip]')) tip.style.display = 'none';
+  });
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   THEME SYSTEM
+══════════════════════════════════════════════════════════════ */
+const THEME_KEY = 'rag-civil-theme';
+const themeSelect    = document.getElementById('settings-theme-select');
+const evolveDarkBtn  = document.getElementById('evolve-dark-btn');
+const evolveLightBtn = document.getElementById('evolve-light-btn');
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  themeSelect.value = theme;
+  localStorage.setItem(THEME_KEY, theme);
+  evolveDarkBtn.classList.toggle('active',  theme === 'evolve');
+  evolveLightBtn.classList.toggle('active', theme === 'evolve-light');
+}
+
+themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
+evolveDarkBtn.addEventListener('click',  () => applyTheme('evolve'));
+evolveLightBtn.addEventListener('click', () => applyTheme('evolve-light'));
+
+applyTheme(localStorage.getItem(THEME_KEY) || 'evolve-light');
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR TABS
+══════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + target));
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   ADVANCED SETTINGS TOGGLE
+══════════════════════════════════════════════════════════════ */
+document.getElementById('adv-toggle').addEventListener('click', () => {
+  document.getElementById('adv-content').classList.toggle('open');
+  document.getElementById('adv-arrow').classList.toggle('open');
+});
+
+/* ══════════════════════════════════════════════════════════════
+   BIO PHOTO — auto-hide if no src set
+══════════════════════════════════════════════════════════════ */
+(function() {
+  const photo = document.getElementById('bio-photo');
+  photo.style.display = (photo.src && photo.src !== window.location.href) ? 'block' : 'none';
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   ROTATING PLACEHOLDER — typewriter effect, 10s interval
+══════════════════════════════════════════════════════════════ */
+(function() {
+  const examples = [
+    "What are OSHA requirements for fall protection on scaffolding?",
+    "What is the minimum lane width for a rural arterial road?",
+    "When is a traffic impact study required for new development?",
+    "What are the ADA design standards for pedestrian ramps?",
+    "What compressive strength is required for bridge deck concrete?",
+    "How far from a stream must a retaining wall be set back?",
+    "What fire flow rate is required for a commercial building?",
+  ];
+  const input = document.getElementById('query-input');
+  let phraseIdx = 0;
+  let charTimer = null;
+
+  function typePhrase() {
+    const phrase = examples[phraseIdx];
+    phraseIdx = (phraseIdx + 1) % examples.length;
+    const full = `Ask a question like \u201c${phrase}\u201d`;
+    let i = 0;
+    if (charTimer) clearInterval(charTimer);
+    charTimer = setInterval(() => {
+      i++;
+      input.placeholder = full.slice(0, i);
+      if (i >= full.length) { clearInterval(charTimer); charTimer = null; }
+    }, 35);
+  }
+
+  typePhrase();
+  setInterval(typePhrase, 10000);
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   REQUEST MODAL
+   Security: all user input via .value (never innerHTML);
+   maxlength enforced in HTML + server-side; 30s rate limit.
+══════════════════════════════════════════════════════════════ */
+const reqOverlay = document.getElementById('req-overlay');
+const reqSendBtn = document.getElementById('req-send');
+const reqStatus  = document.getElementById('req-status');
+let lastReqSend  = 0;
+
+document.getElementById('request-btn').addEventListener('click', () => {
+  document.getElementById('req-name').value  = '';
+  document.getElementById('req-doc').value   = '';
+  document.getElementById('req-notes').value = '';
+  reqStatus.textContent = ''; reqStatus.className = '';
+  reqSendBtn.disabled = false; reqSendBtn.textContent = 'Send Request';
+  reqOverlay.classList.add('visible');
+  document.getElementById('req-doc').focus();
+});
+
+document.getElementById('req-cancel').addEventListener('click', () =>
+  reqOverlay.classList.remove('visible'));
+reqOverlay.addEventListener('click', e => {
+  if (e.target === reqOverlay) reqOverlay.classList.remove('visible');
+});
+
+reqSendBtn.addEventListener('click', async () => {
+  const doc   = document.getElementById('req-doc').value.trim().slice(0, 200);
+  const name  = document.getElementById('req-name').value.trim().slice(0, 80);
+  const notes = document.getElementById('req-notes').value.trim().slice(0, 500);
+
+  if (!doc) {
+    reqStatus.textContent = 'Please specify a document or standard.';
+    reqStatus.className = 'err';
+    return;
+  }
+  if (Date.now() - lastReqSend < 30000) {
+    reqStatus.textContent = 'Please wait before sending another request.';
+    reqStatus.className = 'err';
+    return;
+  }
+
+  reqSendBtn.disabled = true;
+  reqSendBtn.textContent = 'Sending\u2026';
+  reqStatus.textContent = ''; reqStatus.className = '';
+
+  try {
+    const r = await fetch(API + '/request', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, document: doc, notes}),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    lastReqSend = Date.now();
+    reqStatus.textContent = 'Request sent \u2014 thank you!';
+    reqStatus.className = 'ok';
+    setTimeout(() => reqOverlay.classList.remove('visible'), 1800);
+  } catch(e) {
+    reqStatus.textContent = 'Send failed: ' + e.message;
+    reqStatus.className = 'err';
+    reqSendBtn.disabled = false;
+    reqSendBtn.textContent = 'Send Request';
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   APP STATE + ELEMENT REFS
+══════════════════════════════════════════════════════════════ */
+const API = '';
+let queryHistory = [];
 let currentIndex = -1;
 let pendingCorrection = null;
+let lastResult = null;   // captured by renderResult / pushHistory for reportError
 
-// ── elements ──
-const queryInput    = document.getElementById('query-input');
-const submitBtn     = document.getElementById('submit-btn');
-const filterAgency  = document.getElementById('filter-agency');
-const filterJuris   = document.getElementById('filter-jurisdiction');
-const progressEl    = document.getElementById('progress');
-const progressText  = document.getElementById('progress-text');
-const errorEl       = document.getElementById('error-msg');
-const responseBlock = document.getElementById('response-block');
-const responseText  = document.getElementById('response-text');
-const citationsBlock= document.getElementById('citations-block');
-const citationsList = document.getElementById('citations-list');
-const citationCount = document.getElementById('citation-count');
-const historyList   = document.getElementById('history-list');
-const historyEmpty  = document.getElementById('history-empty');
-const apiStatus     = document.getElementById('api-status');
-const modalOverlay  = document.getElementById('modal-overlay');
-const modalInfo     = document.getElementById('modal-info');
-const modalInput    = document.getElementById('modal-input');
-const modalCancel   = document.getElementById('modal-cancel');
-const modalConfirm  = document.getElementById('modal-confirm');
+const queryInput   = document.getElementById('query-input');
+const submitBtn    = document.getElementById('submit-btn');
+const filterAgency = document.getElementById('filter-agency');
+const filterJuris  = document.getElementById('filter-jurisdiction');
+const progressEl   = document.getElementById('progress');
+const progressText = document.getElementById('progress-text');
+const errorEl      = document.getElementById('error-msg');
+const chatWindow   = document.getElementById('chat-window');
+const historyList  = document.getElementById('history-list');
+const historyEmpty = document.getElementById('history-empty');
+const apiStatus    = document.getElementById('api-status');
+const modalOverlay = document.getElementById('modal-overlay');
+const modalInfo    = document.getElementById('modal-info');
+const modalInput   = document.getElementById('modal-input');
+const modalCancel  = document.getElementById('modal-cancel');
+const modalConfirm = document.getElementById('modal-confirm');
 
-// ── api status check ──
+/* ══════════════════════════════════════════════════════════════
+   API STATUS + FILTERS
+══════════════════════════════════════════════════════════════ */
 async function checkApi() {
   try {
     const r = await fetch(API + '/filters');
-    if (r.ok) {
-      apiStatus.className = 'ok';
-      apiStatus.textContent = 'online';
-      const data = await r.json();
-      populateFilters(data);
-    } else {
-      throw new Error(r.status);
-    }
-  } catch(e) {
+    if (!r.ok) throw new Error(r.status);
+    apiStatus.className = 'ok';
+    apiStatus.textContent = 'online';
+    populateFilters(await r.json());
+  } catch {
     apiStatus.className = 'err';
     apiStatus.textContent = 'offline';
   }
@@ -500,54 +414,81 @@ function populateFilters(data) {
   });
 }
 
-// ── query ──
+/* ══════════════════════════════════════════════════════════════
+   QUERY RUNNER — streams source blocks one at a time via SSE
+══════════════════════════════════════════════════════════════ */
 async function runQuery() {
   const q = queryInput.value.trim();
   if (!q) return;
 
   setLoading(true);
-  clearOutput();
+  clearChatWindow();
 
-  const body = {
-    query: q,
-    filter_agency: filterAgency.value || null,
-    filter_jurisdiction: filterJuris.value || null,
-  };
+  // Create the result card immediately; content streams into respBox as it arrives
+  const card = document.createElement('div');
+  card.className = 'result-card';
+  const respLabel = document.createElement('div');
+  respLabel.className = 'section-label';
+  respLabel.textContent = 'Response';
+  card.appendChild(respLabel);
+  const respBox = document.createElement('div');
+  respBox.className = 'response-text';
+  card.appendChild(respBox);
+  chatWindow.appendChild(card);
+
+  let sourceGroups = [];
 
   try {
-    const steps = [
-      'connecting to database...',
-      'embedding query...',
-      'retrieving chunks...',
-      'enriching sections...',
-      'generating response...',
-    ];
-    let si = 0;
-    const stepTimer = setInterval(() => {
-      si = (si + 1) % steps.length;
-      progressText.textContent = steps[si];
-    }, 1800);
-
-    const r = await fetch(API + '/query', {
+    const r = await fetch(API + '/query/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        query: q,
+        filter_agency: filterAgency.value || null,
+        filter_jurisdiction: filterJuris.value || null,
+      }),
     });
 
-    clearInterval(stepTimer);
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
 
-    if (!r.ok) {
-      const err = await r.json();
-      throw new Error(err.detail || r.statusText);
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      const lines = buf.split('\n');
+      buf = lines.pop();   // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (ev.type === 'meta') {
+          sourceGroups = ev.source_groups || [];
+
+        } else if (ev.type === 'source_block') {
+          if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+          const src = (ev.n != null) ? sourceGroups[ev.n - 1] : null;
+          if (src) respBox.appendChild(buildCitationLine(src));
+
+        } else if (ev.type === 'text') {
+          if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+
+        } else if (ev.type === 'done') {
+          const stored = {query: q, response: ev.raw || '', source_groups: sourceGroups};
+          pushHistory(q, stored);
+          setLoading(false);
+
+        } else if (ev.type === 'error') {
+          showError(ev.message);
+          setLoading(false);
+        }
+      }
     }
-
-    const data = await r.json();
-    pushHistory(q, data);
-    renderResult(data);
-
   } catch(e) {
     showError(e.message);
-  } finally {
     setLoading(false);
   }
 }
@@ -558,113 +499,189 @@ function setLoading(on) {
   if (on) progressText.textContent = 'connecting to database...';
 }
 
-function clearOutput() {
-  errorEl.style.display = 'none';
-  responseBlock.style.display = 'none';
-  citationsBlock.style.display = 'none';
-  responseText.textContent = '';
-  citationsList.innerHTML = '';
-}
-
 function showError(msg) {
   errorEl.textContent = 'ERROR: ' + msg;
   errorEl.style.display = 'block';
 }
 
-function renderResult(data) {
-  // response
-  responseBlock.style.display = 'block';
-  responseText.textContent = data.response;
+/* ══════════════════════════════════════════════════════════════
+   LLM CHAT WINDOW
+   renderResult, parseResponse, buildCitationLine, makeSep,
+   clearChatWindow, reportError
+   Edit this section to change output display independently.
+══════════════════════════════════════════════════════════════ */
 
-  // citations
-  if (data.chunks && data.chunks.length > 0) {
-    citationsBlock.style.display = 'block';
-    citationCount.textContent = data.chunks.length;
-    citationsList.innerHTML = '';
-    data.chunks.forEach(chunk => {
-      citationsList.appendChild(buildCitation(chunk));
-    });
-  }
+function clearChatWindow() {
+  errorEl.style.display = 'none';
+  chatWindow.querySelectorAll('.result-card').forEach(el => el.remove());
 }
 
-function buildCitation(chunk) {
-  const div = document.createElement('div');
-  div.className = 'citation';
+/** renderResult — used for history replay only (not live queries).
+ *  Renders stored raw response all at once via parseResponse. */
+function renderResult(data) {
+  lastResult = data;
+  const sourceGroups = data.source_groups || [];
+  const card = document.createElement('div');
+  card.className = 'result-card';
 
-  const meta = document.createElement('div');
-  meta.className = 'citation-meta';
+  const respLabel = document.createElement('div');
+  respLabel.className = 'section-label';
+  respLabel.textContent = 'Response';
+  card.appendChild(respLabel);
 
-  const file = document.createElement('div');
-  file.className = 'citation-file';
+  const respBox = document.createElement('div');
+  respBox.className = 'response-text';
+  parseResponse(respBox, data.response || '', sourceGroups);
+  card.appendChild(respBox);
+
+  chatWindow.appendChild(card);
+}
+
+/**
+ * parseResponse — renders stored raw text into container,
+ * converting [[SRC_N]] flags into inline citation rows.
+ */
+function parseResponse(container, text, sourceGroups) {
+  const re = /\[\[SRC_(\d+)\]\]/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last)
+      container.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const n = parseInt(m[1], 10);
+    const src = sourceGroups && sourceGroups[n - 1];
+    if (src) container.appendChild(buildCitationLine(src));
+    last = re.lastIndex;
+  }
+  if (last < text.length)
+    container.appendChild(document.createTextNode(text.slice(last)));
+}
+
+/** reportError — stub: logs flag event; wire to /report endpoint when ready. */
+function reportError(chunk) {
+  // TODO: POST to /report endpoint when backend route is ready.
+  // lastResult.query and lastResult.response available here.
+  console.warn('[flag error]', {
+    query:       lastResult ? lastResult.query    : '',
+    response:    lastResult ? lastResult.response : '',
+    source_file: chunk.source_file,
+    section:     chunk.section,
+    page:        chunk.page,
+    text:        chunk.text,
+  });
+}
+
+/** buildCitationLine — single flex-row citation with tooltips. */
+function buildCitationLine(chunk) {
+  const d = chunk.distance || 0;
+  const distClass = d < 0.3 ? 'dist-close' : d < 0.6 ? 'dist-mid' : 'dist-far';
+  const row = document.createElement('div');
+  row.className = 'citation-line ' + distClass;
+
+  const file = document.createElement('span');
+  file.className = 'cit-file';
   file.textContent = chunk.source_file;
-  meta.appendChild(file);
+  const rawText = chunk.text || '';
+  file.dataset.tooltip = rawText.length > 220 ? rawText.slice(0, 220) + '\u2026' : rawText;
+  row.appendChild(file);
 
-  const detail = document.createElement('div');
-  detail.className = 'citation-detail';
-  detail.innerHTML =
-    `section <span>${chunk.section || 'UNKNOWN'}</span>` +
-    ` &nbsp;|&nbsp; page <span>${chunk.doc_page || '?'}</span>` +
-    ` &nbsp;|&nbsp; <span>${chunk.agency || ''}</span>` +
-    (chunk.jurisdiction ? ` &nbsp;|&nbsp; <span>${chunk.jurisdiction}</span>` : '');
-  meta.appendChild(detail);
+  row.appendChild(makeSep());
 
-  if (chunk.llm_corrected_section) {
-    const corr = document.createElement('div');
-    corr.className = 'citation-corrected';
-    corr.textContent = '[section llm-corrected]';
-    meta.appendChild(corr);
+  const sec = document.createElement('span');
+  sec.className = 'cit-meta';
+  sec.innerHTML = `§<span>${chunk.section || '??'}</span>`;
+  sec.dataset.tooltip = 'section number';
+  row.appendChild(sec);
+
+  row.appendChild(makeSep());
+
+  const pg = document.createElement('span');
+  pg.className = 'cit-meta';
+  pg.innerHTML = `pg <span>${chunk.doc_page || '?'}</span>`;
+  pg.dataset.tooltip = 'document page';
+  row.appendChild(pg);
+
+  if (chunk.agency) {
+    row.appendChild(makeSep());
+    const ag = document.createElement('span');
+    ag.className = 'cit-meta';
+    ag.innerHTML = `<span>${chunk.agency}</span>`;
+    ag.dataset.tooltip = 'issuing agency';
+    row.appendChild(ag);
   }
 
-  div.appendChild(meta);
+  if (chunk.llm_corrected_section) {
+    const corr = document.createElement('span');
+    corr.className = 'cit-corr';
+    corr.textContent = '[corrected]';
+    row.appendChild(corr);
+  }
 
-  const dist = document.createElement('div');
-  dist.className = 'citation-distance';
-  dist.textContent = 'd=' + (chunk.distance || 0).toFixed(3);
-  div.appendChild(dist);
+  const spacer = document.createElement('span');
+  spacer.className = 'cit-spacer';
+  row.appendChild(spacer);
+
+  const dist = document.createElement('span');
+  dist.className = 'cit-dist';
+  dist.textContent = 'd=' + d.toFixed(3);
+  dist.dataset.tooltip = 'calculated similarity to prompt';
+  row.appendChild(dist);
 
   const btn = document.createElement('button');
   btn.className = 'correct-btn';
-  btn.textContent = '[fix §]';
-  btn.onclick = () => openCorrectModal(chunk);
-  div.appendChild(btn);
+  btn.textContent = '[flag error]';
+  btn.dataset.tooltip = 'Flag response as incorrect';
+  btn.onclick = () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.classList.add('flagged');
+    reportError(chunk);
+  };
+  row.appendChild(btn);
 
-  return div;
+  return row;
 }
 
-// ── history ──
+function makeSep() {
+  const s = document.createElement('span');
+  s.className = 'cit-sep';
+  s.textContent = '·';
+  return s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   QUERY HISTORY
+══════════════════════════════════════════════════════════════ */
 function pushHistory(q, data) {
-  const entry = {
-    query: q,
-    data: data,
+  lastResult = data;
+  queryHistory.unshift({
+    query: q, data,
     ts: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
-  };
-  history.unshift(entry);
+  });
   currentIndex = 0;
   renderHistory();
 }
 
 function renderHistory() {
-  if (history.length === 0) {
-    historyEmpty.style.display = 'block';
-    return;
-  }
+  if (queryHistory.length === 0) { historyEmpty.style.display = 'block'; return; }
   historyEmpty.style.display = 'none';
   historyList.innerHTML = '';
-  history.forEach((entry, i) => {
+  queryHistory.forEach((entry, i) => {
     const item = document.createElement('div');
     item.className = 'history-item' + (i === currentIndex ? ' active' : '');
     item.innerHTML = `<span class="ts">${entry.ts}</span>${entry.query}`;
     item.onclick = () => {
       currentIndex = i;
       renderHistory();
-      clearOutput();
+      clearChatWindow();
       renderResult(entry.data);
     };
     historyList.appendChild(item);
   });
 }
 
-// ── correction modal ──
+/* ══════════════════════════════════════════════════════════════
+   CORRECTION MODAL (kept for future use; not called by flag button)
+══════════════════════════════════════════════════════════════ */
 function openCorrectModal(chunk) {
   pendingCorrection = chunk;
   modalInfo.innerHTML =
@@ -673,8 +690,7 @@ function openCorrectModal(chunk) {
     `Page: <span>${chunk.page}</span> &nbsp; Chunk: <span>${chunk.chunk_index !== undefined ? chunk.chunk_index : '?'}</span>`;
   modalInput.value = chunk.section || '';
   modalOverlay.classList.add('visible');
-  modalInput.focus();
-  modalInput.select();
+  modalInput.focus(); modalInput.select();
 }
 
 function closeModal() {
@@ -693,7 +709,7 @@ async function applyCorrection() {
   try {
     const r = await fetch(API + '/correct', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         source_file: c.source_file,
         page: c.page,
@@ -702,13 +718,12 @@ async function applyCorrection() {
       }),
     });
     if (!r.ok) throw new Error((await r.json()).detail);
-
-    // update in-memory so current render refreshes
     c.section = newSection;
     c.llm_corrected_section = true;
-    // re-render current entry
-    if (currentIndex >= 0) renderResult(history[currentIndex].data);
-
+    if (currentIndex >= 0) {
+      clearChatWindow();
+      renderResult(queryHistory[currentIndex].data);
+    }
   } catch(e) {
     alert('Correction failed: ' + e.message);
   } finally {
@@ -718,28 +733,25 @@ async function applyCorrection() {
   }
 }
 
-// ── event listeners ──
+/* ══════════════════════════════════════════════════════════════
+   EVENT LISTENERS
+══════════════════════════════════════════════════════════════ */
 submitBtn.addEventListener('click', runQuery);
-
 queryInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    runQuery();
-  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runQuery(); }
 });
-
-// auto-resize textarea
 queryInput.addEventListener('input', () => {
   queryInput.style.height = 'auto';
   queryInput.style.height = Math.min(queryInput.scrollHeight, 120) + 'px';
 });
-
 modalCancel.addEventListener('click', closeModal);
 modalConfirm.addEventListener('click', applyCorrection);
 modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
 modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') applyCorrection(); });
 
-// ── init ──
+/* ══════════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════════ */
 checkApi();
 </script>
 </body>
