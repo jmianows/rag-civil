@@ -3,13 +3,76 @@ import lancedb
 import re
 from pathlib import Path
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+
+# ── Hybrid retrieval: detection patterns and agency term map ───────────────────
+
+_SECTION_RE = re.compile(
+    r'\b(?:\d{4}\.\d[\d\.\(\)a-zA-Z]*'   # CFR: 1926.502, 1910.146(d)
+    r'|[A-Z]\d+\.\d+'                     # MUTCD: 2A.15, 6K.07
+    r'|\d+-\d+\.\d[\d\.\(\)]*'            # WSDOT: 6-02.3(25)
+    r')'
+)
+
+# Uppercase key → agency value as stored in DB metadata
+_AGENCY_TERMS: dict[str, str] = {
+    'OSHA':            'OSHA',
+    '29 CFR':          'OSHA',
+    'CFR 1926':        'OSHA',
+    'MUTCD':           'FHWA',
+    'FHWA':            'FHWA',
+    'FEDERAL HIGHWAY': 'FHWA',
+    'USACE':           'USACE',
+    'ARMY CORPS':      'USACE',
+    'EM 1110':         'USACE',
+    'EPA':             'EPA',
+    'NPDES':           'EPA',
+    'CGP':             'EPA',
+    'WSDOT':           'WSDOT',
+    'ADA':             'ADA',
+    'PROWAG':          'ADA',
+    'AASHTO':          'AASHTO',
+}
+
+
+def _detect_intent(query: str) -> tuple[bool, str | None]:
+    """Returns (has_section_number, auto_detected_agency_or_None)."""
+    has_section = bool(_SECTION_RE.search(query))
+    q_upper = query.upper()
+    for term, agency in _AGENCY_TERMS.items():
+        if term in q_upper:
+            return has_section, agency
+    return has_section, None
+
+
+def _vector_search(table, embedding: list[float], n: int, where: str | None) -> list[dict]:
+    s = table.search(embedding)
+    if where:
+        s = s.where(where)
+    return s.limit(n).to_list()
+
+
+def _fts_search(table, query_text: str, n: int) -> list[dict]:
+    return table.search(query_text, query_type='fts').limit(n).to_list()
+
+
+def _rrf_merge(lists: list[list[dict]], k: int = 60) -> list[dict]:
+    """Reciprocal Rank Fusion: score each chunk by 1/(rank+k) summed across all lists."""
+    scores: dict[str, float] = {}
+    rows:   dict[str, dict]  = {}
+    for result_list in lists:
+        for rank, row in enumerate(result_list):
+            cid = row['id']
+            scores[cid] = scores.get(cid, 0.0) + 1.0 / (rank + k)
+            rows[cid] = row
+    return [rows[cid] for cid in sorted(scores, key=lambda c: -scores[c])]
 
 VECTORDB_DIR  = Path("/home/justin/rag-civil/vectordb")
 EMBED_MODEL   = "mxbai-embed-large"
 LLM_MODEL = "qwen3:4b-instruct"
-N_RESULTS     = 5
+N_RESULTS     = 7
 CONTEXT_WINDOW_BEFORE = 1
-CONTEXT_WINDOW_AFTER  = 2
+CONTEXT_WINDOW_AFTER  = 3
 MAX_CHUNK_CHARS = 1000 
 #This sets up the configuration and a clean dataclass to carry retrieved chunk data through the pipeline.
 @dataclass
@@ -29,9 +92,20 @@ class RetrievedChunk:
     file_link:             str = ""
 
 
+def _ensure_fts_index(table) -> None:
+    """Build FTS index if not already present. No-op when already indexed."""
+    try:
+        table.search("test", query_type='fts').limit(1).to_list()
+    except Exception:
+        print("  [FTS] Building full-text index...", flush=True)
+        table.create_fts_index('text', replace=False)
+
+
 def get_db_table() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
-    return db.open_table("civil_engineering_codes")
+    table = db.open_table("civil_engineering_codes")
+    _ensure_fts_index(table)
+    return table
 
 
 def embed_query(query: str) -> list[float]:
@@ -53,26 +127,40 @@ def retrieve_chunks(
 ) -> list[RetrievedChunk]:
 
     embedding = embed_query(query)
-    search = table.search(embedding)
+    has_section, auto_agency = _detect_intent(query)
 
-    # build metadata filter if any provided
-    filters = []
-    if filter_agency:
-        filters.append(f"agency = '{filter_agency}'")
-    if filter_jurisdiction:
-        filters.append(f"jurisdiction = '{filter_jurisdiction}'")
-    if filter_state:
-        filters.append(f"state = '{filter_state}'")
-    if filter_locality:
-        filters.append(f"locality = '{filter_locality}'")
+    # User-explicit filters always win; auto-detection only fires when no UI filter is set
+    user_filter_active = any([filter_agency, filter_jurisdiction, filter_state, filter_locality])
 
-    if filters:
-        search = search.where(" AND ".join(filters))
+    # Build user-filter WHERE clause (hard filter, unchanged from before)
+    clauses = []
+    if filter_agency:       clauses.append(f"agency = '{filter_agency}'")
+    if filter_jurisdiction: clauses.append(f"jurisdiction = '{filter_jurisdiction}'")
+    if filter_state:        clauses.append(f"state = '{filter_state}'")
+    if filter_locality:     clauses.append(f"locality = '{filter_locality}'")
+    user_where = " AND ".join(clauses) if clauses else None
 
-    results = search.limit(n_results).to_list()
+    # Auto-agency boost: a separate filtered vector search whose results get an RRF bonus
+    auto_where = f"agency = '{auto_agency}'" if (auto_agency and not user_filter_active) else None
+
+    # Fetch larger pools from each search before merging
+    pool_size = n_results * 3
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        f_vector  = ex.submit(_vector_search, table, embedding, pool_size, user_where)
+        f_fts     = ex.submit(_fts_search,    table, query,     pool_size) if has_section    else None
+        f_boosted = ex.submit(_vector_search, table, embedding, pool_size, auto_where)       if auto_where else None
+
+        vector_rows  = f_vector.result()
+        fts_rows     = f_fts.result()     if f_fts     else []
+        boosted_rows = f_boosted.result() if f_boosted else []
+
+    # Chunks appearing in multiple lists earn cumulative RRF score and rise to the top
+    lists_to_merge = [l for l in [vector_rows, fts_rows, boosted_rows] if l]
+    merged = _rrf_merge(lists_to_merge)[:n_results]
 
     chunks = []
-    for r in results:
+    for r in merged:
         chunks.append(RetrievedChunk(
             text=r["text"],
             source_file=r["source_file"],
@@ -85,7 +173,7 @@ def retrieve_chunks(
             doc_page=r.get("doc_page", "UNKNOWN"),
             page=r["page"],
             chunk_index=r["chunk_index"],
-            distance=r.get("_distance", 0.0),
+            distance=r.get("_distance", r.get("_score", 0.0)),
             file_link=r.get("file_link", ""),
         ))
 
@@ -204,15 +292,7 @@ def group_chunks(
                 and item["chunk"].section != "UNKNOWN"
             )
 
-            if same_section:
-                group.append(other)
-                used.add(j)
-
-            close_pages = (
-                abs(item["chunk"].page - other["chunk"].page) <= 2
-            )
-
-            if same_file and (same_section or close_pages):
+            if same_file and same_section:
                 group.append(other)
                 used.add(j)
 
@@ -229,32 +309,35 @@ def group_chunks(
 ### THE SYSTEM PROMPT IS HERE SUPER IMPORTANT!!!!!!!!!! 
 SYSTEM_PROMPT = """You are a civil engineering code and standards lookup tool.
 
-Your job is to read the retrieved code sections and present their requirements accurately.
+Your job is to read the retrieved sections and present their requirements accurately.
 
-Rules:
-- Present only information from the retrieved sections. Never add outside knowledge.
-- Copy requirement language verbatim. Do not paraphrase or reword. Truncate long passages with "..." only at natural breaks.
+Content rules:
+- Present ONLY information that appears in the retrieved sections. Never add outside knowledge.
+- Copy requirement language verbatim. Do not paraphrase or reword. Truncate long passages with "..." only at natural sentence breaks.
 - Preserve exact wording of shall, should, and may — these define mandatory vs guidance vs optional.
-- Prioritize shall statements. Include should and may only if no shall statements exist or the query asks for guidance.
-- Omit background, procedural context, and setup text. Present only the requirement itself.
-- Show most local jurisdiction first, expanding to federal below.
-- Present each source separately. Never interleave content from different sources.
-- Present every retrieved section that contains at least one relevant requirement, each with its own tag.
-- Sections with no relevant requirements may be omitted silently — do not mention them.
+- Prioritize shall statements. Include should and may only if no shall statements exist or the query explicitly asks for guidance.
+- Omit background, procedural context, and introductory text. Present only the requirement itself.
+- If the query names a specific regulation or section number (e.g., "OSHA 1926.502"), prioritize retrieved sections from that regulation over summaries of it in other documents.
+- Show most local jurisdiction first, then expand to federal below.
 - Never provide engineering advice, opinions, or recommendations.
 
-Format:
-- Bullet points per requirement.
-- Structure output strictly source by source:
-    1. Present all relevant requirements from one source as bullet points.
-    2. Immediately after the last bullet from that source place the tag [[SRC_N]] on its own line where N matches the source number from the context header "--- SOURCE N ---".
-    3. Leave a blank line then move to the next source.
-    4. Never place [[SRC_N]] before the bullets for that source.
-    5. Only emit [[SRC_N]] for sources you actually cite. Never emit a tag for an unused source.
-- No preamble, summaries, or conclusions.
-- Do not restate the question.
+Source rules:
+- Work through each retrieved source one at a time.
+- For each source: extract only bullets that directly answer the query. If a source has nothing relevant, skip it entirely — do not mention it, do not tag it.
+- Never interleave content from different sources.
 
-If no retrieved sections contain any relevant requirements output exactly this and nothing else:
+Output format — follow this exactly:
+1. Write all relevant requirement bullets from SOURCE N as a bullet list.
+2. On a new line by itself, write [[SRC_N]] — where N matches the source number from "--- SOURCE N ---" in the context.
+3. Leave one blank line, then repeat for the next source.
+- [[SRC_N]] must appear on its own line, never inline or mid-sentence.
+- [[SRC_N]] must appear AFTER the last bullet for that source, never before.
+- Only emit [[SRC_N]] if you have written at least one bullet for that source. A tag with no bullets is forbidden.
+- No preamble, summaries, or conclusions. Do not restate the question.
+
+FAIL rule — read carefully:
+- If you have written ANY bullet points above, you are done. Do NOT emit [[FAIL]] under any circumstances.
+- Only if NONE of the retrieved sections contain even one relevant requirement, output EXACTLY the following two lines and nothing else:
 The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
 [[FAIL]]"""
 

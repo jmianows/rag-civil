@@ -610,6 +610,11 @@ html[data-theme="evolve-light"] .response-text { border-left: 4px solid #6a8aaa;
 html[data-theme="evolve"] .citation-line,
 html[data-theme="evolve-light"] .citation-line { border-left-width: 4px; }
 
+/* relevance gradient — brightest left border = closest match */
+.citation-line.dist-close { border-left-color: var(--accent); }
+.citation-line.dist-mid   { border-left-color: var(--dim);    }
+.citation-line.dist-far   { border-left-color: var(--dim2);   }
+
 .cit-file {
   color: var(--accent);
   font-weight: bold;
@@ -627,6 +632,9 @@ html[data-theme="evolve-light"] .cit-file { color: var(--accent2); }
 .cit-sep   { color: var(--dim2); flex-shrink: 0; }
 .cit-meta  { color: var(--dim); white-space: nowrap; flex-shrink: 0; cursor: help; }
 .cit-meta span { color: var(--text); }
+.cit-section   { font-weight: bold; }
+.cit-file a    { color: inherit; text-decoration: none; }
+.cit-file a:hover { text-decoration: underline; opacity: 1; }
 .cit-corr  { color: var(--orange); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
 .cit-spacer { flex: 1; }
 .cit-dist {

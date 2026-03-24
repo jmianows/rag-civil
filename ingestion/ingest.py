@@ -422,6 +422,67 @@ def propagate_missing_metadata(chunks: list[dict]) -> list[dict]:
 
     return chunks
 
+def clean_page_text(text: str) -> str:
+    """Light whitespace cleanup applied to every page before chunking."""
+    text = text.replace('\x0c', '')                       # fitz form-feed chars
+    text = text.replace('\r\n', '\n').replace('\r', '\n') # normalize line endings
+    text = re.sub(r'\n{3,}', '\n\n', text)               # collapse 3+ blank lines
+    text = re.sub(r'[ \t]+\n', '\n', text)               # trailing spaces on lines
+    return text.strip()
+
+
+def detect_repeating_lines(pages: list[dict], zone: str = 'header', zone_size: int = 4) -> set[str]:
+    """
+    Identify lines that repeat in the header or footer zone across most pages.
+    A line must appear on ≥50% of pages and on at least 3 pages.
+    Returns a set of stripped line strings to remove.
+    """
+    section_pat = re.compile(r'^\s*\d[\d\.\-\(\)a-zA-Z]{1,20}\s')
+    candidate_counts: dict[str, int] = {}
+    n_pages = len(pages)
+
+    for page in pages:
+        lines = [l for l in page["text"].splitlines() if l.strip()]
+        zone_lines = lines[:zone_size] if zone == 'header' else (
+            lines[-zone_size:] if len(lines) >= zone_size else lines
+        )
+        seen_this_page: set[str] = set()
+        for line in zone_lines:
+            key = line.strip()
+            if not key or len(key) < 5 or len(key) > 120:
+                continue
+            if section_pat.match(key):   # looks like a code section — keep it
+                continue
+            if key not in seen_this_page:
+                candidate_counts[key] = candidate_counts.get(key, 0) + 1
+                seen_this_page.add(key)
+
+    min_pages = max(3, int(n_pages * 0.50))
+    return {line for line, count in candidate_counts.items() if count >= min_pages}
+
+
+def strip_repeating_lines(text: str, header_set: set[str], footer_set: set[str]) -> str:
+    """
+    Remove identified header/footer lines from the top/bottom of page text.
+    Stops at the first line not in the removal set (does not skip over content).
+    Reverts to the original if stripping would leave < 100 chars.
+    """
+    lines = text.splitlines()
+
+    start = 0
+    while start < len(lines) and lines[start].strip() in header_set:
+        start += 1
+
+    end = len(lines)
+    while end > start and lines[end - 1].strip() in footer_set:
+        end -= 1
+
+    result = "\n".join(lines[start:end]).strip()
+    if len(result) < 100 and len(text.strip()) >= 100:
+        return text   # safety: reverted — stripping removed too much
+    return result if result else text
+
+
 def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable) -> None:
     if not FORCE_RERUN and already_ingested(pdf_path, table):
         print(f"  [skipped] already in database: {pdf_path.name}")
@@ -433,6 +494,20 @@ def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable) -> None:
     if not pages:
         print(f"  [skipped] no usable text found in {pdf_path.name}")
         return
+
+    # Light whitespace cleanup on every page
+    for p in pages:
+        p["text"] = clean_page_text(p["text"])
+
+    # Detect and strip repeating page headers/footers
+    if len(pages) >= 3:
+        header_set = detect_repeating_lines(pages, zone='header', zone_size=4)
+        footer_set = detect_repeating_lines(pages, zone='footer', zone_size=3)
+        if header_set or footer_set:
+            print(f"  [clean] {len(header_set)} repeating header line(s), "
+                  f"{len(footer_set)} footer line(s) — removing")
+            for p in pages:
+                p["text"] = strip_repeating_lines(p["text"], header_set, footer_set)
 
     all_chunks = []
     for page_data in pages:

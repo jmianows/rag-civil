@@ -680,7 +680,16 @@ function buildCitationLine(chunk) {
 
   const file = document.createElement('span');
   file.className = 'cit-file';
-  file.textContent = chunk.source_file;
+  if (chunk.file_link) {
+    const a = document.createElement('a');
+    a.href = chunk.file_link + '#page=' + (chunk.page || 1);
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = chunk.source_file;
+    file.appendChild(a);
+  } else {
+    file.textContent = chunk.source_file;
+  }
   const rawText = chunk.text || '';
   file.dataset.tooltip = rawText.length > 220 ? rawText.slice(0, 220) + '\u2026' : rawText;
   row.appendChild(file);
@@ -689,7 +698,7 @@ function buildCitationLine(chunk) {
 
   const sec = document.createElement('span');
   sec.className = 'cit-meta';
-  sec.innerHTML = `§<span>${chunk.section || '??'}</span>`;
+  sec.innerHTML = `§<span class="cit-section">${chunk.section || '??'}</span>`;
   sec.dataset.tooltip = 'section number';
   row.appendChild(sec);
 
