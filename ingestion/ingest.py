@@ -1,4 +1,6 @@
 from metadata import detect_section, detect_doc_page, propagate_metadata
+import argparse
+import json
 import os
 import re
 import fitz
@@ -6,23 +8,53 @@ import lancedb
 import ollama
 from pathlib import Path
 import pyarrow as pa
+#DIRECTORY STRUCTURE FOR PROPER INGESTION!!!!!!!    _links.json pass document links onto the parser.
+#docs/
+#├── FEDERAL/
+#│   └── USA/                     ← country code (future: EU, CAN, etc.)
+#│       ├── OSHA/
+#│       │   ├── 29CFR1926.pdf
+#│       │   ├── 29CFR1910.pdf
+#│       │   └── _links.json      ← sidecar: {"29CFR1926.pdf": "https://..."}
+#│       ├── FHWA/
+#│       │   ├── MUTCD-2025.pdf
+#│       │   └── _links.json
+#│       └── USACE/
+#│           └── EM_1110-2-1902.pdf
+#├── STATE/
+#│   ├── WA/                      ← two-letter state code
+#│   │   ├── WSDOT/
+#│   │   │   ├── WSDOT Design Manual.pdf
+#│   │   │   └── _links.json
+#│   │   └── ECOLOGY/
+#│   │       └── some_regulation.pdf
+#│   └── OR/
+#│       └── ODOT/
+#│           └── oregon_highway_design.pdf
+#└── LOCAL/
+#    ├── WA/                      ← same state code as STATE/WA
+#    │   ├── Seattle/
+#    │   │   └── SDOT/
+#    │   │       └── seattle_traffic.pdf
+#    │   └── King County/
+#    │       └── Roads/
+#    │           └── king_county_roads.pdf
+#    └── OR/
+#        └── Portland/
+#            └── PBOT/
+#                └── portland_bike.pdf
 
-DOCS_DIR = Path("/home/justin/rag-civil/docs")
 VECTORDB_DIR = Path("/home/justin/rag-civil/vectordb")
 EMBED_MODEL = "mxbai-embed-large"
 CHUNK_SIZE    = 220   # words — at 1.3 tokens/word ≈ 286 tokens, safe headroom
 CHUNK_OVERLAP = 20    # words
 MAX_CHARS     = 900   # characters — roughly 180 words, hard safety ceiling
 
-FORCE_RERUN = True
-
 FAILED_LOG = Path("/home/justin/rag-civil/ingestion/failed_chunks.jsonl")
 
-# Map source_file basename → public URL for the document.
-# Leave as "" if no link is available yet.
-FILE_LINKS: dict[str, str] = {
-    # "WSDOT_Design_Manual_2023.pdf": "https://wsdot.wa.gov/...",
-}
+# Runtime-set by CLI args in __main__
+DOCS_DIR: Path = Path("/home/justin/rag-civil/docs")
+FORCE_RERUN: bool = False
 
 #for looking at pages with images
 def ocr_pdf_page(page) -> str:
@@ -184,88 +216,79 @@ def chunk_text(page_data: dict) -> list[dict]:
 
 ##Reads the folder path of each PDF to automatically determine jurisdiction (FEDERAL, STATE, LOCAL) and agency (FHWA, OSHA, USACE, ADA, EPA, WSDOT)
 ##Detects the section number from the start of the chunk text if present
-##Carries all metadata forward so every chunk stored in ChromaDB knows exactly where it came from
-##Adding a new state later is as simple as adding a line to the state_agencies dictionary
-def tag_metadata(chunk: dict, pdf_path: Path) -> dict:
-    parts = pdf_path.parts
-    
+##Carries all metadata forward so every chunk stored in the database knows exactly where it came from
+##Folder structure drives all metadata — no hardcoded agency lookup dicts needed.
+##  FEDERAL/{Country}/{Agency}/file.pdf  →  jurisdiction=FEDERAL, state=USA, agency=OSHA
+##  STATE/{ST}/{Agency}/file.pdf         →  jurisdiction=STATE,   state=WA,  agency=WSDOT
+##  LOCAL/{ST}/{Locality}/{Agency}/file  →  jurisdiction=LOCAL,   state=WA,  locality=Seattle, agency=SDOT
+
+def _load_link(pdf_path: Path, root: Path) -> str:
+    """Return the public URL for this PDF from a sidecar or root registry, or ''."""
+    # Option A: per-agency _links.json sidecar in the same folder
+    sidecar = pdf_path.parent / "_links.json"
+    if sidecar.exists():
+        try:
+            links = json.loads(sidecar.read_text(encoding="utf-8"))
+            url = links.get(pdf_path.name, "")
+            if url:
+                return url
+        except Exception:
+            pass
+    # Option B: root-level _registry.json keyed by relative path
+    registry = root / "_registry.json"
+    if registry.exists():
+        try:
+            reg = json.loads(registry.read_text(encoding="utf-8"))
+            rel = pdf_path.relative_to(root).as_posix()
+            url = reg.get(rel, "")
+            if url:
+                return url
+        except Exception:
+            pass
+    return ""
+
+
+def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
+    try:
+        rel_parts = pdf_path.relative_to(root).parts
+    except ValueError:
+        rel_parts = pdf_path.parts
+
+    tier = rel_parts[0].upper() if rel_parts else "UNKNOWN"
+
     jurisdiction = "UNKNOWN"
-    agency = "UNKNOWN"
-    state = None
-    locality = None
+    state        = ""
+    locality     = ""
+    agency       = "UNKNOWN"
 
-    federal_agencies = {
-        "fhwa": "FHWA",
-        "osha": "OSHA",
-        "usace": "USACE",
-        "ada": "ADA",
-        "env": "EPA",
-    }
-
-    state_agencies = {
-        "WA": "WSDOT",
-        # "OR": "ODOT",
-        # "CA": "Caltrans",
-        # "ID": "ITD",
-    }
-
-    local_agencies = {
-        "WA": {
-            "KING":     "King County",
-            "PIERCE":   "Pierce County",
-            "SNOHOMISH":"Snohomish County",
-            "SEATTLE":  "City of Seattle",
-            "TACOMA":   "City of Tacoma",
-            "SPOKANE":  "City of Spokane",
-            # add more WA localities here
-        },
-        # "OR": {
-        #     "PORTLAND": "City of Portland",
-        # },
-    }
-
-    if "FEDERAL" in parts:
+    if tier == "FEDERAL" and len(rel_parts) >= 4:
+        # FEDERAL / {Country} / {Agency} / file.pdf
         jurisdiction = "FEDERAL"
-        for part in parts:
-            if part.lower() in federal_agencies:
-                agency = federal_agencies[part.lower()]
-                break
-
-    elif "STATE" in parts:
+        state        = rel_parts[1].upper()   # country code stored in state field (e.g. "USA")
+        agency       = rel_parts[2].upper()
+    elif tier == "STATE" and len(rel_parts) >= 4:
+        # STATE / {ST} / {Agency} / file.pdf
         jurisdiction = "STATE"
-        state_idx = parts.index("STATE")
-        if state_idx + 1 < len(parts):
-            state = parts[state_idx + 1].upper()
-            agency = state_agencies.get(state, "UNKNOWN")
-
-    elif "LOCAL" in parts:
+        state        = rel_parts[1].upper()
+        agency       = rel_parts[2].upper()
+    elif tier == "LOCAL" and len(rel_parts) >= 5:
+        # LOCAL / {ST} / {Locality} / {Agency} / file.pdf
         jurisdiction = "LOCAL"
-        local_idx = parts.index("LOCAL")
-        if local_idx + 1 < len(parts):
-            state = parts[local_idx + 1].upper()
-        if local_idx + 2 < len(parts):
-            locality = parts[local_idx + 2].upper()
-            agency = local_agencies.get(state, {}).get(locality, "UNKNOWN")
+        state        = rel_parts[1].upper()
+        locality     = rel_parts[2].title()   # "King County" style casing
+        agency       = rel_parts[3].upper()
 
-# Dynamic section detection
-    # Strategy: find the first line that looks like a section identifier
-    # Section identifiers start with a digit and contain dots, dashes, 
-    # parentheticals, or brackets before hitting whitespace or text
+    file_link = _load_link(pdf_path, root)
+
     section  = detect_section(chunk["text"])
-    doc_page = "UNKNOWN"  # filled in by retag.py after ingestion
+    doc_page = "UNKNOWN"
 
-    # Doc page detection — dash format page numbers like 1320-5, 13-205
-    # Search first 300 chars, prefer patterns that look like division-page
-    # Exclude section numbers already captured and things like phone numbers
     doc_page_match = re.search(
-        r'(?<!\d)'          # not preceded by digit (avoid matching mid-number)
-        r'(\d{1,4}-\d{1,4})'
-        r'(?!\d)',          # not followed by digit
+        r'(?<!\d)(\d{1,4}-\d{1,4})(?!\d)',
         chunk["text"][:300]
     )
     if doc_page_match:
         candidate = doc_page_match.group(1)
-        # Only accept if it doesn't match the section we already found
         if candidate != section:
             doc_page = candidate
 
@@ -273,10 +296,10 @@ def tag_metadata(chunk: dict, pdf_path: Path) -> dict:
         **chunk,
         "jurisdiction": jurisdiction,
         "agency":       agency,
-        "state":        state or "",
-        "locality":     locality or "",
+        "state":        state,
+        "locality":     locality,
         "source_file":  pdf_path.name,
-        "file_link":    FILE_LINKS.get(pdf_path.name, ""),
+        "file_link":    file_link,
         "section":      section,
         "doc_page":     doc_page,
         "page":         chunk.get("page", 0),
@@ -483,7 +506,7 @@ def strip_repeating_lines(text: str, header_set: set[str], footer_set: set[str])
     return result if result else text
 
 
-def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable) -> None:
+def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable, root: Path) -> None:
     if not FORCE_RERUN and already_ingested(pdf_path, table):
         print(f"  [skipped] already in database: {pdf_path.name}")
         return
@@ -512,7 +535,7 @@ def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable) -> None:
     all_chunks = []
     for page_data in pages:
         chunks = chunk_text(page_data)
-        tagged = [tag_metadata(chunk, pdf_path) for chunk in chunks]
+        tagged = [tag_metadata(chunk, pdf_path, root) for chunk in chunks]
         all_chunks.extend(tagged)
 
     all_chunks = propagate_missing_metadata(all_chunks)
@@ -549,15 +572,24 @@ def reset_db() -> lancedb.table.LanceTable:
     print("  New table created")
     return table
 
-def main():
+def main(docs_dir: Path, force: bool, only: str | None) -> None:
+    global DOCS_DIR, FORCE_RERUN
+    DOCS_DIR    = docs_dir
+    FORCE_RERUN = force
+
     print("=" * 60)
     print("Civil Engineering RAG — Ingestion Pipeline")
+    print(f"Root : {DOCS_DIR}")
     print("=" * 60)
+
+    if not DOCS_DIR.exists():
+        print(f"[error] Root path does not exist: {DOCS_DIR}")
+        return
 
     VECTORDB_DIR.mkdir(parents=True, exist_ok=True)
 
     if FORCE_RERUN:
-        print("\nFORCE_RERUN is enabled — this will delete and re-ingest all files.")
+        print("\n--force: delete and re-ingest affected files.")
         confirm = input("Type Y to confirm, anything else to cancel: ").strip()
         if confirm != "Y":
             print("Cancelled.")
@@ -568,16 +600,22 @@ def main():
         table = init_db()
 
     pdf_files = sorted(DOCS_DIR.rglob("*.pdf"))
-    print(f"\nFound {len(pdf_files)} PDF files to process\n")
 
-    skipped = []
+    # Filter to subtree if --only specified
+    if only:
+        only_root = DOCS_DIR / only
+        pdf_files = [p for p in pdf_files if p.is_relative_to(only_root)]
+        print(f"--only {only}: {len(pdf_files)} PDF(s) in subtree")
+
+    print(f"\nFound {len(pdf_files)} PDF file(s) to process\n")
+
     failed  = []
     success = []
 
     for i, pdf_path in enumerate(pdf_files, 1):
         print(f"[{i}/{len(pdf_files)}]", end=" ")
         try:
-            process_pdf(pdf_path, table)
+            process_pdf(pdf_path, table, DOCS_DIR)
             success.append(pdf_path.name)
         except Exception as e:
             print(f"  [error] {pdf_path.name}: {e}")
@@ -596,28 +634,38 @@ def main():
 
     print("=" * 60)
 
-def migrate_add_file_link():
-    """Add file_link column to existing table, then apply any FILE_LINKS config values."""
-    import sys as _sys
-    db = lancedb.connect(str(VECTORDB_DIR))
-    table = db.open_table("civil_engineering_codes")
-    existing_cols = [f.name for f in table.schema]
-    if "file_link" in existing_cols:
-        print("file_link column already exists.")
-    else:
-        table.add_columns({"file_link": "cast('' as string)"})
-        print("Added file_link column with empty defaults.")
-    for source_file, url in FILE_LINKS.items():
-        if url:
-            table.update(where=f"source_file = '{source_file}'",
-                         values={"file_link": url})
-            print(f"  Set file_link for {source_file}")
-    print("Migration complete.")
-
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "migrate":
-        migrate_add_file_link()
-    else:
-        main()
+    parser = argparse.ArgumentParser(
+        description="Civil Engineering RAG — Ingestion Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Folder structure (relative to root):
+  FEDERAL/{Country}/{Agency}/file.pdf   e.g. FEDERAL/USA/OSHA/29CFR1926.pdf
+  STATE/{ST}/{Agency}/file.pdf          e.g. STATE/WA/WSDOT/manual.pdf
+  LOCAL/{ST}/{Locality}/{Agency}/file   e.g. LOCAL/WA/Seattle/SDOT/doc.pdf
+
+PDF links (optional, no code changes needed):
+  Place _links.json next to PDFs:  {"filename.pdf": "https://..."}
+  Or place _registry.json at root: {"FEDERAL/USA/OSHA/file.pdf": "https://..."}
+        """,
+    )
+    parser.add_argument(
+        "root",
+        nargs="?",
+        default="/home/justin/rag-civil/docs",
+        help="Root folder containing FEDERAL/ STATE/ LOCAL/ subfolders (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-ingest files already in DB (drops and recreates table)",
+    )
+    parser.add_argument(
+        "--only",
+        metavar="SUBPATH",
+        default=None,
+        help="Only ingest this relative subtree, e.g. FEDERAL/USA/OSHA",
+    )
+    args = parser.parse_args()
+    main(Path(args.root), args.force, args.only)

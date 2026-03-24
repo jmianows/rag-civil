@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="evolve-light">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Civil Standards Smart Dictionary</title>
+<script>
+/* Apply theme before first paint — prevents flash on dark-mode systems. */
+(function(){
+  var k='rag-civil-theme';
+  var t=localStorage.getItem(k)||(window.matchMedia('(prefers-color-scheme: dark)').matches?'evolve':'evolve-light');
+  document.documentElement.dataset.theme=t;
+})();
+</script>
 <link rel="stylesheet" href="index.css">
 </head>
 <body>
@@ -23,13 +31,13 @@
   <!-- ══ SIDEBAR ══ -->
   <div id="sidebar">
     <div id="sidebar-tabs">
-      <button class="tab-btn active" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
-      <button class="tab-btn" data-tab="about">About</button>
+      <button class="tab-btn active" data-tab="about">About</button>
     </div>
 
     <!-- History tab -->
-    <div id="tab-history" class="tab-panel active">
+    <div id="tab-history" class="tab-panel">
       <div id="history-list">
         <div id="history-empty">no queries yet</div>
       </div>
@@ -75,7 +83,7 @@
     </div>
 
     <!-- About tab -->
-    <div id="tab-about" class="tab-panel">
+    <div id="tab-about" class="tab-panel active">
       <div class="about-content">
 
         <div>
@@ -123,17 +131,8 @@
       </div>
       <div id="filter-row">
         <span class="filter-label">Filter:</span>
-        <select class="filter" id="filter-level">
-          <option value="">all</option>
-          <option value="FEDERAL">federal</option>
-          <option value="STATE">state</option>
-          <option value="LOCAL">local</option>
-        </select>
-        <select class="filter" id="filter-state" disabled>
-          <option value="">all states</option>
-        </select>
-        <select class="filter" id="filter-local" disabled>
-          <option value="">all local</option>
+        <select class="filter" id="filter-scope">
+          <option value="">all codes</option>
         </select>
         <select class="filter" id="filter-agency">
           <option value="">all agencies</option>
@@ -242,7 +241,8 @@ themeSelect.addEventListener('change', () => applyTheme(themeSelect.value));
 evolveDarkBtn.addEventListener('click',  () => applyTheme('evolve'));
 evolveLightBtn.addEventListener('click', () => applyTheme('evolve-light'));
 
-applyTheme(localStorage.getItem(THEME_KEY) || 'evolve-light');
+applyTheme(localStorage.getItem(THEME_KEY) ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'evolve' : 'evolve-light'));
 
 /* ══════════════════════════════════════════════════════════════
    SIDEBAR TABS
@@ -392,9 +392,7 @@ let lastResult = null;   // captured by renderResult / pushHistory for reportErr
 
 const queryInput   = document.getElementById('query-input');
 const submitBtn    = document.getElementById('submit-btn');
-const filterLevel  = document.getElementById('filter-level');
-const filterState  = document.getElementById('filter-state');
-const filterLocal  = document.getElementById('filter-local');
+const filterScope  = document.getElementById('filter-scope');
 const filterAgency = document.getElementById('filter-agency');
 const progressEl   = document.getElementById('progress');
 const progressText = document.getElementById('progress-text');
@@ -425,76 +423,85 @@ async function checkApi() {
   }
 }
 
+const STATE_NAMES = {
+  WA: 'Washington', OR: 'Oregon', CA: 'California', ID: 'Idaho',
+  MT: 'Montana', CO: 'Colorado', TX: 'Texas', FL: 'Florida',
+  NY: 'New York', AZ: 'Arizona', NV: 'Nevada', UT: 'Utah',
+  USA: 'United States',
+};
+
+function scopeLabel(s) {
+  if (s.jurisdiction === 'FEDERAL') {
+    return STATE_NAMES[s.state] || s.state || 'All federal';
+  }
+  if (s.jurisdiction === 'STATE') {
+    return STATE_NAMES[s.state] || s.state || 'All state';
+  }
+  if (s.jurisdiction === 'LOCAL') {
+    const loc = s.locality || '';
+    const st  = s.state || '';
+    return st ? `${loc}, ${st}` : loc || 'All local';
+  }
+  return s.jurisdiction || 'Unknown';
+}
+
 function populateFilters(data) {
-  // State dropdown
-  (data.states || []).forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s; opt.textContent = s;
-    filterState.appendChild(opt);
-  });
+  window._allAgencies = data.agencies || [];
 
-  // Local dropdown — all localities; cascade hides irrelevant ones at selection time
-  (data.localities || []).forEach(loc => {
-    const opt = document.createElement('option');
-    opt.value = loc.code;
-    opt.textContent = loc.display;
-    opt.dataset.state = loc.state;
-    filterLocal.appendChild(opt);
-  });
+  const tiers = ['FEDERAL', 'STATE', 'LOCAL'];
+  for (const tier of tiers) {
+    const tierScopes = (data.scopes || []).filter(s => s.jurisdiction === tier);
+    if (!tierScopes.length) continue;
 
-  // Agency dropdown — grouped by jurisdiction using <optgroup>
-  const groups = {FEDERAL: [], STATE: [], LOCAL: []};
-  (data.agencies || []).forEach(ag => {
-    const lvl = ag.jurisdiction || 'FEDERAL';
-    if (groups[lvl]) groups[lvl].push(ag);
-  });
-  [['FEDERAL','Federal'], ['STATE','State'], ['LOCAL','Local']].forEach(([key, label]) => {
-    if (!groups[key].length) return;
-    const grp = document.createElement('optgroup');
-    grp.label = label;
-    groups[key].forEach(ag => {
+    const divider = document.createElement('option');
+    divider.disabled = true;
+    divider.textContent = `\u2500\u2500 ${tier.toLowerCase()} \u2500\u2500`;
+    filterScope.appendChild(divider);
+
+    for (const s of tierScopes) {
       const opt = document.createElement('option');
-      opt.value = ag.name; opt.textContent = ag.name;
-      opt.dataset.jurisdiction = ag.jurisdiction;
-      grp.appendChild(opt);
-    });
-    filterAgency.appendChild(grp);
-  });
-}
-
-function updateLocalOptions() {
-  const st = filterState.value;
-  Array.from(filterLocal.options).forEach(opt => {
-    if (!opt.value) return;
-    opt.hidden = !!(st && opt.dataset.state !== st);
-  });
-}
-
-function updateAgencyGroups() {
-  const level = filterLevel.value;
-  Array.from(filterAgency.children).forEach(el => {
-    if (el.tagName === 'OPTGROUP') {
-      el.hidden = !!(level && el.label.toUpperCase() !== level);
+      opt.value = `${s.jurisdiction}|${s.state}|${s.locality}`;
+      opt.textContent = '  ' + scopeLabel(s);
+      opt.dataset.jurisdiction = s.jurisdiction;
+      opt.dataset.state        = s.state;
+      opt.dataset.locality     = s.locality;
+      filterScope.appendChild(opt);
     }
-  });
-  const sel = filterAgency.options[filterAgency.selectedIndex];
-  if (sel && sel.closest('optgroup')?.hidden) filterAgency.value = '';
+  }
+
+  updateAgencyDropdown(null);
 }
 
-filterLevel.addEventListener('change', () => {
-  const level = filterLevel.value;
-  const needState = level === 'STATE' || level === 'LOCAL';
-  filterState.disabled = !needState;
-  if (!needState) { filterState.value = ''; filterLocal.value = ''; }
-  filterLocal.disabled = true; filterLocal.value = '';
-  updateLocalOptions();
-  updateAgencyGroups();
-});
+function updateAgencyDropdown(scopeOpt) {
+  const current = filterAgency.value;
+  filterAgency.innerHTML = '<option value="">all agencies</option>';
 
-filterState.addEventListener('change', () => {
-  filterLocal.disabled = filterLevel.value !== 'LOCAL' || !filterState.value;
-  filterLocal.value = '';
-  updateLocalOptions();
+  const agencies = (window._allAgencies || []).filter(a => {
+    if (!scopeOpt) return true;
+    const j = scopeOpt.dataset.jurisdiction;
+    const s = scopeOpt.dataset.state;
+    const l = scopeOpt.dataset.locality;
+    if (j && a.jurisdiction !== j) return false;
+    if (s && a.state       !== s) return false;
+    if (l && a.locality    !== l) return false;
+    return true;
+  });
+
+  for (const ag of agencies) {
+    const opt = document.createElement('option');
+    opt.value = ag.name;
+    opt.textContent = ag.name;
+    filterAgency.appendChild(opt);
+  }
+
+  if ([...filterAgency.options].some(o => o.value === current)) {
+    filterAgency.value = current;
+  }
+}
+
+filterScope.addEventListener('change', function() {
+  const opt = this.selectedIndex > 0 ? this.options[this.selectedIndex] : null;
+  updateAgencyDropdown(opt && opt.dataset.jurisdiction ? opt : null);
 });
 
 /* ══════════════════════════════════════════════════════════════
@@ -523,15 +530,17 @@ async function runQuery() {
   let sourceGroups = [];
 
   try {
+    const scopeOpt = filterScope.selectedIndex > 0
+      ? filterScope.options[filterScope.selectedIndex] : null;
     const r = await fetch(API + '/query/stream', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         query:               q,
-        filter_jurisdiction: filterLevel.value  || null,
-        filter_state:        filterState.value  || null,
-        filter_locality:     filterLocal.value  || null,
-        filter_agency:       filterAgency.value || null,
+        filter_jurisdiction: scopeOpt?.dataset.jurisdiction || null,
+        filter_state:        scopeOpt?.dataset.state        || null,
+        filter_locality:     scopeOpt?.dataset.locality     || null,
+        filter_agency:       filterAgency.value             || null,
       }),
     });
 

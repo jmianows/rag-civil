@@ -1,6 +1,9 @@
 import ollama
 import lancedb
 import re
+import os
+import itertools
+import threading
 from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
@@ -97,6 +100,20 @@ VECTORDB_DIR  = Path("/home/justin/rag-civil/vectordb")
 EMBED_MODEL   = "mxbai-embed-large"
 LLM_MODEL = "qwen3:4b-instruct"
 N_RESULTS     = 7
+
+# ── Ollama load balancer ───────────────────────────────────────────────────────
+# Set OLLAMA_HOSTS env var to a comma-separated list of hosts to round-robin across.
+# Defaults to a single local instance. Example:
+#   OLLAMA_HOSTS=http://localhost:11434,http://localhost:11435
+_raw_hosts   = os.environ.get("OLLAMA_HOSTS", "http://localhost:11434").split(",")
+OLLAMA_HOSTS = [h.strip().rstrip("/") for h in _raw_hosts if h.strip()]
+_host_cycle  = itertools.cycle(OLLAMA_HOSTS)
+_host_lock   = threading.Lock()
+
+def _next_ollama_host() -> str:
+    """Return the next Ollama host in round-robin order. Thread-safe."""
+    with _host_lock:
+        return next(_host_cycle)
 RERANK_POOL   = 20   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 3
@@ -144,7 +161,7 @@ def get_db_table() -> lancedb.table.LanceTable:
 
 
 def embed_query(query: str) -> list[float]:
-    response = ollama.embeddings(
+    response = ollama.Client(host=_next_ollama_host()).embeddings(
         model=EMBED_MODEL,
         prompt=f"Represent this sentence for searching relevant passages: {query}"
     )
@@ -481,7 +498,7 @@ def generate_response(query: str, context: str) -> str:
     }
 
     response = requests.post(
-        "http://localhost:11434/api/chat",
+        _next_ollama_host() + "/api/chat",
         json=payload
     )
 
@@ -542,7 +559,7 @@ def enrich_section(text: str, source_file: str) -> str:
     }
 
     response = requests.post(
-        "http://localhost:11434/api/chat",
+        _next_ollama_host() + "/api/chat",
         json=payload
     )
 
@@ -663,7 +680,7 @@ def generate_response_stream(user_query: str, context: str):
         },
     }
 
-    resp = _req.post("http://localhost:11434/api/chat", json=payload, stream=True)
+    resp = _req.post(_next_ollama_host() + "/api/chat", json=payload, stream=True)
     flag_re = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer        = ""
     full_text     = ""

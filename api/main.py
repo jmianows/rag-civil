@@ -133,7 +133,7 @@ def get_filters():
         table = db.open_table("civil_engineering_codes")
         rows = table.search().limit(999999).to_list()
 
-        # Agencies with jurisdiction context for grouped dropdown
+        # Agencies — include locality so frontend cascade can match LOCAL agencies
         seen_agencies: dict[str, dict] = {}
         for r in rows:
             ag = r.get("agency", "")
@@ -142,13 +142,14 @@ def get_filters():
                     "name":         ag,
                     "jurisdiction": r.get("jurisdiction", ""),
                     "state":        r.get("state", ""),
+                    "locality":     r.get("locality", ""),
                 }
         agencies = sorted(seen_agencies.values(), key=lambda x: (x["jurisdiction"], x["name"]))
 
-        # Unique state codes
+        # Unique state codes (kept for backward compat)
         states = sorted({r["state"] for r in rows if r.get("state")})
 
-        # Localities with state + human-readable display name
+        # Localities (kept for backward compat)
         seen_local: dict[tuple, dict] = {}
         for r in rows:
             loc = r.get("locality", "")
@@ -163,7 +164,20 @@ def get_filters():
                     }
         localities = sorted(seen_local.values(), key=lambda x: (x["state"], x["display"]))
 
-        return {"agencies": agencies, "states": states, "localities": localities}
+        # Scopes — unique (jurisdiction, state, locality) combos for the scope dropdown
+        seen_scopes: dict[tuple, dict] = {}
+        for r in rows:
+            key = (r.get("jurisdiction", ""), r.get("state", ""), r.get("locality", ""))
+            if key[0] and key not in seen_scopes:
+                seen_scopes[key] = {
+                    "jurisdiction": key[0],
+                    "state":        key[1],
+                    "locality":     key[2],
+                }
+        scopes = sorted(seen_scopes.values(),
+                        key=lambda x: (x["jurisdiction"], x["state"], x["locality"]))
+
+        return {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

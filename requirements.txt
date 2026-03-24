@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+lancedb
+ollama
+pymupdf
+pytesseract
+pdf2image
+pillow
+sentence-transformers
+rank-bm25
+langchain
+langchain-community
+pyarrow
+requests
+python-multipart
+numpy

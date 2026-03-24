@@ -1,0 +1,40 @@
+[Unit]
+Description=Civil RAG FastAPI server
+After=network-online.target ollama@11434.service
+Wants=network-online.target
+Requires=ollama@11434.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+WorkingDirectory=/home/ubuntu/rag-civil
+Environment=HOME=/home/ubuntu
+Environment=PYTHONUNBUFFERED=1
+
+# Ollama hosts for round-robin load balancing.
+# Single instance: keep default. Multi-instance: comma-separate the hosts.
+#   Example: Environment=OLLAMA_HOSTS=http://localhost:11434,http://localhost:11435
+Environment=OLLAMA_HOSTS=http://localhost:11434
+
+# Single worker: LLM is a shared resource — multiple workers would each load
+# the model into Ollama independently and serialize anyway, adding overhead.
+ExecStart=/home/ubuntu/rag-civil/.venv/bin/uvicorn api.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 1 \
+    --log-level info
+
+Restart=on-failure
+RestartSec=5s
+
+# Allow time for the cross-encoder to load on first startup
+TimeoutStartSec=60
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rag-civil-api
+
+[Install]
+WantedBy=multi-user.target
