@@ -18,6 +18,12 @@ FORCE_RERUN = True
 
 FAILED_LOG = Path("/home/justin/rag-civil/ingestion/failed_chunks.jsonl")
 
+# Map source_file basename → public URL for the document.
+# Leave as "" if no link is available yet.
+FILE_LINKS: dict[str, str] = {
+    # "WSDOT_Design_Manual_2023.pdf": "https://wsdot.wa.gov/...",
+}
+
 #for looking at pages with images
 def ocr_pdf_page(page) -> str:
     import pytesseract
@@ -270,6 +276,7 @@ def tag_metadata(chunk: dict, pdf_path: Path) -> dict:
         "state":        state or "",
         "locality":     locality or "",
         "source_file":  pdf_path.name,
+        "file_link":    FILE_LINKS.get(pdf_path.name, ""),
         "section":      section,
         "doc_page":     doc_page,
         "page":         chunk.get("page", 0),
@@ -334,6 +341,7 @@ def init_db() -> lancedb.table.LanceTable:
         pa.field("agency",       pa.string()),
         pa.field("state",        pa.string()),
         pa.field("locality",     pa.string()),
+        pa.field("file_link",    pa.string()),
         pa.field("section",      pa.string()),
         pa.field("llm_corrected_section", pa.bool_()),
         pa.field("doc_page",     pa.string()),
@@ -378,6 +386,7 @@ def store_chunks(table: lancedb.table.LanceTable, chunks: list[dict]) -> None:
             "agency":       chunk["agency"],
             "state":        chunk["state"],
             "locality":     chunk["locality"],
+            "file_link":    chunk.get("file_link", ""),
             "section":      chunk["section"],
             "llm_corrected_section": False,
             "doc_page":     chunk.get("doc_page", "UNKNOWN"),
@@ -453,6 +462,7 @@ def reset_db() -> lancedb.table.LanceTable:
         pa.field("agency",       pa.string()),
         pa.field("state",        pa.string()),
         pa.field("locality",     pa.string()),
+        pa.field("file_link",    pa.string()),
         pa.field("section",      pa.string()),
         pa.field("llm_corrected_section", pa.bool_()),
         pa.field("doc_page",     pa.string()),
@@ -511,5 +521,28 @@ def main():
 
     print("=" * 60)
 
+def migrate_add_file_link():
+    """Add file_link column to existing table, then apply any FILE_LINKS config values."""
+    import sys as _sys
+    db = lancedb.connect(str(VECTORDB_DIR))
+    table = db.open_table("civil_engineering_codes")
+    existing_cols = [f.name for f in table.schema]
+    if "file_link" in existing_cols:
+        print("file_link column already exists.")
+    else:
+        table.add_columns({"file_link": "cast('' as string)"})
+        print("Added file_link column with empty defaults.")
+    for source_file, url in FILE_LINKS.items():
+        if url:
+            table.update(where=f"source_file = '{source_file}'",
+                         values={"file_link": url})
+            print(f"  Set file_link for {source_file}")
+    print("Migration complete.")
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "migrate":
+        migrate_add_file_link()
+    else:
+        main()

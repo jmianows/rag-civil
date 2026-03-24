@@ -25,6 +25,8 @@ class RetrievedChunk:
     chunk_index:           int
     distance:              float
     llm_corrected_section: bool = False
+    locality:              str = ""
+    file_link:             str = ""
 
 
 def get_db_table() -> lancedb.table.LanceTable:
@@ -47,6 +49,7 @@ def retrieve_chunks(
     filter_agency: str = None,
     filter_jurisdiction: str = None,
     filter_state: str = None,
+    filter_locality: str = None,
 ) -> list[RetrievedChunk]:
 
     embedding = embed_query(query)
@@ -60,6 +63,8 @@ def retrieve_chunks(
         filters.append(f"jurisdiction = '{filter_jurisdiction}'")
     if filter_state:
         filters.append(f"state = '{filter_state}'")
+    if filter_locality:
+        filters.append(f"locality = '{filter_locality}'")
 
     if filters:
         search = search.where(" AND ".join(filters))
@@ -74,12 +79,14 @@ def retrieve_chunks(
             agency=r["agency"],
             jurisdiction=r["jurisdiction"],
             state=r.get("state", ""),
+            locality=r.get("locality", ""),
             section=r["section"],
             llm_corrected_section=r.get("llm_corrected_section", False),
             doc_page=r.get("doc_page", "UNKNOWN"),
             page=r["page"],
             chunk_index=r["chunk_index"],
             distance=r.get("_distance", 0.0),
+            file_link=r.get("file_link", ""),
         ))
 
     return chunks
@@ -226,28 +233,30 @@ Your job is to read the retrieved code sections and present their requirements a
 
 Rules:
 - Present only information from the retrieved sections. Never add outside knowledge.
-- Copy requirement language verbatim. Do not paraphrase or reword. Truncate with "..." if too long.
+- Copy requirement language verbatim. Do not paraphrase or reword. Truncate long passages with "..." only at natural breaks.
 - Preserve exact wording of shall, should, and may — these define mandatory vs guidance vs optional.
-- Present only directly applicable requirements. Omit background, context, and procedural setup.
 - Prioritize shall statements. Include should and may only if no shall statements exist or the query asks for guidance.
+- Omit background, procedural context, and setup text. Present only the requirement itself.
 - Show most local jurisdiction first, expanding to federal below.
-- Present each standard separately. Do not interleave content from different sources.
-- Present every retrieved section that contains at least one relevant requirement.
-- Sections with no relevant requirements may be omitted silently.
-- If no retrieved sections contain relevant requirements, say exactly: "The provided standards do not address this query. Think I should? Request manuals to add using the bottom right!"
+- Present each source separately. Never interleave content from different sources.
+- Present every retrieved section that contains at least one relevant requirement, each with its own tag.
+- Sections with no relevant requirements may be omitted silently — do not mention them.
 - Never provide engineering advice, opinions, or recommendations.
 
 Format:
 - Bullet points per requirement.
-- Structure output source by source. For each source you use:
-    1. Present all relevant requirements from that source as bullet points.
-       Finish all content from one source before moving to the next.
-    2. After the last bullet from that source, place [[SRC_N]] on its own line
-       (N matches the "--- SOURCE N ---" header in the retrieved context).
-- Only emit [[SRC_N]] for sources you actually cite. Omit the flag entirely for unused sources.
+- Structure output strictly source by source:
+    1. Present all relevant requirements from one source as bullet points.
+    2. Immediately after the last bullet from that source place the tag [[SRC_N]] on its own line where N matches the source number from the context header "--- SOURCE N ---".
+    3. Leave a blank line then move to the next source.
+    4. Never place [[SRC_N]] before the bullets for that source.
+    5. Only emit [[SRC_N]] for sources you actually cite. Never emit a tag for an unused source.
 - No preamble, summaries, or conclusions.
-- Do not restate the question."""
+- Do not restate the question.
 
+If no retrieved sections contain any relevant requirements output exactly this and nothing else:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]"""
 
 def format_context(groups: list[dict]) -> tuple[str, list[dict]]:
     context_blocks = []
@@ -279,12 +288,15 @@ def format_context(groups: list[dict]) -> tuple[str, list[dict]]:
             "source_file":           chunk.source_file,
             "agency":                chunk.agency,
             "jurisdiction":          chunk.jurisdiction,
+            "state":                 chunk.state,
+            "locality":              chunk.locality,
             "section":               chunk.section,
             "doc_page":              chunk.doc_page,
             "page":                  chunk.page,
             "chunk_index":           chunk.chunk_index,
             "distance":              chunk.distance,
             "llm_corrected_section": chunk.llm_corrected_section,
+            "file_link":             chunk.file_link,
             "text":                  combined,
         })
 
@@ -402,6 +414,7 @@ def query_prepare(
     filter_agency: str = None,
     filter_jurisdiction: str = None,
     filter_state: str = None,
+    filter_locality: str = None,
     enrich_unknown_sections: bool = True,
 ) -> dict:
     """Run retrieval + formatting pipeline without calling the LLM.
@@ -417,6 +430,7 @@ def query_prepare(
         filter_agency=filter_agency,
         filter_jurisdiction=filter_jurisdiction,
         filter_state=filter_state,
+        filter_locality=filter_locality,
     )
     print(f"  Retrieved {len(chunks)} chunks")
 
@@ -446,12 +460,15 @@ def query_prepare(
                 "source_file":           c.source_file,
                 "agency":                c.agency,
                 "jurisdiction":          c.jurisdiction,
+                "state":                 c.state,
+                "locality":              c.locality,
                 "section":               c.section,
                 "doc_page":              c.doc_page,
                 "page":                  c.page,
                 "chunk_index":           c.chunk_index,
                 "distance":              c.distance,
                 "llm_corrected_section": c.llm_corrected_section,
+                "file_link":             c.file_link,
             }
             for c in chunks
         ],
@@ -476,14 +493,14 @@ def generate_response_stream(user_query: str, context: str):
         "options": {
             "temperature":    0.1,
             "num_ctx":        4096,
-            "num_predict":    1024,
+            "num_predict":    2048,
             "repeat_penalty": 1.1,
             "num_gpu":        999,
         },
     }
 
     resp = _req.post("http://localhost:11434/api/chat", json=payload, stream=True)
-    flag_re = _re.compile(r'\[\[SRC_(\d+)\]\]')
+    flag_re = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer    = ""
     full_text = ""
 
@@ -498,9 +515,13 @@ def generate_response_stream(user_query: str, context: str):
         m = flag_re.search(buffer)
         if m:
             text_before = strip_thinking(buffer[:m.start()])
-            n = int(m.group(1))
             buffer = buffer[m.end():]
-            yield {"type": "source_block", "text": text_before, "n": n}
+            if m.group(1) is not None:
+                # [[SRC_N]] flag
+                yield {"type": "source_block", "text": text_before, "n": int(m.group(1))}
+            else:
+                # [[FAIL]] flag
+                yield {"type": "fail", "text": text_before}
 
         if data.get("done"):
             break
@@ -519,6 +540,7 @@ def query(
     filter_agency: str = None,
     filter_jurisdiction: str = None,
     filter_state: str = None,
+    filter_locality: str = None,
     enrich_unknown_sections: bool = True,
 ) -> dict:
     prep = query_prepare(
@@ -526,6 +548,7 @@ def query(
         filter_agency=filter_agency,
         filter_jurisdiction=filter_jurisdiction,
         filter_state=filter_state,
+        filter_locality=filter_locality,
         enrich_unknown_sections=enrich_unknown_sections,
     )
     if prep.get("empty"):

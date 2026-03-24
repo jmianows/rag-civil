@@ -38,7 +38,7 @@
     <!-- Settings tab -->
     <div id="tab-settings" class="tab-panel">
 
-      <div class="settings-section">
+      <div class="settings-section" id="theme-dropdown-row">
         <span class="settings-label">Theme</span>
         <select id="settings-theme-select">
           <option value="evolve-light">evolve light</option>
@@ -81,28 +81,30 @@
         <div>
           <div class="about-section-label">How to Use</div>
           <ol class="how-to-list">
-            <li data-n="1">Type a question and press Enter. Use Shift+Enter for a new line.</li>
+            <li data-n="1">Type a question in the box and press enter to search the database.</li>
             <li data-n="2">Filter by agency or jurisdiction using the dropdowns to narrow results.</li>
-            <li data-n="3">Sources appear inline within the response as each standard is cited.</li>
-            <li data-n="4">Hover the source filename on a citation to preview its chunk text.</li>
-            <li data-n="5">Hover <em>d=0.xxx</em> on a citation to see its vector similarity score.</li>
-            <li data-n="6">Click <strong>[flag error]</strong> on a citation to report an incorrect response.</li>
-            <li data-n="7">Past queries are saved in the History tab — click any entry to replay it.</li>
+            <li data-n="3">Text in the citation bar can be hovered over for additional information. Look here to find section and page numbers for the standards.</li>
+            <li data-n="5">Past queries are saved in the History tab — click any entry to view it again.</li>
+            <li data-n="6">Request standards using the top right. Report poor responses/data with the button in the citation box.</li>
           </ol>
         </div>
 
-        <!-- To display a photo: set src="filename.jpg" below (place file in frontend/) -->
-        <img id="bio-photo" src="" alt="Profile photo">
+        
 
         <div>
-          <div class="about-section-label">About the Project</div>
-          <p class="about-text">RAG-CIVIL is a retrieval-augmented generation system for querying civil engineering codes and standards. PDFs from agencies such as OSHA, FHWA, and AASHTO are ingested, parsed into sections, embedded into a local vector database, and queried using a local LLM — producing cited, traceable answers without sending data to external services.</p>
+          <div class="about-section-label">This Project</div>
+          <p class="about-text">My goal was to create a bulk search function specifically for civil engineering standards that was better than ctrl+f. This can search multiple documents at once and accept naturalistic language inputs, so I think this succeeds. This is technically "powered by AI".</p>
         </div>
-
+<!-- To display a photo: set src="filename.jpg" below (place file in frontend/) -->
+        
         <div>
           <div class="about-section-label">About the Author</div>
+          <img id="bio-photo" src="small me 2025.jpg" alt="Profile photo">
           <!-- Add your bio here -->
-          <p class="about-text about-bio">[ your bio ]</p>
+          <p class="about-text about-bio">Justin Mianowski is a Transportation Engineer E.I.T. with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time, he enjoys rock climbing, reading articles, and just doing things (like this!).
+            <br><br>justinmianowski@gmail.com
+            <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
+            <br><a href="/standards">Standards Library</a></p>
         </div>
 
       </div>
@@ -121,11 +123,20 @@
       </div>
       <div id="filter-row">
         <span class="filter-label">Filter:</span>
+        <select class="filter" id="filter-level">
+          <option value="">all</option>
+          <option value="FEDERAL">federal</option>
+          <option value="STATE">state</option>
+          <option value="LOCAL">local</option>
+        </select>
+        <select class="filter" id="filter-state" disabled>
+          <option value="">all states</option>
+        </select>
+        <select class="filter" id="filter-local" disabled>
+          <option value="">all local</option>
+        </select>
         <select class="filter" id="filter-agency">
           <option value="">all agencies</option>
-        </select>
-        <select class="filter" id="filter-jurisdiction">
-          <option value="">all jurisdictions</option>
         </select>
       </div>
     </div>
@@ -360,6 +371,17 @@ reqSendBtn.addEventListener('click', async () => {
 });
 
 /* ══════════════════════════════════════════════════════════════
+   ANALYTICS — fire-and-forget usage events
+══════════════════════════════════════════════════════════════ */
+function logAnalyticsEvent(event, source_file = null) {
+  fetch(API + '/analytics/event', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({event, source_file}),
+  }).catch(() => {});
+}
+
+/* ══════════════════════════════════════════════════════════════
    APP STATE + ELEMENT REFS
 ══════════════════════════════════════════════════════════════ */
 const API = '';
@@ -370,8 +392,10 @@ let lastResult = null;   // captured by renderResult / pushHistory for reportErr
 
 const queryInput   = document.getElementById('query-input');
 const submitBtn    = document.getElementById('submit-btn');
+const filterLevel  = document.getElementById('filter-level');
+const filterState  = document.getElementById('filter-state');
+const filterLocal  = document.getElementById('filter-local');
 const filterAgency = document.getElementById('filter-agency');
-const filterJuris  = document.getElementById('filter-jurisdiction');
 const progressEl   = document.getElementById('progress');
 const progressText = document.getElementById('progress-text');
 const errorEl      = document.getElementById('error-msg');
@@ -402,17 +426,76 @@ async function checkApi() {
 }
 
 function populateFilters(data) {
-  data.agencies.forEach(a => {
+  // State dropdown
+  (data.states || []).forEach(s => {
     const opt = document.createElement('option');
-    opt.value = a; opt.textContent = a;
-    filterAgency.appendChild(opt);
+    opt.value = s; opt.textContent = s;
+    filterState.appendChild(opt);
   });
-  data.jurisdictions.forEach(j => {
+
+  // Local dropdown — all localities; cascade hides irrelevant ones at selection time
+  (data.localities || []).forEach(loc => {
     const opt = document.createElement('option');
-    opt.value = j; opt.textContent = j;
-    filterJuris.appendChild(opt);
+    opt.value = loc.code;
+    opt.textContent = loc.display;
+    opt.dataset.state = loc.state;
+    filterLocal.appendChild(opt);
+  });
+
+  // Agency dropdown — grouped by jurisdiction using <optgroup>
+  const groups = {FEDERAL: [], STATE: [], LOCAL: []};
+  (data.agencies || []).forEach(ag => {
+    const lvl = ag.jurisdiction || 'FEDERAL';
+    if (groups[lvl]) groups[lvl].push(ag);
+  });
+  [['FEDERAL','Federal'], ['STATE','State'], ['LOCAL','Local']].forEach(([key, label]) => {
+    if (!groups[key].length) return;
+    const grp = document.createElement('optgroup');
+    grp.label = label;
+    groups[key].forEach(ag => {
+      const opt = document.createElement('option');
+      opt.value = ag.name; opt.textContent = ag.name;
+      opt.dataset.jurisdiction = ag.jurisdiction;
+      grp.appendChild(opt);
+    });
+    filterAgency.appendChild(grp);
   });
 }
+
+function updateLocalOptions() {
+  const st = filterState.value;
+  Array.from(filterLocal.options).forEach(opt => {
+    if (!opt.value) return;
+    opt.hidden = !!(st && opt.dataset.state !== st);
+  });
+}
+
+function updateAgencyGroups() {
+  const level = filterLevel.value;
+  Array.from(filterAgency.children).forEach(el => {
+    if (el.tagName === 'OPTGROUP') {
+      el.hidden = !!(level && el.label.toUpperCase() !== level);
+    }
+  });
+  const sel = filterAgency.options[filterAgency.selectedIndex];
+  if (sel && sel.closest('optgroup')?.hidden) filterAgency.value = '';
+}
+
+filterLevel.addEventListener('change', () => {
+  const level = filterLevel.value;
+  const needState = level === 'STATE' || level === 'LOCAL';
+  filterState.disabled = !needState;
+  if (!needState) { filterState.value = ''; filterLocal.value = ''; }
+  filterLocal.disabled = true; filterLocal.value = '';
+  updateLocalOptions();
+  updateAgencyGroups();
+});
+
+filterState.addEventListener('change', () => {
+  filterLocal.disabled = filterLevel.value !== 'LOCAL' || !filterState.value;
+  filterLocal.value = '';
+  updateLocalOptions();
+});
 
 /* ══════════════════════════════════════════════════════════════
    QUERY RUNNER — streams source blocks one at a time via SSE
@@ -421,6 +504,7 @@ async function runQuery() {
   const q = queryInput.value.trim();
   if (!q) return;
 
+  logAnalyticsEvent('prompt_submitted');
   setLoading(true);
   clearChatWindow();
 
@@ -443,9 +527,11 @@ async function runQuery() {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        query: q,
-        filter_agency: filterAgency.value || null,
-        filter_jurisdiction: filterJuris.value || null,
+        query:               q,
+        filter_jurisdiction: filterLevel.value  || null,
+        filter_state:        filterState.value  || null,
+        filter_locality:     filterLocal.value  || null,
+        filter_agency:       filterAgency.value || null,
       }),
     });
 
@@ -467,6 +553,13 @@ async function runQuery() {
 
         if (ev.type === 'meta') {
           sourceGroups = ev.source_groups || [];
+          const seen = new Set();
+          for (const src of sourceGroups) {
+            if (src && src.source_file && !seen.has(src.source_file)) {
+              seen.add(src.source_file);
+              logAnalyticsEvent('manual_pulled', src.source_file);
+            }
+          }
 
         } else if (ev.type === 'source_block') {
           if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
@@ -475,6 +568,10 @@ async function runQuery() {
 
         } else if (ev.type === 'text') {
           if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+
+        } else if (ev.type === 'fail') {
+          if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+          logAnalyticsEvent('fail_response');
 
         } else if (ev.type === 'done') {
           const stored = {query: q, response: ev.raw || '', source_groups: sourceGroups};
@@ -542,14 +639,18 @@ function renderResult(data) {
  * converting [[SRC_N]] flags into inline citation rows.
  */
 function parseResponse(container, text, sourceGroups) {
-  const re = /\[\[SRC_(\d+)\]\]/g;
+  const re = /\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]/g;
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last)
       container.appendChild(document.createTextNode(text.slice(last, m.index)));
-    const n = parseInt(m[1], 10);
-    const src = sourceGroups && sourceGroups[n - 1];
-    if (src) container.appendChild(buildCitationLine(src));
+    if (m[1] != null) {
+      // [[SRC_N]] — build citation line
+      const n = parseInt(m[1], 10);
+      const src = sourceGroups && sourceGroups[n - 1];
+      if (src) container.appendChild(buildCitationLine(src));
+    }
+    // [[FAIL]] — consume the flag, text before it already appended above
     last = re.lastIndex;
   }
   if (last < text.length)

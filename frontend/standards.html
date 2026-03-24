@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="evolve-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Standards Library — Civil Standards Smart Dictionary</title>
+<link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div id="header">
+  <div class="logo">Civil Standards Smart Dictionary</div>
+  <div class="tagline">standards library</div>
+  <div class="spacer"></div>
+  <a href="/" class="back-btn">← Back to dictionary</a>
+  <div class="seg-toggle">
+    <button class="seg-btn" id="std-dark-btn">dark</button>
+    <button class="seg-btn" id="std-light-btn">light</button>
+  </div>
+</div>
+
+<!-- ══ CONTENT ══ -->
+<div id="std-layout">
+  <div id="std-content">
+    <div class="std-title">Included Standards</div>
+    <p class="std-desc">All documents currently indexed in the vector database.</p>
+    <table id="std-table">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Agency</th>
+          <th>Jurisdiction</th>
+          <th>State</th>
+        </tr>
+      </thead>
+      <tbody id="std-tbody">
+        <tr><td colspan="4" class="std-loading">Loading&hellip;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ── Theme — shared localStorage key with main page ── */
+const THEME_KEY = 'rag-civil-theme';
+const darkBtn  = document.getElementById('std-dark-btn');
+const lightBtn = document.getElementById('std-light-btn');
+
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(THEME_KEY, t);
+  darkBtn.classList.toggle('active',  t === 'evolve');
+  lightBtn.classList.toggle('active', t === 'evolve-light');
+}
+darkBtn.addEventListener('click',  () => applyTheme('evolve'));
+lightBtn.addEventListener('click', () => applyTheme('evolve-light'));
+applyTheme(localStorage.getItem(THEME_KEY) || 'evolve-light');
+
+/* ── Load and render standards table ── */
+async function loadStandards() {
+  const tbody = document.getElementById('std-tbody');
+  try {
+    const r = await fetch('/standards/list');
+    if (!r.ok) throw new Error(r.statusText);
+    const rows = await r.json();
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="std-loading">No standards found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      const sf  = document.createElement('td');
+      const ag  = document.createElement('td');
+      const jur = document.createElement('td');
+      const st  = document.createElement('td');
+      sf.textContent  = row.source_file;
+      ag.textContent  = row.agency       || '\u2014';
+      jur.textContent = row.jurisdiction || '\u2014';
+      st.textContent  = row.state        || '\u2014';
+      tr.append(sf, ag, jur, st);
+      tbody.appendChild(tr);
+    }
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="std-loading">Failed to load: ${e.message}</td></tr>`;
+  }
+}
+loadStandards();
+</script>
+
+</body>
+</html>

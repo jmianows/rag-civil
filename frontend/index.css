@@ -331,6 +331,11 @@ html[data-theme="evolve"] #settings-theme-select,
 html[data-theme="evolve-light"] #settings-theme-select { background: var(--bg); border-bottom: 2px solid var(--border2); }
 #settings-theme-select:focus { border-color: var(--accent); }
 
+/* ── DEVELOPER: Theme control visibility ──────────────────────────────────────
+   Default: show seg-toggle only, hide dropdown.
+   To swap: set #theme-dropdown-row { display: flex } and #evolve-mode-row { display: none }
+───────────────────────────────────────────────────────────────────────────── */
+#theme-dropdown-row { display: none; }
 #evolve-mode-row { display: none; }
 html[data-theme="evolve"] #evolve-mode-row,
 html[data-theme="evolve-light"] #evolve-mode-row { display: block; }
@@ -807,5 +812,79 @@ html[data-theme="evolve-light"] #req-modal textarea { background: var(--bg); bor
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* ── hyperlinks ── */
+a { color: var(--accent); text-decoration: underline; }
+a:hover { opacity: 0.8; }
+
+/* ══════════════════════════════════════════════════════════════
+   STANDARDS PAGE (/standards)
+══════════════════════════════════════════════════════════════ */
+
+#std-layout {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--gap);
+  background: var(--bg);
+}
+#std-content {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+.std-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--accent);
+  letter-spacing: 1px;
+  margin-bottom: 0.4rem;
+}
+html[data-theme="evolve"] .std-title,
+html[data-theme="evolve-light"] .std-title { letter-spacing: 0.5px; }
+.std-desc {
+  color: var(--dim);
+  font-size: 12px;
+  margin-bottom: 1.2rem;
+}
+#std-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+#std-table th {
+  text-align: left;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border2);
+  padding: 0.4rem 0.6rem;
+}
+#std-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+  word-break: break-word;
+}
+#std-table tr:hover td { background: var(--bg2); }
+.std-loading {
+  color: var(--dim);
+  font-style: italic;
+  padding: 1rem 0.6rem;
+}
+.back-btn {
+  font-size: 12px;
+  color: var(--dim);
+  text-decoration: none;
+  border: 1px solid var(--border2);
+  padding: 0.2rem 0.6rem;
+  margin-right: 0.5rem;
+  white-space: nowrap;
+}
+.back-btn:hover { color: var(--text); opacity: 1; }
+html[data-theme="evolve"] .back-btn,
+html[data-theme="evolve-light"] .back-btn { border-radius: var(--radius); }
 html[data-theme="evolve"] ::-webkit-scrollbar-thumb,
 html[data-theme="evolve-light"] ::-webkit-scrollbar-thumb { border-radius: 3px; }
