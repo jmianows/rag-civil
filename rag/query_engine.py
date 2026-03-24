@@ -45,6 +45,32 @@ def _detect_intent(query: str) -> tuple[bool, str | None]:
     return has_section, None
 
 
+_reranker = None
+
+def _get_reranker():
+    global _reranker
+    if _reranker is None:
+        from sentence_transformers import CrossEncoder
+        print("  [reranker] Loading cross-encoder model...", flush=True)
+        _reranker = CrossEncoder(
+            "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            device="cpu",
+            max_length=512,
+        )
+    return _reranker
+
+
+def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
+    """Re-rank retrieved chunks by (query, chunk) relevance using a cross-encoder."""
+    if len(chunks) <= top_k:
+        return chunks
+    reranker = _get_reranker()
+    pairs = [(query, c.text) for c in chunks]
+    scores = reranker.predict(pairs)
+    ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
+    return [c for _, c in ranked[:top_k]]
+
+
 def _vector_search(table, embedding: list[float], n: int, where: str | None) -> list[dict]:
     s = table.search(embedding)
     if where:
@@ -71,6 +97,7 @@ VECTORDB_DIR  = Path("/home/justin/rag-civil/vectordb")
 EMBED_MODEL   = "mxbai-embed-large"
 LLM_MODEL = "qwen3:4b-instruct"
 N_RESULTS     = 7
+RERANK_POOL   = 20   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 3
 MAX_CHUNK_CHARS = 1000 
@@ -101,10 +128,18 @@ def _ensure_fts_index(table) -> None:
         table.create_fts_index('text', replace=False)
 
 
+def _ensure_file_link_column(table) -> None:
+    existing = [f.name for f in table.schema]
+    if "file_link" not in existing:
+        table.add_columns({"file_link": "cast('' as string)"})
+        print("  [DB] Added file_link column.", flush=True)
+
+
 def get_db_table() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
     table = db.open_table("civil_engineering_codes")
     _ensure_fts_index(table)
+    _ensure_file_link_column(table)
     return table
 
 
@@ -341,6 +376,18 @@ FAIL rule — read carefully:
 The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
 [[FAIL]]"""
 
+def deduplicate_lines(text: str) -> str:
+    """Remove exact-duplicate lines from text (preserves first occurrence)."""
+    seen: set[str] = set()
+    out = []
+    for line in text.splitlines():
+        key = line.strip()
+        if key not in seen:
+            seen.add(key)
+            out.append(line)
+    return "\n".join(out)
+
+
 def format_context(groups: list[dict]) -> tuple[str, list[dict]]:
     context_blocks = []
     source_groups = []
@@ -350,6 +397,7 @@ def format_context(groups: list[dict]) -> tuple[str, list[dict]]:
         combined = combined_texts[0]
         for j in range(1, len(combined_texts)):
             combined = remove_overlap(combined, combined_texts[j])
+        combined = deduplicate_lines(combined)
 
         chunk = group[0]["chunk"]
         section_display = chunk.section
@@ -390,6 +438,20 @@ def strip_thinking(text: str) -> str:
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
     return text.strip()
 
+_SRC_TAG_RE = re.compile(r'\[\[SRC_\d+\]\]')
+
+def strip_spurious_fail(text: str) -> str:
+    """Remove [[FAIL]] block if any [[SRC_N]] citation is already present (format violation guard)."""
+    if _SRC_TAG_RE.search(text) and "[[FAIL]]" in text:
+        text = re.sub(
+            r'\n*The provided standards do not address[^\n]*\n?.*?\[\[FAIL\]\]',
+            '',
+            text,
+            flags=re.DOTALL,
+        ).strip()
+        text = text.replace("[[FAIL]]", "").strip()
+    return text
+
 def generate_response(query: str, context: str) -> str:
     import requests
     import json
@@ -407,12 +469,13 @@ def generate_response(query: str, context: str) -> str:
             }
         ],
         "stream": False,
-        "think": False,
+        "think":  False,
         "options": {
             "temperature":    0.1,
             "num_ctx":        4096,
-            "num_predict":    1024,
-            "repeat_penalty": 1.1,
+            "num_predict":    600,
+            "repeat_penalty": 1.3,
+            "top_k":          20,
             "num_gpu":        999,
         }
     }
@@ -424,7 +487,7 @@ def generate_response(query: str, context: str) -> str:
 
     data = response.json()
     content = data["message"]["content"].strip()
-    return strip_thinking(content)
+    return strip_spurious_fail(strip_thinking(content))
 #if the parser finds a section it will go back, correct it, and then flag it did so for us.
 def correct_section(
     source_file: str,
@@ -471,7 +534,7 @@ def enrich_section(text: str, source_file: str) -> str:
             }
         ],
         "stream": False,
-        "think": False,
+        "think":  False,
         "options": {
             "temperature": 0,
             "num_predict": 20,
@@ -509,27 +572,44 @@ def query_prepare(
     chunks = retrieve_chunks(
         query=user_query,
         table=table,
-        n_results=N_RESULTS,
+        n_results=RERANK_POOL,
         filter_agency=filter_agency,
         filter_jurisdiction=filter_jurisdiction,
         filter_state=filter_state,
         filter_locality=filter_locality,
     )
-    print(f"  Retrieved {len(chunks)} chunks")
+    chunks = rerank_chunks(user_query, chunks, top_k=N_RESULTS)
+    print(f"  Retrieved {len(chunks)} chunks (re-ranked from {RERANK_POOL})")
 
     if not chunks:
         return {"empty": True, "source_groups": [], "chunks": [], "context": ""}
 
     if enrich_unknown_sections:
-        unknown = [c for c in chunks if c.section == "UNKNOWN"]
-        if unknown:
-            print(f"  [3/4] Enriching {len(unknown)} unknown sections...")
-            for chunk in unknown:
-                chunk.section = enrich_section(chunk.text, chunk.source_file)
+        to_enrich = [c for c in chunks if c.section == "UNKNOWN" and not c.llm_corrected_section]
+        already_tried = [c for c in chunks if c.section == "UNKNOWN" and c.llm_corrected_section]
+
+        if to_enrich:
+            print(f"  [3/4] Enriching {len(to_enrich)} unknown sections in parallel...", flush=True)
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                futs = [ex.submit(enrich_section, c.text, c.source_file) for c in to_enrich]
+            for chunk, fut in zip(to_enrich, futs):
+                chunk.section = fut.result()
+                chunk.llm_corrected_section = True
+            for chunk in to_enrich:
+                cid = f"{chunk.source_file}__p{chunk.page}__c{chunk.chunk_index}"
+                try:
+                    table.update(
+                        where=f"id = '{cid}'",
+                        values={"section": chunk.section, "llm_corrected_section": True},
+                    )
+                except Exception as e:
+                    print(f"  [warn] DB persist failed for {cid}: {e}", flush=True)
+        elif already_tried:
+            print(f"  [3/4] {len(already_tried)} already tried — skipping re-enrichment", flush=True)
         else:
-            print("  [3/4] All sections known — skipping enrichment")
+            print("  [3/4] All sections known — skipping enrichment", flush=True)
     else:
-        print("  [3/4] Section enrichment disabled")
+        print("  [3/4] Section enrichment disabled", flush=True)
 
     print("  [4/4] Building context...")
     groups = group_chunks(chunks, table)
@@ -576,16 +656,18 @@ def generate_response_stream(user_query: str, context: str):
         "options": {
             "temperature":    0.1,
             "num_ctx":        4096,
-            "num_predict":    2048,
-            "repeat_penalty": 1.1,
+            "num_predict":    600,
+            "repeat_penalty": 1.3,
+            "top_k":          20,
             "num_gpu":        999,
         },
     }
 
     resp = _req.post("http://localhost:11434/api/chat", json=payload, stream=True)
     flag_re = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
-    buffer    = ""
-    full_text = ""
+    buffer        = ""
+    full_text     = ""
+    has_src_block = False
 
     for line in resp.iter_lines():
         if not line:
@@ -602,9 +684,11 @@ def generate_response_stream(user_query: str, context: str):
             if m.group(1) is not None:
                 # [[SRC_N]] flag
                 yield {"type": "source_block", "text": text_before, "n": int(m.group(1))}
+                has_src_block = True
             else:
-                # [[FAIL]] flag
-                yield {"type": "fail", "text": text_before}
+                # [[FAIL]] — suppress if content with [[SRC_N]] was already yielded
+                if not has_src_block:
+                    yield {"type": "fail", "text": text_before}
 
         if data.get("done"):
             break
