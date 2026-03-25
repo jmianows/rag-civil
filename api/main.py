@@ -21,6 +21,7 @@ from rag.query_engine import (
     generate_response_stream,
     correct_section,
     get_db_table,
+    _get_reranker,
 )
 
 VECTORDB_DIR   = Path("/home/justin/rag-civil/vectordb")
@@ -40,6 +41,16 @@ app.add_middleware(
 _analytics_lock = threading.Lock()
 
 
+@app.on_event("startup")
+async def preload_reranker():
+    threading.Thread(
+        target=_get_reranker,
+        daemon=True,
+        name="reranker-preload",
+    ).start()
+    print("[startup] Cross-encoder preload started in background", flush=True)
+
+
 # ── request / response models ──────────────────────────────────────────────────
 
 class QueryRequest(BaseModel):
@@ -56,9 +67,9 @@ class CorrectRequest(BaseModel):
     new_section: str
 
 class CodeRequest(BaseModel):
-    name:     str = Field(default="", max_length=80)
     document: str = Field(max_length=200)
     notes:    str = Field(default="", max_length=500)
+    email:    str = Field(default="", max_length=120)
 
 class AnalyticsEvent(BaseModel):
     event:       str            # 'prompt_submitted' | 'fail_response' | 'manual_pulled'
@@ -191,9 +202,9 @@ def submit_request(req: CodeRequest):
 
     entry = (
         f"[{datetime.datetime.now().isoformat(timespec='seconds')}] "
-        f"name={repr(req.name.strip())} | "
         f"doc={repr(doc)} | "
-        f"notes={repr(req.notes.strip())}\n"
+        f"notes={repr(req.notes.strip())} | "
+        f"email={repr(req.email.strip())}\n"
     )
     print(entry, flush=True)
     REQUEST_LOG.parent.mkdir(parents=True, exist_ok=True)

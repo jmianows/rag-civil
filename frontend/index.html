@@ -57,12 +57,12 @@
       <div class="settings-section" id="evolve-mode-row">
         <span class="settings-label">Evolve Mode</span>
         <div class="seg-toggle">
-          <button class="seg-btn" id="evolve-dark-btn">dark</button>
           <button class="seg-btn" id="evolve-light-btn">light</button>
+          <button class="seg-btn" id="evolve-dark-btn">dark</button>
         </div>
       </div>
 
-      <div class="settings-section">
+      <div class="settings-section" style="display:none">
         <button id="adv-toggle">
           <span id="adv-arrow">▶</span> Advanced Settings
         </button>
@@ -90,10 +90,10 @@
           <div class="about-section-label">How to Use</div>
           <ol class="how-to-list">
             <li data-n="1">Type a question in the box and press enter to search the database.</li>
-            <li data-n="2">Filter by agency or jurisdiction using the dropdowns to narrow results.</li>
+            <li data-n="2">Filter by agency/jurisdiction using the dropdowns to narrow results.</li>
             <li data-n="3">Text in the citation bar can be hovered over for additional information. Look here to find section and page numbers for the standards.</li>
             <li data-n="5">Past queries are saved in the History tab — click any entry to view it again.</li>
-            <li data-n="6">Request standards using the top right. Report poor responses/data with the button in the citation box.</li>
+            <li data-n="6">Request standards using the top right. Report poor citations with the button in citations.</li>
           </ol>
         </div>
 
@@ -107,12 +107,12 @@
         
         <div>
           <div class="about-section-label">About the Author</div>
-          <img id="bio-photo" src="small me 2025.jpg" alt="Profile photo">
+          <img id="bio-photo" src="" alt="Profile photo">
           <!-- Add your bio here -->
           <p class="about-text about-bio">Justin Mianowski is a Transportation Engineer E.I.T. with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time, he enjoys rock climbing, reading articles, and just doing things (like this!).
             <br><br>justinmianowski@gmail.com
             <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
-            <br><a href="/standards">Standards Library</a></p>
+            <br><a href="/standards">All Included Standards</a></p>
         </div>
 
       </div>
@@ -173,12 +173,12 @@
   <div id="req-modal">
     <h3>Request a Document or Standard</h3>
     <p class="req-desc">Let me know what engineering codes or standards you'd like added to this tool.</p>
-    <label>Your name <span class="req-opt">(optional)</span></label>
-    <input id="req-name"  type="text" maxlength="80"  autocomplete="off" placeholder="Name">
     <label>Document / standard to add <span class="req-required">*</span></label>
-    <input id="req-doc"   type="text" maxlength="200" autocomplete="off" placeholder="e.g. AASHTO Green Book 2018">
-    <label>Notes <span class="req-opt">(optional)</span></label>
-    <textarea id="req-notes" maxlength="500" placeholder="Agency, jurisdiction, reason for inclusion..."></textarea>
+    <input id="req-doc" type="text" maxlength="200" autocomplete="off" placeholder="e.g. AASHTO Green Book 2018">
+    <label>Link or related standards <span class="req-opt">(optional)</span></label>
+    <textarea id="req-notes" maxlength="500" placeholder="Paste a link to the document, or list related standards and any other notes..."></textarea>
+    <label>Email <span class="req-opt">(optional)</span></label>
+    <input id="req-email" type="email" maxlength="120" autocomplete="off" placeholder="your@email.com — I'll let you know when it's added">
     <div class="modal-btns">
       <button class="modal-btn" id="req-cancel">Cancel</button>
       <button class="modal-btn confirm" id="req-send">Send Request</button>
@@ -316,9 +316,9 @@ const reqStatus  = document.getElementById('req-status');
 let lastReqSend  = 0;
 
 document.getElementById('request-btn').addEventListener('click', () => {
-  document.getElementById('req-name').value  = '';
   document.getElementById('req-doc').value   = '';
   document.getElementById('req-notes').value = '';
+  document.getElementById('req-email').value = '';
   reqStatus.textContent = ''; reqStatus.className = '';
   reqSendBtn.disabled = false; reqSendBtn.textContent = 'Send Request';
   reqOverlay.classList.add('visible');
@@ -333,8 +333,8 @@ reqOverlay.addEventListener('click', e => {
 
 reqSendBtn.addEventListener('click', async () => {
   const doc   = document.getElementById('req-doc').value.trim().slice(0, 200);
-  const name  = document.getElementById('req-name').value.trim().slice(0, 80);
   const notes = document.getElementById('req-notes').value.trim().slice(0, 500);
+  const email = document.getElementById('req-email').value.trim().slice(0, 120);
 
   if (!doc) {
     reqStatus.textContent = 'Please specify a document or standard.';
@@ -355,7 +355,7 @@ reqSendBtn.addEventListener('click', async () => {
     const r = await fetch(API + '/request', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name, document: doc, notes}),
+      body: JSON.stringify({document: doc, notes, email}),
     });
     if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
     lastReqSend = Date.now();
@@ -389,6 +389,22 @@ let queryHistory = [];
 let currentIndex = -1;
 let pendingCorrection = null;
 let lastResult = null;   // captured by renderResult / pushHistory for reportError
+
+const SOURCE_COLOR_PALETTE = [
+  '#4e8ef7', '#e06c75', '#56b6c2', '#d19a66',
+  '#98c379', '#c678dd', '#e5c07b', '#61afef',
+  '#be5046', '#2bbac5',
+];
+const _sourceColorMap = {};
+let   _sourceColorIdx = 0;
+
+function getSourceColor(sourceFile) {
+  if (!_sourceColorMap[sourceFile]) {
+    _sourceColorMap[sourceFile] = SOURCE_COLOR_PALETTE[_sourceColorIdx % SOURCE_COLOR_PALETTE.length];
+    _sourceColorIdx++;
+  }
+  return _sourceColorMap[sourceFile];
+}
 
 const queryInput   = document.getElementById('query-input');
 const submitBtn    = document.getElementById('submit-btn');
@@ -687,6 +703,11 @@ function buildCitationLine(chunk) {
   const row = document.createElement('div');
   row.className = 'citation-line ' + distClass;
 
+  const bar = document.createElement('span');
+  bar.className = 'cit-color-bar';
+  bar.style.background = getSourceColor(chunk.source_file);
+  row.appendChild(bar);
+
   const file = document.createElement('span');
   file.className = 'cit-file';
   if (chunk.file_link) {
@@ -747,8 +768,8 @@ function buildCitationLine(chunk) {
 
   const btn = document.createElement('button');
   btn.className = 'correct-btn';
-  btn.textContent = '[flag error]';
-  btn.dataset.tooltip = 'Flag response as incorrect';
+  btn.textContent = 'Flag citation as broken';
+  btn.dataset.tooltip = 'Report a broken link or incorrect citation metadata';
   btn.onclick = () => {
     if (btn.disabled) return;
     btn.disabled = true;

@@ -629,6 +629,7 @@ html[data-theme="evolve-light"] .citation-line { border-left-width: 4px; }
 html[data-theme="evolve"] .cit-file,
 html[data-theme="evolve-light"] .cit-file { color: var(--accent2); }
 
+.cit-color-bar { display: inline-block; width: 3px; align-self: stretch; border-radius: 2px; margin-right: 2px; flex-shrink: 0; }
 .cit-sep   { color: var(--dim2); flex-shrink: 0; }
 .cit-meta  { color: var(--dim); white-space: nowrap; flex-shrink: 0; cursor: help; }
 .cit-meta span { color: var(--text); }
@@ -680,7 +681,7 @@ html[data-theme="evolve-light"] .correct-btn:hover:not(:disabled) { background: 
   flex-shrink: 0;
   padding: 0.35rem 0.85rem;
   color: var(--dim);
-  font-size: 11px;
+  font-size: 13px;
   font-style: italic;
   border-top: 1px solid var(--border);
   background: var(--bg1);

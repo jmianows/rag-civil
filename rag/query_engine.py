@@ -131,9 +131,10 @@ class RetrievedChunk:
     page:                  int
     chunk_index:           int
     distance:              float
-    llm_corrected_section: bool = False
-    locality:              str = ""
-    file_link:             str = ""
+    llm_corrected_section:  bool = False
+    llm_corrected_doc_page: bool = False
+    locality:               str = ""
+    file_link:              str = ""
 
 
 def _ensure_fts_index(table) -> None:
@@ -152,11 +153,19 @@ def _ensure_file_link_column(table) -> None:
         print("  [DB] Added file_link column.", flush=True)
 
 
+def _ensure_doc_page_flag_column(table) -> None:
+    existing = [f.name for f in table.schema]
+    if "llm_corrected_doc_page" not in existing:
+        table.add_columns({"llm_corrected_doc_page": "cast(false as boolean)"})
+        print("  [DB] Added llm_corrected_doc_page column.", flush=True)
+
+
 def get_db_table() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
     table = db.open_table("civil_engineering_codes")
     _ensure_fts_index(table)
     _ensure_file_link_column(table)
+    _ensure_doc_page_flag_column(table)
     return table
 
 
@@ -222,6 +231,7 @@ def retrieve_chunks(
             locality=r.get("locality", ""),
             section=r["section"],
             llm_corrected_section=r.get("llm_corrected_section", False),
+            llm_corrected_doc_page=r.get("llm_corrected_doc_page", False),
             doc_page=r.get("doc_page", "UNKNOWN"),
             page=r["page"],
             chunk_index=r["chunk_index"],
@@ -572,13 +582,70 @@ def enrich_section(text: str, source_file: str) -> str:
         return result
     return "UNKNOWN"
 
+def enrich_doc_page(text: str, source_file: str) -> str:
+    """Ask the LLM for the document page number/range of this chunk."""
+    import requests as _req
+    payload = {
+        "model": LLM_MODEL,
+        "messages": [{"role": "user", "content":
+            f"You are reading a chunk from {source_file}.\n"
+            f"Identify the document page number this chunk appears on.\n"
+            f"Return ONLY the page number or range (e.g. '142', '142-143').\n"
+            f"If you cannot determine the page number return UNKNOWN.\n"
+            f"Do not explain.\n\nText:\n{text[:500]}",
+        }],
+        "stream": False, "think": False,
+        "options": {"temperature": 0, "num_predict": 10},
+    }
+    response = _req.post(_next_ollama_host() + "/api/chat", json=payload)
+    result = strip_thinking(response.json()["message"]["content"].strip())
+    if re.match(r'^\d[\d\-]*$', result) and len(result) >= 1:
+        return result
+    return "UNKNOWN"
+
+
+def _enrich_and_persist(chunks_sec: list, chunks_page: list, table) -> None:
+    """Background: enrich UNKNOWN sections and doc_pages, persist to DB and corrections log."""
+    from ingestion.retag import log_correction
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        sec_futs  = [(c, ex.submit(enrich_section,  c.text, c.source_file)) for c in chunks_sec]
+        page_futs = [(c, ex.submit(enrich_doc_page, c.text, c.source_file)) for c in chunks_page]
+
+    for chunk, fut in sec_futs:
+        try:
+            result = fut.result()
+            if result == "UNKNOWN":
+                continue
+            cid = f"{chunk.source_file}__p{chunk.page}__c{chunk.chunk_index}"
+            table.update(where=f"id = '{cid}'",
+                         values={"section": result, "llm_corrected_section": True})
+            log_correction(chunk.source_file, chunk.page, chunk.chunk_index,
+                           chunk.section, result, field="section")
+            print(f"  [enrich] section {cid} → {result}", flush=True)
+        except Exception as e:
+            print(f"  [enrich] warn section: {e}", flush=True)
+
+    for chunk, fut in page_futs:
+        try:
+            result = fut.result()
+            if result == "UNKNOWN":
+                continue
+            cid = f"{chunk.source_file}__p{chunk.page}__c{chunk.chunk_index}"
+            table.update(where=f"id = '{cid}'",
+                         values={"doc_page": result, "llm_corrected_doc_page": True})
+            log_correction(chunk.source_file, chunk.page, chunk.chunk_index,
+                           chunk.doc_page, result, field="doc_page")
+            print(f"  [enrich] doc_page {cid} → {result}", flush=True)
+        except Exception as e:
+            print(f"  [enrich] warn doc_page: {e}", flush=True)
+
+
 def query_prepare(
     user_query: str,
     filter_agency: str = None,
     filter_jurisdiction: str = None,
     filter_state: str = None,
     filter_locality: str = None,
-    enrich_unknown_sections: bool = True,
 ) -> dict:
     """Run retrieval + formatting pipeline without calling the LLM.
     Returns {context, source_groups, chunks} or {empty: True, ...} if no results."""
@@ -601,32 +668,19 @@ def query_prepare(
     if not chunks:
         return {"empty": True, "source_groups": [], "chunks": [], "context": ""}
 
-    if enrich_unknown_sections:
-        to_enrich = [c for c in chunks if c.section == "UNKNOWN" and not c.llm_corrected_section]
-        already_tried = [c for c in chunks if c.section == "UNKNOWN" and c.llm_corrected_section]
-
-        if to_enrich:
-            print(f"  [3/4] Enriching {len(to_enrich)} unknown sections in parallel...", flush=True)
-            with ThreadPoolExecutor(max_workers=4) as ex:
-                futs = [ex.submit(enrich_section, c.text, c.source_file) for c in to_enrich]
-            for chunk, fut in zip(to_enrich, futs):
-                chunk.section = fut.result()
-                chunk.llm_corrected_section = True
-            for chunk in to_enrich:
-                cid = f"{chunk.source_file}__p{chunk.page}__c{chunk.chunk_index}"
-                try:
-                    table.update(
-                        where=f"id = '{cid}'",
-                        values={"section": chunk.section, "llm_corrected_section": True},
-                    )
-                except Exception as e:
-                    print(f"  [warn] DB persist failed for {cid}: {e}", flush=True)
-        elif already_tried:
-            print(f"  [3/4] {len(already_tried)} already tried — skipping re-enrichment", flush=True)
-        else:
-            print("  [3/4] All sections known — skipping enrichment", flush=True)
+    chunks_sec  = [c for c in chunks if c.section  == "UNKNOWN" and not c.llm_corrected_section]
+    chunks_page = [c for c in chunks if c.doc_page == "UNKNOWN" and not c.llm_corrected_doc_page]
+    if chunks_sec or chunks_page:
+        print(f"  [3/4] Scheduling background enrichment "
+              f"({len(chunks_sec)} section, {len(chunks_page)} doc_page)", flush=True)
+        threading.Thread(
+            target=_enrich_and_persist,
+            args=(chunks_sec, chunks_page, table),
+            daemon=True,
+            name="enrichment",
+        ).start()
     else:
-        print("  [3/4] Section enrichment disabled", flush=True)
+        print("  [3/4] All metadata known — skipping enrichment", flush=True)
 
     print("  [4/4] Building context...")
     groups = group_chunks(chunks, table)
@@ -725,7 +779,6 @@ def query(
     filter_jurisdiction: str = None,
     filter_state: str = None,
     filter_locality: str = None,
-    enrich_unknown_sections: bool = True,
 ) -> dict:
     prep = query_prepare(
         user_query=user_query,
@@ -733,7 +786,6 @@ def query(
         filter_jurisdiction=filter_jurisdiction,
         filter_state=filter_state,
         filter_locality=filter_locality,
-        enrich_unknown_sections=enrich_unknown_sections,
     )
     if prep.get("empty"):
         return {

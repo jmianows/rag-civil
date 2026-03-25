@@ -2,12 +2,20 @@ import re
 import lancedb
 from pathlib import Path
 from collections import defaultdict
-from metadata import detect_doc_page, propagate_metadata
-from section_parser import (
-    extract_section_candidate,
-    segments_to_string,
-    is_valid_advance,
-)
+try:
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+    from ingestion.section_parser import (
+        extract_section_candidate,
+        segments_to_string,
+        is_valid_advance,
+    )
+except ImportError:
+    from metadata import detect_doc_page, propagate_metadata
+    from section_parser import (
+        extract_section_candidate,
+        segments_to_string,
+        is_valid_advance,
+    )
 
 VECTORDB_DIR = Path("/home/justin/rag-civil/vectordb")
 
@@ -87,22 +95,24 @@ def log_correction(
     source_file: str,
     page: int,
     chunk_index: int,
-    old_section: str,
-    correct_section: str,
+    old_value: str,
+    correct_value: str,
+    field: str = "section",
 ) -> None:
     import json
     from datetime import datetime
     with open(CORRECTIONS_LOG, "a") as f:
         json.dump({
-            "source_file":     source_file,
-            "page":            page,
-            "chunk_index":     chunk_index,
-            "old_section":     old_section,
-            "correct_section": correct_section,
-            "timestamp":       datetime.now().isoformat(),
+            "source_file":   source_file,
+            "page":          page,
+            "chunk_index":   chunk_index,
+            "old_value":     old_value,
+            "correct_value": correct_value,
+            "field":         field,
+            "timestamp":     datetime.now().isoformat(),
         }, f)
         f.write("\n")
-    print(f"  Logged correction: {source_file} p{page} c{chunk_index} -> {correct_section}")
+    print(f"  Logged {field} correction: {source_file} p{page} c{chunk_index} → {correct_value}")
 
 
 def apply_corrections(table) -> int:
@@ -117,23 +127,32 @@ def apply_corrections(table) -> int:
             line = line.strip()
             if not line:
                 continue
-            correction = json.loads(line)
+            c = json.loads(line)
+
+            # Support both old format (correct_section) and new format (correct_value + field)
+            field         = c.get("field", "section")
+            correct_value = c.get("correct_value") or c.get("correct_section", "")
+            if not correct_value or correct_value == "UNKNOWN":
+                continue
+
             chunk_id = (
-                f"{correction['source_file']}"
-                f"__p{correction['page']}"
-                f"__c{correction['chunk_index']}"
+                f"{c['source_file']}"
+                f"__p{c['page']}"
+                f"__c{c['chunk_index']}"
             )
+
+            if field == "section":
+                values = {"section": correct_value, "llm_corrected_section": True}
+            elif field == "doc_page":
+                values = {"doc_page": correct_value, "llm_corrected_doc_page": True}
+            else:
+                continue
+
             try:
-                table.update(
-                    where=f"id = '{chunk_id}'",
-                    values={
-                        "section":               correction["correct_section"],
-                        "llm_corrected_section": True,
-                    }
-                )
+                table.update(where=f"id = '{chunk_id}'", values=values)
                 applied += 1
             except Exception as e:
-                print(f"  Failed to apply correction {chunk_id}: {e}")
+                print(f"  Failed to apply {field} correction {chunk_id}: {e}")
 
     print(f"  Applied {applied} corrections")
     return applied
