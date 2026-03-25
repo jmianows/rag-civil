@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Civil Standards Smart Dictionary</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <script>
 /* Apply theme before first paint — prevents flash on dark-mode systems. */
 (function(){
@@ -18,11 +19,17 @@
 
 <!-- ══ HEADER ══ -->
 <div id="header">
+  <img src="/civilcat_mini.png" id="header-logo" alt="Civil Cat" data-tooltip="Meow!">
   <div class="logo">Civil Standards Smart Dictionary</div>
   <div class="tagline">civil engineering code lookup // v0.5</div>
   <div class="spacer"></div>
   <div id="status-bar">API: <span id="api-status">checking...</span></div>
   <button id="request-btn">Request codes to add!</button>
+  <div id="mobile-nav">
+    <button class="mobile-tab-btn active" data-tab="about">About</button>
+    <button class="mobile-tab-btn" data-tab="history">History</button>
+    <button class="mobile-tab-btn" data-tab="settings">Settings</button>
+  </div>
 </div>
 
 <!-- ══ LAYOUT ══ -->
@@ -30,10 +37,11 @@
 
   <!-- ══ SIDEBAR ══ -->
   <div id="sidebar">
+    <button id="sidebar-close" aria-label="Close panel">✕</button>
     <div id="sidebar-tabs">
+      <button class="tab-btn active" data-tab="about">About</button>
       <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
-      <button class="tab-btn active" data-tab="about">About</button>
     </div>
 
     <!-- History tab -->
@@ -91,7 +99,7 @@
           <ol class="how-to-list">
             <li data-n="1">Type a question in the box and press enter to search the database.</li>
             <li data-n="2">Filter by agency/jurisdiction using the dropdowns to narrow results.</li>
-            <li data-n="3">Text in the citation bar can be hovered over for additional information. Look here to find section and page numbers for the standards.</li>
+            <li data-n="3">Click on .pdf links in citations to be taken there. Look here to find section and page numbers for the standards.</li>
             <li data-n="5">Past queries are saved in the History tab — click any entry to view it again.</li>
             <li data-n="6">Request standards using the top right. Report poor citations with the button in citations.</li>
           </ol>
@@ -101,7 +109,7 @@
 
         <div>
           <div class="about-section-label">This Project</div>
-          <p class="about-text">My goal was to create a bulk search function specifically for civil engineering standards that was better than ctrl+f. This can search multiple documents at once and accept naturalistic language inputs, so I think this succeeds. This is technically "powered by AI".</p>
+          <p class="about-text">My goal was to create a bulk search function specifically for civil engineering standards better than ctrl+f. This searches multiple documents at once and accept naturalistic language inputs, so I think this succeeds. This is technically "powered by AI".</p>
         </div>
 <!-- To display a photo: set src="filename.jpg" below (place file in frontend/) -->
         
@@ -109,7 +117,7 @@
           <div class="about-section-label">About the Author</div>
           <img id="bio-photo" src="" alt="Profile photo">
           <!-- Add your bio here -->
-          <p class="about-text about-bio">Justin Mianowski is a Transportation Engineer E.I.T. with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time, he enjoys rock climbing, reading articles, and just doing things (like this!).
+          <p class="about-text about-bio">Justin Mianowski is a Transportation Engineer E.I.T. with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time, he enjoys rock climbing, reading, and just doing things (like this!).
             <br><br>justinmianowski@gmail.com
             <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
             <br><a href="/standards">All Included Standards</a></p>
@@ -384,7 +392,7 @@ function logAnalyticsEvent(event, source_file = null) {
 /* ══════════════════════════════════════════════════════════════
    APP STATE + ELEMENT REFS
 ══════════════════════════════════════════════════════════════ */
-const API = '';
+const API = 'https://api.civilsmartdictionary.com';
 let queryHistory = [];
 let currentIndex = -1;
 let pendingCorrection = null;
@@ -432,10 +440,16 @@ async function checkApi() {
     if (!r.ok) throw new Error(r.status);
     apiStatus.className = 'ok';
     apiStatus.textContent = 'online';
+    queryInput.disabled = false;
+    queryInput.placeholder = 'Ask a question...';
+    submitBtn.disabled = false;
     populateFilters(await r.json());
   } catch {
     apiStatus.className = 'err';
     apiStatus.textContent = 'offline';
+    queryInput.disabled = true;
+    queryInput.placeholder = 'The service is currently offline. Prompting will be active again at 6am PST.';
+    submitBtn.disabled = true;
   }
 }
 
@@ -703,25 +717,21 @@ function buildCitationLine(chunk) {
   const row = document.createElement('div');
   row.className = 'citation-line ' + distClass;
 
-  const bar = document.createElement('span');
-  bar.className = 'cit-color-bar';
-  bar.style.background = getSourceColor(chunk.source_file);
-  row.appendChild(bar);
-
   const file = document.createElement('span');
   file.className = 'cit-file';
   if (chunk.file_link) {
     const a = document.createElement('a');
-    a.href = chunk.file_link + '#page=' + (chunk.page || 1);
+    const isPdf = chunk.file_link.toLowerCase().endsWith('.pdf');
+    a.href = isPdf ? chunk.file_link + '#page=' + (chunk.page || 1) : chunk.file_link;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.textContent = chunk.source_file;
+    a.textContent = chunk.source_file + ' 🔗';
     file.appendChild(a);
   } else {
     file.textContent = chunk.source_file;
   }
   const rawText = chunk.text || '';
-  file.dataset.tooltip = rawText.length > 220 ? rawText.slice(0, 220) + '\u2026' : rawText;
+  file.dataset.tooltip = chunk.file_link ? 'Click to go to source' : 'Link not found';
   row.appendChild(file);
 
   row.appendChild(makeSep());
@@ -893,6 +903,35 @@ modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') applyCorrec
    INIT
 ══════════════════════════════════════════════════════════════ */
 checkApi();
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE DRAWER
+══════════════════════════════════════════════════════════════ */
+function openSidebarTab(target) {
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === target));
+  document.querySelectorAll('.tab-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'tab-' + target));
+  document.querySelectorAll('.mobile-tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === target));
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+document.querySelectorAll('.mobile-tab-btn').forEach(btn =>
+  btn.addEventListener('click', () => openSidebarTab(btn.dataset.tab)));
+
+document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
 </script>
+
+<div id="sidebar-backdrop"></div>
 </body>
 </html>

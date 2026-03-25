@@ -230,8 +230,10 @@ def get_standards_list():
                     "agency":       r.get("agency", ""),
                     "jurisdiction": r.get("jurisdiction", ""),
                     "state":        r.get("state", ""),
+                    "locality":     r.get("locality", ""),
+                    "file_link":    r.get("file_link", ""),
                 }
-        return sorted(seen.values(), key=lambda x: x["source_file"])
+        return sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

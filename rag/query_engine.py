@@ -735,10 +735,12 @@ def generate_response_stream(user_query: str, context: str):
     }
 
     resp = _req.post(_next_ollama_host() + "/api/chat", json=payload, stream=True)
-    flag_re = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
+    flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer        = ""
     full_text     = ""
     has_src_block = False
+    citations     = []   # [[SRC_N]] numbers collected in order
+    GUARD         = 12   # len("[[SRC_99]]") == 11
 
     for line in resp.iter_lines():
         if not line:
@@ -752,22 +754,36 @@ def generate_response_stream(user_query: str, context: str):
         if m:
             text_before = strip_thinking(buffer[:m.start()])
             buffer = buffer[m.end():]
+            if text_before:
+                yield {"type": "text", "text": text_before}
             if m.group(1) is not None:
-                # [[SRC_N]] flag
-                yield {"type": "source_block", "text": text_before, "n": int(m.group(1))}
+                # [[SRC_N]] — collect for end, don't emit citation inline
+                citations.append(int(m.group(1)))
                 has_src_block = True
             else:
-                # [[FAIL]] — suppress if content with [[SRC_N]] was already yielded
+                # [[FAIL]] — suppress if any [[SRC_N]] was already seen
                 if not has_src_block:
-                    yield {"type": "fail", "text": text_before}
+                    yield {"type": "fail", "text": ""}
+        else:
+            # Flush tokens that cannot be part of an incoming marker.
+            # Keep GUARD chars buffered to avoid splitting a marker mid-yield.
+            if len(buffer) > GUARD:
+                safe = strip_thinking(buffer[:-GUARD])
+                if safe:
+                    yield {"type": "text", "text": safe}
+                buffer = buffer[-GUARD:]
 
         if data.get("done"):
             break
 
-    # any remaining text after the last flag (or entire output if no flags were used)
+    # Flush remaining buffer
     remainder = strip_thinking(buffer)
     if remainder.strip():
         yield {"type": "text", "text": remainder}
+
+    # Emit citation rows after all text is done
+    for n in citations:
+        yield {"type": "source_block", "n": n}
 
     print(f"\n── LLM RAW OUTPUT ──\n{full_text}\n── END ──\n", flush=True)
     yield {"type": "done", "raw": full_text}

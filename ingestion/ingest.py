@@ -271,12 +271,13 @@ def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
         jurisdiction = "STATE"
         state        = rel_parts[1].upper()
         agency       = rel_parts[2].upper()
-    elif tier == "LOCAL" and len(rel_parts) >= 5:
-        # LOCAL / {ST} / {Locality} / {Agency} / file.pdf
+    elif tier == "LOCAL" and len(rel_parts) >= 4:
+        # LOCAL / {ST} / {Locality} / {Agency} / file.pdf  (>=5 parts)
+        # LOCAL / {ST} / {Locality} / file.pdf             (4 parts — agency falls back to locality)
         jurisdiction = "LOCAL"
         state        = rel_parts[1].upper()
         locality     = rel_parts[2].title()   # "King County" style casing
-        agency       = rel_parts[3].upper()
+        agency       = rel_parts[3].upper() if len(rel_parts) >= 5 else locality.upper()
 
     file_link = _load_link(pdf_path, root)
 
@@ -373,10 +374,10 @@ def init_db() -> lancedb.table.LanceTable:
         pa.field("chunk_index",  pa.int32()),
     ])
 
-    if "civil_engineering_codes" in db.db.list_tables():
+    try:
         table = db.open_table("civil_engineering_codes")
         print(f"  LanceDB opened — {table.count_rows()} existing chunks")
-    else:
+    except Exception:
         table = db.create_table("civil_engineering_codes", schema=schema)
         print("  LanceDB created new table")
 
@@ -549,9 +550,11 @@ def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable, root: Path) -> 
 def reset_db() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
     
-    if "civil_engineering_codes" in db.db.list_tables():
+    try:
         db.drop_table("civil_engineering_codes")
         print("  Existing table deleted")
+    except Exception:
+        pass
 
     schema = pa.schema([
         pa.field("id",           pa.string()),

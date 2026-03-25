@@ -39,7 +39,7 @@ rsync -avz --progress \
     --exclude='*.pyc' \
     --exclude='.env' \
     --include='vectordb/' \
-    --include='docs/' \
+    --exclude='docs/' \
     "$LOCAL_DIR/" \
     "${REMOTE_USER}@${NODE_IP}:${REMOTE_DIR}/"
 

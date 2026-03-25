@@ -1,22 +1,102 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="evolve-light">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Standards Library — Civil Standards Smart Dictionary</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<script>
+(function(){
+  var k='rag-civil-theme';
+  var t=localStorage.getItem(k)||(window.matchMedia('(prefers-color-scheme: dark)').matches?'evolve':'evolve-light');
+  document.documentElement.dataset.theme=t;
+})();
+</script>
 <link rel="stylesheet" href="index.css">
+<style>
+#std-layout {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+}
+#std-content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.std-title {
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+.std-subtitle {
+  color: var(--dim);
+  font-size: 12px;
+  margin-bottom: 1.8rem;
+}
+.std-agency {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-top: 1.4rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+.std-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.std-list li {
+  font-size: 13px;
+  color: var(--text);
+  padding: 0.22rem 0;
+}
+.std-list li::before {
+  content: '•';
+  color: var(--dim2);
+  margin-right: 0.5rem;
+}
+.std-list a {
+  color: var(--text);
+  text-decoration: none;
+}
+.std-list a:hover {
+  text-decoration: underline;
+  color: var(--accent);
+}
+.std-copyright {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--dim2);
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.6;
+}
+#std-error {
+  color: var(--dim);
+  font-size: 13px;
+  font-style: italic;
+}
+</style>
 </head>
 <body>
 
 <!-- ══ HEADER ══ -->
 <div id="header">
-  <div class="logo">Civil Standards Smart Dictionary</div>
+  <img src="/civilcat_mini.png" id="header-logo" alt="Civil Cat" data-tooltip="Meow!">
+  <div class="logo" style="margin-left:-1ch">Civil Standards Smart Dictionary</div>
   <div class="tagline">standards library</div>
   <div class="spacer"></div>
-  <a href="/" class="back-btn">← Back to dictionary</a>
+  <a href="/" class="back-btn">← dictionary</a>
   <div class="seg-toggle">
-    <button class="seg-btn" id="std-dark-btn">dark</button>
     <button class="seg-btn" id="std-light-btn">light</button>
+    <button class="seg-btn" id="std-dark-btn">dark</button>
   </div>
 </div>
 
@@ -24,31 +104,24 @@
 <div id="std-layout">
   <div id="std-content">
     <div class="std-title">Included Standards</div>
-    <p class="std-desc">All documents currently indexed in the vector database.</p>
-    <table id="std-table">
-      <thead>
-        <tr>
-          <th>Document</th>
-          <th>Agency</th>
-          <th>Jurisdiction</th>
-          <th>State</th>
-        </tr>
-      </thead>
-      <tbody id="std-tbody">
-        <tr><td colspan="4" class="std-loading">Loading&hellip;</td></tr>
-      </tbody>
-    </table>
+    <div class="std-subtitle">All documents currently indexed in the knowledge base.</div>
+    <div id="std-body"><span id="std-error">Loading&hellip;</span></div>
+    <div class="std-copyright">
+      Copyrighted materials from organizations such as AASHTO, IBC, and similar
+      standards bodies are not included due to licensing restrictions.
+    </div>
   </div>
 </div>
 
 <script>
 'use strict';
 
-/* ── Theme — shared localStorage key with main page ── */
+const API = 'https://api.civilsmartdictionary.com';
 const THEME_KEY = 'rag-civil-theme';
+
+/* ── Theme toggle ── */
 const darkBtn  = document.getElementById('std-dark-btn');
 const lightBtn = document.getElementById('std-light-btn');
-
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
   localStorage.setItem(THEME_KEY, t);
@@ -57,37 +130,62 @@ function applyTheme(t) {
 }
 darkBtn.addEventListener('click',  () => applyTheme('evolve'));
 lightBtn.addEventListener('click', () => applyTheme('evolve-light'));
-applyTheme(localStorage.getItem(THEME_KEY) || 'evolve-light');
+applyTheme(localStorage.getItem(THEME_KEY) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'evolve' : 'evolve-light'));
 
-/* ── Load and render standards table ── */
+/* ── Load and render standards list ── */
 async function loadStandards() {
-  const tbody = document.getElementById('std-tbody');
+  const container = document.getElementById('std-body');
   try {
-    const r = await fetch('/standards/list');
+    const r = await fetch(API + '/standards/list');
     if (!r.ok) throw new Error(r.statusText);
     const rows = await r.json();
+
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="std-loading">No standards found.</td></tr>';
+      container.innerHTML = '<span id="std-error">No standards found.</span>';
       return;
     }
-    tbody.innerHTML = '';
+
+    // Group by agency (already sorted by agency from backend)
+    const groups = {};
     for (const row of rows) {
-      const tr = document.createElement('tr');
-      const sf  = document.createElement('td');
-      const ag  = document.createElement('td');
-      const jur = document.createElement('td');
-      const st  = document.createElement('td');
-      sf.textContent  = row.source_file;
-      ag.textContent  = row.agency       || '\u2014';
-      jur.textContent = row.jurisdiction || '\u2014';
-      st.textContent  = row.state        || '\u2014';
-      tr.append(sf, ag, jur, st);
-      tbody.appendChild(tr);
+      const ag = row.agency || 'Unknown';
+      if (!groups[ag]) groups[ag] = [];
+      groups[ag].push(row);
     }
+
+    const frag = document.createDocumentFragment();
+    for (const [agency, docs] of Object.entries(groups)) {
+      const heading = document.createElement('div');
+      heading.className = 'std-agency';
+      heading.textContent = agency;
+      frag.appendChild(heading);
+
+      const ul = document.createElement('ul');
+      ul.className = 'std-list';
+      for (const doc of docs) {
+        const li = document.createElement('li');
+        const name = doc.source_file.replace(/\.pdf$/i, '');
+        if (doc.file_link) {
+          const a = document.createElement('a');
+          a.href = doc.file_link;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = name + ' 🔗';
+          li.appendChild(a);
+        } else {
+          li.appendChild(document.createTextNode(name));
+        }
+        ul.appendChild(li);
+      }
+      frag.appendChild(ul);
+    }
+    container.innerHTML = '';
+    container.appendChild(frag);
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="4" class="std-loading">Failed to load: ${e.message}</td></tr>`;
+    container.innerHTML = `<span id="std-error">Could not load standards list: ${e.message}</span>`;
   }
 }
+
 loadStandards();
 </script>
 
