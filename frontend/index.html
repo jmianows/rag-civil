@@ -99,7 +99,7 @@
           <ol class="how-to-list">
             <li data-n="1">Type a question in the box and press enter to search the database.</li>
             <li data-n="2">Filter by agency/jurisdiction using the dropdowns to narrow results.</li>
-            <li data-n="3">Click on .pdf links in citations to be taken there. Look here to find section and page numbers for the standards.</li>
+            <li data-n="3">Citations should include links to the document itself, along with the passage's location.</li>
             <li data-n="5">Past queries are saved in the History tab — click any entry to view it again.</li>
             <li data-n="6">Request standards using the top right. Report poor citations with the button in citations.</li>
           </ol>
@@ -118,9 +118,9 @@
           <img id="bio-photo" src="" alt="Profile photo">
           <!-- Add your bio here -->
           <p class="about-text about-bio">Justin Mianowski is a Transportation Engineer E.I.T. with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time, he enjoys rock climbing, reading, and just doing things (like this!).
-            <br><br>justinmianowski@gmail.com
+            <br><br>contact: jmianows@umich.edu
             <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
-            <br><a href="/standards">All Included Standards</a></p>
+            <br><br><a href="/standards">More Info</a></p>
         </div>
 
       </div>
@@ -156,7 +156,7 @@
     </div>
     <!-- ══ /LLM CHAT WINDOW ══ -->
 
-    <div id="disclaimer">This tool retrieves relevant code sections to assist with research. Always verify requirements against official current publications. Not a substitute for professional judgment.</div>
+    <div id="disclaimer">This tool retrieves relevant code sections to assist with research. Always verify requirements against official current publications. Not a substitute for professional judgment. I only store anon user data.</div>
 
   </div><!-- /main -->
 
@@ -182,11 +182,11 @@
     <h3>Request a Document or Standard</h3>
     <p class="req-desc">Let me know what engineering codes or standards you'd like added to this tool.</p>
     <label>Document / standard to add <span class="req-required">*</span></label>
-    <input id="req-doc" type="text" maxlength="200" autocomplete="off" placeholder="e.g. AASHTO Green Book 2018">
+    <input id="req-doc" type="text" maxlength="200" autocomplete="off" placeholder="I cannot add copyrighted material!">
     <label>Link or related standards <span class="req-opt">(optional)</span></label>
     <textarea id="req-notes" maxlength="500" placeholder="Paste a link to the document, or list related standards and any other notes..."></textarea>
     <label>Email <span class="req-opt">(optional)</span></label>
-    <input id="req-email" type="email" maxlength="120" autocomplete="off" placeholder="your@email.com — I'll let you know when it's added">
+    <input id="req-email" type="email" maxlength="120" autocomplete="off" placeholder="Fill this out and I'll let you know when it's added">
     <div class="modal-btns">
       <button class="modal-btn" id="req-cancel">Cancel</button>
       <button class="modal-btn confirm" id="req-send">Send Request</button>
@@ -392,7 +392,9 @@ function logAnalyticsEvent(event, source_file = null) {
 /* ══════════════════════════════════════════════════════════════
    APP STATE + ELEMENT REFS
 ══════════════════════════════════════════════════════════════ */
-const API = 'https://api.civilsmartdictionary.com';
+const PROD_HOSTS = ['civilsmartdictionary.com', 'www.civilsmartdictionary.com'];
+const API = PROD_HOSTS.includes(window.location.hostname)
+  ? 'https://api.civilsmartdictionary.com' : '';
 let queryHistory = [];
 let currentIndex = -1;
 let pendingCorrection = null;

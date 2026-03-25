@@ -765,13 +765,18 @@ def generate_response_stream(user_query: str, context: str):
                 if not has_src_block:
                     yield {"type": "fail", "text": ""}
         else:
-            # Flush tokens that cannot be part of an incoming marker.
-            # Keep GUARD chars buffered to avoid splitting a marker mid-yield.
-            if len(buffer) > GUARD:
-                safe = strip_thinking(buffer[:-GUARD])
-                if safe:
-                    yield {"type": "text", "text": safe}
-                buffer = buffer[-GUARD:]
+            # Flush only complete newline-terminated lines from the safe zone.
+            # GUARD chars are kept buffered to avoid splitting a [[SRC_N]] marker.
+            safe_end = max(0, len(buffer) - GUARD)
+            while True:
+                nl = buffer.find('\n', 0, safe_end)
+                if nl == -1:
+                    break
+                line = strip_thinking(buffer[:nl+1])
+                buffer = buffer[nl+1:]
+                safe_end = max(0, len(buffer) - GUARD)
+                if line.strip():
+                    yield {"type": "text", "text": line + '\n'}
 
         if data.get("done"):
             break

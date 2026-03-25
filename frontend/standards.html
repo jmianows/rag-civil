@@ -35,22 +35,60 @@
   font-size: 12px;
   margin-bottom: 1.8rem;
 }
+.std-jurisdiction {
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--border);
+}
+.std-state {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 1.1rem;
+  margin-bottom: 0.3rem;
+  padding-left: 1rem;
+}
+.std-locality {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 0.8rem;
+  margin-bottom: 0.2rem;
+  padding-left: 2rem;
+}
 .std-agency {
   font-size: 11px;
   font-weight: bold;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--accent);
-  margin-top: 1.4rem;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.2rem;
+  margin-top: 0.9rem;
+  margin-bottom: 0.3rem;
+  padding-bottom: 0.15rem;
   border-bottom: 1px solid var(--border);
+}
+.std-jurisdiction + .std-state + .std-agency,
+.std-jurisdiction + .std-agency {
+  padding-left: 1rem;
 }
 .std-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
+.std-list.indent-1 { padding-left: 1rem; }
+.std-list.indent-2 { padding-left: 2rem; }
+.std-list.indent-3 { padding-left: 3rem; }
 .std-list li {
   font-size: 13px;
   color: var(--text);
@@ -89,15 +127,13 @@
 
 <!-- ══ HEADER ══ -->
 <div id="header">
-  <img src="/civilcat_mini.png" id="header-logo" alt="Civil Cat" data-tooltip="Meow!">
-  <div class="logo" style="margin-left:-1ch">Civil Standards Smart Dictionary</div>
+  <a href="/" style="display:contents">
+    <img src="/civilcat_mini.png" id="header-logo" alt="Civil Cat" data-tooltip="Meow!">
+    <div class="logo" style="margin-left:-1ch">Civil Standards Smart Dictionary</div>
+  </a>
   <div class="tagline">standards library</div>
   <div class="spacer"></div>
   <a href="/" class="back-btn">← dictionary</a>
-  <div class="seg-toggle">
-    <button class="seg-btn" id="std-light-btn">light</button>
-    <button class="seg-btn" id="std-dark-btn">dark</button>
-  </div>
 </div>
 
 <!-- ══ CONTENT ══ -->
@@ -108,7 +144,7 @@
     <div id="std-body"><span id="std-error">Loading&hellip;</span></div>
     <div class="std-copyright">
       Copyrighted materials from organizations such as AASHTO, IBC, and similar
-      standards bodies are not included due to licensing restrictions.
+      standards bodies are not included due to licensing restrictions. 
     </div>
   </div>
 </div>
@@ -116,21 +152,41 @@
 <script>
 'use strict';
 
-const API = 'https://api.civilsmartdictionary.com';
+const PROD_HOSTS = ['civilsmartdictionary.com', 'www.civilsmartdictionary.com'];
+const API = PROD_HOSTS.includes(window.location.hostname)
+  ? 'https://api.civilsmartdictionary.com' : '';
 const THEME_KEY = 'rag-civil-theme';
 
-/* ── Theme toggle ── */
-const darkBtn  = document.getElementById('std-dark-btn');
-const lightBtn = document.getElementById('std-light-btn');
+/* ── Theme (read-only — follows whatever was set on the main page) ── */
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
   localStorage.setItem(THEME_KEY, t);
-  darkBtn.classList.toggle('active',  t === 'evolve');
-  lightBtn.classList.toggle('active', t === 'evolve-light');
 }
-darkBtn.addEventListener('click',  () => applyTheme('evolve'));
-lightBtn.addEventListener('click', () => applyTheme('evolve-light'));
 applyTheme(localStorage.getItem(THEME_KEY) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'evolve' : 'evolve-light'));
+
+/* ── Helpers ── */
+function makeDocItem(doc) {
+  const li = document.createElement('li');
+  const name = doc.source_file.replace(/\.pdf$/i, '');
+  if (doc.file_link) {
+    const a = document.createElement('a');
+    a.href = doc.file_link;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = name + ' 🔗';
+    li.appendChild(a);
+  } else {
+    li.appendChild(document.createTextNode(name));
+  }
+  return li;
+}
+
+function makeHeading(cls, text) {
+  const el = document.createElement('div');
+  el.className = cls;
+  el.textContent = text;
+  return el;
+}
 
 /* ── Load and render standards list ── */
 async function loadStandards() {
@@ -145,40 +201,59 @@ async function loadStandards() {
       return;
     }
 
-    // Group by agency (already sorted by agency from backend)
-    const groups = {};
+    // Build nested map: jurisdiction → state → locality → agency → [docs]
+    const tree = {};
     for (const row of rows) {
-      const ag = row.agency || 'Unknown';
-      if (!groups[ag]) groups[ag] = [];
-      groups[ag].push(row);
+      const jur = row.jurisdiction || 'OTHER';
+      const st  = row.state        || '';
+      const loc = row.locality     || '';
+      const ag  = row.agency       || 'Unknown';
+      tree[jur]             ??= {};
+      tree[jur][st]         ??= {};
+      tree[jur][st][loc]    ??= {};
+      tree[jur][st][loc][ag] ??= [];
+      tree[jur][st][loc][ag].push(row);
     }
+
+    const JUR_ORDER = ['FEDERAL', 'STATE', 'LOCAL'];
+    const jurisdictions = [
+      ...JUR_ORDER.filter(j => tree[j]),
+      ...Object.keys(tree).filter(j => !JUR_ORDER.includes(j)).sort(),
+    ];
 
     const frag = document.createDocumentFragment();
-    for (const [agency, docs] of Object.entries(groups)) {
-      const heading = document.createElement('div');
-      heading.className = 'std-agency';
-      heading.textContent = agency;
-      frag.appendChild(heading);
 
-      const ul = document.createElement('ul');
-      ul.className = 'std-list';
-      for (const doc of docs) {
-        const li = document.createElement('li');
-        const name = doc.source_file.replace(/\.pdf$/i, '');
-        if (doc.file_link) {
-          const a = document.createElement('a');
-          a.href = doc.file_link;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.textContent = name + ' 🔗';
-          li.appendChild(a);
-        } else {
-          li.appendChild(document.createTextNode(name));
+    for (const jur of jurisdictions) {
+      frag.appendChild(makeHeading('std-jurisdiction', jur));
+
+      const stateMap = tree[jur];
+      for (const st of Object.keys(stateMap).sort()) {
+        if (st) frag.appendChild(makeHeading('std-state', st));
+
+        const locMap = stateMap[st];
+        for (const loc of Object.keys(locMap).sort()) {
+          if (loc) frag.appendChild(makeHeading('std-locality', loc));
+
+          const agMap = locMap[loc];
+          // Indent level: FEDERAL→1, STATE→1, LOCAL (no loc)→1, LOCAL (with loc)→2
+          const agIndent = loc ? 'indent-2' : 'indent-1';
+          const listIndent = loc ? 'indent-3' : 'indent-2';
+
+          for (const ag of Object.keys(agMap).sort()) {
+            const agEl = makeHeading('std-agency ' + agIndent, ag);
+            frag.appendChild(agEl);
+
+            const ul = document.createElement('ul');
+            ul.className = 'std-list ' + listIndent;
+            for (const doc of agMap[ag]) {
+              ul.appendChild(makeDocItem(doc));
+            }
+            frag.appendChild(ul);
+          }
         }
-        ul.appendChild(li);
       }
-      frag.appendChild(ul);
     }
+
     container.innerHTML = '';
     container.appendChild(frag);
   } catch(e) {

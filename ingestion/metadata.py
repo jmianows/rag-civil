@@ -1,10 +1,17 @@
 import re
 from pathlib import Path
-from section_parser import (
-    extract_section_candidate,
-    segments_to_string,
-    is_valid_advance,
-)
+try:
+    from ingestion.section_parser import (
+        extract_section_candidate,
+        segments_to_string,
+        is_valid_advance,
+    )
+except ImportError:
+    from section_parser import (
+        extract_section_candidate,
+        segments_to_string,
+        is_valid_advance,
+    )
 
 
 class DocumentSectionTracker:

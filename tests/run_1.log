@@ -1,0 +1,162 @@
+Run started: 2026-03-25T15:11:43  |  100 prompts
+
+======================================================================
+PROMPT 1: What is the minimum lane width for a rural arterial highway according to WSDOT?
+======================================================================
+RESPONSE:
+- The lane width ranges for highways are listed in Exhibit 1231-1.  
+  - For highways with speeds ≥ 50 mph (freeway or interstate), lane width is not specified in this section.  
+  - For highways with speeds of 40 to 45 mph, lane width range is 11' to 12'.  
+  - For highways with speeds ≤ 35 mph, lane width range is 10' to 12'.  
+
+[[SRC_6]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(d) | p1016
+  [2] WSDOT Design Manual.pdf | WSDOT | §530.04(2)(b) | p202
+  [3] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1015
+  [4] WSDOT Design Manual.pdf | WSDOT | §1240.03(2) | p721
+  [5] WSDOT Design Manual.pdf | WSDOT | §1360.08(2) | p987
+  [6] WSDOT Design Manual.pdf | WSDOT | §1231.04(1)(a) | p661
+  [7] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1019
+
+OK | 12.8s
+
+======================================================================
+PROMPT 2: What is the maximum cross-slope for a pedestrian access route per PROWAG?
+======================================================================
+RESPONSE:
+- The cross slope of ramp runs shall be 1:48 (2.1%) maximum.  
+[[SRC_4]]
+
+SOURCES (7):
+  [1] PROWAG.pdf | ADA | §310.6 | p24
+  [2] PROWAG.pdf | ADA | §302.5 | p52
+  [3] PROWAG.pdf | ADA | §304.5.3 | p29
+  [4] PROWAG.pdf | ADA | §406.3 | p58
+  [5] PROWAG.pdf | ADA | §302.5 | p52
+  [6] PROWAG.pdf | ADA | §UNKNOWN | p9
+  [7] PROWAG.pdf | ADA | §304.5.3 | p30
+
+OK | 3.3s
+
+======================================================================
+PROMPT 3: What does OSHA require to prevent cave-ins in trenches?
+======================================================================
+RESPONSE:
+- Shall slope the sides of excavations, use shoring and bracing, and use other safety features according to OSHA safety standards 29 CFR, Part 1926, Subpart P, Excavations.  
+- If sides of excavations are sloped for safety considerations, submit one copy of the design that demonstrates compliance with OSHA standards.  
+- If support systems, shield systems, or other protective systems are used, design the shoring according to Section 562.  
+- Submit drawings and construction details according to Subsection 104.06.  
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §2-06.2 | p201
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §6-12.3(3) | p444
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §2-06.2 | p201
+  [4] fp-24.pdf | FHWA | §208.03 | p145
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §7-08.1 | p721
+  [6] Seattle Streets Illustrated ROWIM.pdf | SEATTLE | §23.54.020 | p314
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §1-07.19 | p151
+
+OK | 7.8s
+
+======================================================================
+PROMPT 4: What is the minimum concrete cover for reinforcing steel in a bridge pier column exposed to saltwater?
+======================================================================
+RESPONSE:
+- The minimum cover requirements for direct exposure to salt water and coastal situations of the LRFD-BDS shall apply.  
+- Concrete exposed to salt/sea water can be an aggressive corrosive environment; in general, continuous submersion is the least aggressive exposure, while areas with capillary suction and evaporation are the most aggressive.  
+- Corrosive water or soil contains greater or equal to 500 part per million (ppm) of chlorides.  
+- Sites that are considered corrosive due solely to sulfate content greater than or equal to 2,000 ppm and/or a pH of less than or equal to 5.5 should be considered non-corrosive in determining minimum cover.  
+- For cast-in-place bridge decks with two layers of reinforcement, a minimum 2½″ of concrete cover over top bars of deck reinforcing shall be provided, including a ½″ wearing surface and ¼″ tolerance for placement.  
+- Bottom cover shall be 1” minimum.  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Standard Specifications.pdf | WSDOT | §6-19.3(6) | p663
+  [2] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.3.4.E.2 | p689
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.1.1.L.2 | p243
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.7.2.E | p358
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(19) | p461
+  [6] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.7.4.A.1 | p360
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §6-19.3(4) | p651
+
+OK | 9.0s
+
+======================================================================
+PROMPT 5: What is the stopping sight distance for a 45 mph design speed?
+======================================================================
+RESPONSE:
+- For a design speed of 45 mph, the existing stopping sight distance is 305 feet.  
+- The design stopping sight distance is calculated using the design speed and a constant deceleration rate of 11.2 feet/second².  
+- The perception and reaction distance used in design is the distance traveled in 2.5 seconds at the design speed.  
+- For stopping sight distances on grades less than 3%, see Exhibit 1260-1; for grades 3% or greater, see Exhibit 1260-2.  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1260.03(7) | p750
+  [2] WSDOT Design Manual.pdf | WSDOT | §1260.03(1)(a) | p741
+  [3] WSDOT Design Manual.pdf | WSDOT | §1260.03(1)(b) | p741
+  [4] WSDOT Design Manual.pdf | WSDOT | §1260.03(1) | p740
+  [5] WSDOT Design Manual.pdf | WSDOT | §1260.04(1) | p750
+  [6] WSDOT Design Manual.pdf | WSDOT | §1320.04(8)(a) | p858
+  [7] WSDOT Design Manual.pdf | WSDOT | §1515.04(5) | p1141
+
+OK | 8.7s
+
+======================================================================
+PROMPT 6: What are the required elements of a Stormwater Pollution Prevention Plan (SWPPP)?
+======================================================================
+RESPONSE:
+- Preserve Vegetation/Mark Clearing Limits  
+- Establish Construction Access  
+- Control Flow Rates  
+- Install Sediment Controls  
+- Stabilize Soils  
+- Protect Slopes  
+- Protect Drain Inlets  
+- Stabilize Channels and Outlets  
+- Control Pollutants  
+- Control Dewatering  
+- Maintain BMPs  
+- Manage the Project  
+- Protect Low Impact Development (LID) BMPs  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p52
+  [2] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §9.10.3 | p95
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §8-01.2 | p518
+  [4] WSDOT Enviromental Manual.pdf | WSDOT | §430.03(3) | p137
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §8-01.2 | p517
+  [6] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p52
+  [7] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §20.6.4.900 | p75
+
+OK | 7.0s
+
+======================================================================
+PROMPT 7: What is the minimum headwall setback distance for a culvert outlet?
+======================================================================
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p73
+  [2] WSDOT Hydraulics Manual.pdf | WSDOT | §8-2.3.4.7 | p193
+  [3] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p64
+  [4] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p72
+  [5] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p74
+  [6] EM_1110-2-1913.pdf | USACE | §186.24 | p134
+  [7] WSDOT Hydraulics Manual.pdf | WSDOT | §3-2.1 | p63
+
+FAIL | 3.9s
+
+======================================================================
+PROMPT 8: What does the MUTCD require for retroreflectivity of regulatory signs?
+======================================================================

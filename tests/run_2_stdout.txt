@@ -1,0 +1,1527 @@
+Run started: 2026-03-25T15:22:28  |  100 prompts
+
+======================================================================
+PROMPT 1: What is the minimum lane width for a rural arterial highway according to WSDOT?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  [reranker] Loading cross-encoder model...
+Loading weights:   0%|          | 0/105 [00:00<?, ?it/s]Loading weights: 100%|██████████| 105/105 [00:00<00:00, 1689.16it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-6-v2
+Key                          | Status     |  | 
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  | 
+
+[3mNotes:
+- UNEXPECTED[3m	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.[0m
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The lane width ranges for highways are listed in Exhibit 1231-1.  
+  - For highways with speeds ≥ 50 mph (freeway or interstate), lane width is not specified in this section.  
+  - For highways with speeds of 40 to 45 mph, lane width range is 11' to 12'.  
+  - For highways with speeds ≤ 35 mph, lane width range is 10' to 12'.  
+
+[[SRC_6]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(d) | p1016
+  [2] WSDOT Design Manual.pdf | WSDOT | §530.04(2)(b) | p202
+  [3] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1015
+  [4] WSDOT Design Manual.pdf | WSDOT | §1240.03(2) | p721
+  [5] WSDOT Design Manual.pdf | WSDOT | §1360.08(2) | p987
+  [6] WSDOT Design Manual.pdf | WSDOT | §1231.04(1)(a) | p661
+  [7] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1019
+
+OK | 13.7s
+
+======================================================================
+PROMPT 2: What is the maximum cross-slope for a pedestrian access route per PROWAG?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (1 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The cross slope of ramp runs shall be 1:48 (2.1%) maximum.  
+[[SRC_4]]
+
+SOURCES (7):
+  [1] PROWAG.pdf | ADA | §310.6 | p24
+  [2] PROWAG.pdf | ADA | §302.5 | p52
+  [3] PROWAG.pdf | ADA | §304.5.3 | p29
+  [4] PROWAG.pdf | ADA | §406.3 | p58
+  [5] PROWAG.pdf | ADA | §302.5 | p52
+  [6] PROWAG.pdf | ADA | §UNKNOWN | p9
+  [7] PROWAG.pdf | ADA | §304.5.3 | p30
+
+OK | 3.1s
+
+======================================================================
+PROMPT 3: What does OSHA require to prevent cave-ins in trenches?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Shall slope the sides of excavations, use shoring and bracing, and use other safety features according to OSHA safety standards 29 CFR, Part 1926, Subpart P, Excavations.  
+- If sides of excavations are sloped for safety considerations, submit one copy of the design that demonstrates compliance with OSHA standards.  
+- If support systems, shield systems, or other protective systems are used, design the shoring according to Section 562.  
+- Submit drawings and construction details according to Subsection 104.06.  
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §2-06.2 | p201
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §6-12.3(3) | p444
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §2-06.2 | p201
+  [4] fp-24.pdf | FHWA | §208.03 | p145
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §7-08.1 | p721
+  [6] Seattle Streets Illustrated ROWIM.pdf | SEATTLE | §23.54.020 | p314
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §1-07.19 | p151
+
+OK | 4.6s
+
+======================================================================
+PROMPT 4: What is the minimum concrete cover for reinforcing steel in a bridge pier column exposed to saltwater?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The minimum cover requirements for direct exposure to salt water and coastal situations of the LRFD-BDS shall apply.  
+- Concrete exposed to salt/sea water can be an aggressive corrosive environment; in general, continuous submersion is the least aggressive exposure, while areas with capillary suction and evaporation are the most aggressive.  
+- Corrosive water or soil contains greater or equal to 500 part per million (ppm) of chlorides.  
+- Sites that are considered corrosive due solely to sulfate content greater than or equal to 2,000 ppm and/or a pH of less than or equal to 5.5 should be considered non-corrosive in determining minimum cover.  
+- For cast-in-place bridge decks with two layers of reinforcement, a minimum 2½″ of concrete cover over top bars of deck reinforcing shall be provided, including a ½″ wearing surface and ¼″ tolerance for placement.  
+- Bottom cover shall be 1” minimum.  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Standard Specifications.pdf | WSDOT | §6-19.3(6) | p663
+  [2] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.3.4.E.2 | p689
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.1.1.L.2 | p243
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.7.2.E | p358
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(19) | p461
+  [6] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.7.4.A.1 | p360
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §6-19.3(4) | p651
+
+OK | 10.5s
+
+======================================================================
+PROMPT 5: What is the stopping sight distance for a 45 mph design speed?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- For a design speed of 45 mph, the existing stopping sight distance is 305 feet.  
+- The design stopping sight distance is calculated using the design speed and a constant deceleration rate of 11.2 feet/second².  
+- The perception and reaction distance used in design is the distance traveled in 2.5 seconds at the design speed.  
+- For stopping sight distances on grades less than 3%, see Exhibit 1260-1; for grades 3% or greater, see Exhibit 1260-2.  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1260.03(7) | p750
+  [2] WSDOT Design Manual.pdf | WSDOT | §1260.03(1)(a) | p741
+  [3] WSDOT Design Manual.pdf | WSDOT | §1260.03(1)(b) | p741
+  [4] WSDOT Design Manual.pdf | WSDOT | §1260.03(1) | p740
+  [5] WSDOT Design Manual.pdf | WSDOT | §1260.04(1) | p750
+  [6] WSDOT Design Manual.pdf | WSDOT | §1320.04(8)(a) | p858
+  [7] WSDOT Design Manual.pdf | WSDOT | §1515.04(5) | p1141
+
+OK | 9.9s
+
+======================================================================
+PROMPT 6: What are the required elements of a Stormwater Pollution Prevention Plan (SWPPP)?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (2 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Preserve Vegetation/Mark Clearing Limits  
+- Establish Construction Access  
+- Control Flow Rates  
+- Install Sediment Controls  
+- Stabilize Soils  
+- Protect Slopes  
+- Protect Drain Inlets  
+- Stabilize Channels and Outlets  
+- Control Pollutants  
+- Control Dewatering  
+- Maintain BMPs  
+- Manage the Project  
+- Protect Low Impact Development (LID) BMPs  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p52
+  [2] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §9.10.3 | p95
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §8-01.2 | p518
+  [4] WSDOT Enviromental Manual.pdf | WSDOT | §430.03(3) | p137
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §8-01.2 | p517
+  [6] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p52
+  [7] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §20.6.4.900 | p75
+
+OK | 11.9s
+
+======================================================================
+PROMPT 7: What is the minimum headwall setback distance for a culvert outlet?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p73
+  [2] WSDOT Hydraulics Manual.pdf | WSDOT | §8-2.3.4.7 | p193
+  [3] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p64
+  [4] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p72
+  [5] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p74
+  [6] EM_1110-2-1913.pdf | USACE | §186.24 | p134
+  [7] WSDOT Hydraulics Manual.pdf | WSDOT | §3-2.1 | p63
+
+FAIL | 4.9s
+
+======================================================================
+PROMPT 8: What does the MUTCD require for retroreflectivity of regulatory signs?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (4 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Regulatory, warning, and guide signs (see Section 2A.03), and object markers, shall be retroreflective or illuminated to show the same shape and similar color by both day and night, unless otherwise provided in this Manual for a particular sign or group of signs.  
+- Regulatory signs shall be retroreflective or illuminated (see Section 2A.21).  
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p103
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p832
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p90
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p108
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p579
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p830
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p90
+
+OK | 9.9s
+
+======================================================================
+PROMPT 9: What are WSDOT requirements for painting structural steel on highway bridges?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The final coat shall match the color of the existing paint on the structure when painting steel structures on existing bridges.  
+- All steel in utility supports, including fastenings and anchorages, shall be galvanized in accordance with AASHTO M-111 or M-232 (ASTM A-123 or A-153 respectively).  
+- All utilities and utility support surfaces, including any galvanized utilities, shall be painted in accordance with Standard Specifications Section 6-07.  
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §1.3.5 | p484
+  [2] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p440
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §10.8.1.C | p800
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.9.6 | p450
+  [5] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p442
+  [6] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §1.3.5 | p484
+  [7] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p424
+
+OK | 15.5s
+
+======================================================================
+PROMPT 10: What compaction requirements does USACE specify for highway embankment fill?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The Contractor shall use Method B unless the Special Provisions require another method.  
+- Method B – The top 2 feet of each embankment shall be compacted to 95 percent of the maximum density as determined by the compaction control tests described in Section 2-03.3(14)D. All material below the 2-foot level shall be compacted to 90 percent of the same maximum density. In the top 2 feet, horizontal layers shall not exceed 4 inches.  
+- Embankment lifts up to 2 feet thick shall be constructed and compacted in accordance with the specified method.  
+- The basic requirements of all three methods are the same in that each requires lift construction, uniform compaction throughout the embankment width and depth, control of moisture, and the addition of moisture should it be necessary for proper compaction.  
+- The use of suitable compaction units is required for Method B and Method C, although routing of hauling units may be used to obtain partial compaction.  
+- Method A normally will not be specified for state highway work, but may be applied on county or city projects or on certain secondary state highway projects.  
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p302
+  [2] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p302
+  [3] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p303
+  [4] EM_1110-2-1913.pdf | USACE | §27.4 | p54
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §2-03.3(8) | p225
+  [6] fp-24.pdf | FHWA | §212.04 | p157
+  [7] WSDOT Geotech Design Manual.pdf | WSDOT | §9-2.1 | p363
+
+OK | 25.2s
+
+======================================================================
+PROMPT 11: What is the minimum compressive strength of concrete for bridge deck construction?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The minimum specified concrete compressive strength at release (ƒ'ci) is 5.0 ksi for prestressed concrete slab girders and 6.0 ksi for all other prestressed girders. Where higher strengths would eliminate a line of girders, the compressive strength at release may be increased up to 7.5 ksi. Release strengths as high as 8.5 ksi can be achieved with extended curing.
+- Table 15.5.2-1 specifies that for bridge decks, the minimum compressive strength at 28 days (f’c) is 4000 psi (Class D).
+- The minimum compressive strength shall be 2,500 psi in a bridge deck repair material.
+
+[[SRC_3]]
+[[SRC_5]]
+[[SRC_6]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §6-02.3(25) | p355
+  [2] fp-24.pdf | FHWA | §552.16 | p502
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.1.1.A.2 | p236
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.5.5.A | p1048
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.5.2.A.1 | p1041
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §9-20.4(3) | p1051
+  [7] fp-24.pdf | FHWA | §569.18 | p627
+
+OK | 20.8s
+
+======================================================================
+PROMPT 12: What is the maximum allowable slope ratio for a temporary cut in Type B soil?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- WAC 296-155 presents maximum allowable temporary cut slope inclinations based on soil or rock type, as shown in Table 15-7. The allowable slopes presented in the WAC are applicable to cuts 20 feet or less in height.  
+- Slope inclinations steeper than those specified by the WAC or for slope heights greater than 20 feet, as well as slopes in soils or rock not meeting the requirements to be classified as stable rock, or Type A, B, or C soil, shall be designed by a registered professional engineer.  
+- As a minimum, the design by or under the supervision of the registered professional engineer shall include a geotechnical slope stability analysis (i.e., Chapter 7) that is based on a knowledge of the subsurface conditions present, including soil and rock...
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p493
+  [2] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p493
+  [3] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p494
+  [4] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p494
+  [5] WSDOT Geotech Design Manual.pdf | WSDOT | §10.3.4 | p406
+  [6] WSDOT Geotech Design Manual.pdf | WSDOT | §10.5 | p415
+  [7] WSDOT Geotech Design Manual.pdf | WSDOT | §10.1.3 | p398
+
+OK | 16.3s
+
+======================================================================
+PROMPT 13: What foundation bearing capacity does AASHTO recommend for spread footings on sand?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- For allowable stress design, spread footings on sandy soils may alternatively be designed for bearing and settlement by using Figure 17-5. When using Figure 17-5, a FS from Table 17-4 does not need to be applied, as the bearing stresses in the figure represent allowable bearing resistances. The design bearing resistance in Figure 17-5 has been developed assuming typical sand properties and is intended for use in sandy soils.
+
+[[SRC_5]]
+
+SOURCES (7):
+  [1] WSDOT Geotech Design Manual.pdf | WSDOT | §17.3.2 | p886
+  [2] WSDOT Geotech Design Manual.pdf | WSDOT | §17.2.2 | p881
+  [3] WSDOT Geotech Design Manual.pdf | WSDOT | §8.11.2.4 | p278
+  [4] WSDOT Geotech Design Manual.pdf | WSDOT | §1.11.2 | p46
+  [5] WSDOT Geotech Design Manual.pdf | WSDOT | §17.5.2 | p893
+  [6] WSDOT Geotech Design Manual.pdf | WSDOT | §8.11.2.4.1 | p278
+  [7] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §10.1.5.C | p760
+
+OK | 16.3s
+
+======================================================================
+PROMPT 14: What are OSHA requirements for worker protection in excavations deeper than 5 feet?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- 208.03 General. Slope the sides of excavations, use shoring and bracing, and use other safety features according to OSHA safety standards 29 CFR, Part 1926, Subpart P, Excavations. If sides of excavations are sloped for safety considerations, submit one copy of the design that demonstrates compliance with OSHA standards. If support systems, shield systems, or other protective systems are used, design the shoring according to Section 562. Submit drawings and construction details according to Subsection 104.06.
+
+[[SRC_4]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §2-06.2 | p201
+  [2] WSDOT Plans Preparation Manual.pdf | WSDOT | §700.02(7) | p273
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §2-09.3(1) | p244
+  [4] fp-24.pdf | FHWA | §208.03 | p145
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.1.11.B | p663
+  [6] Seattle Standard Specifications.pdf | SEATTLE | §2-06.2 | p200
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §7-08.1 | p721
+
+OK | 14.9s
+
+======================================================================
+PROMPT 15: What does OSHA require for portable ladder angle and extension above landing?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Pedestrian ramp handrails shall extend horizontally above the landing for 12 inches minimum beyond the top and bottom of ramp runs.  
+- At the top of a stair flight, handrails shall extend horizontally above the landing for 12 inches (305 mm) minimum beginning directly above the first riser nosing.  
+- At the bottom of a stair flight, handrails shall extend at the slope of the stair flight for a horizontal distance at least equal to one tread depth beyond the last riser nosing.  
+- Handrail extensions shall return to a wall, guard, or the landing surface, or shall be continuous to the handrail of an adjacent pedestrian ramp run or stair flight.  
+
+[[SRC_5]]
+
+SOURCES (7):
+  [1] 2010-design-standards.pdf | ADA | §505.10.1 | p160
+  [2] 2010-design-standards.pdf | ADA | §505.10.2 | p161
+  [3] PROWAG.pdf | ADA | §309.1 | p44
+  [4] PROWAG.pdf | ADA | §407.7 | p58
+  [5] WSDOT Design Manual.pdf | WSDOT | §1510.15(3)(d)(iv) | p1121
+  [6] 2010-design-standards.pdf | ADA | §505.10.3 | p161
+  [7] Seattle Standard Specifications.pdf | SEATTLE | §6-02.3(6) | p332
+
+OK | 21.4s
+
+======================================================================
+PROMPT 16: What PPE does OSHA require for workers in roadway construction zones?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+• The Contractor shall require all personnel including service providers, subcontractors or material persons that are on foot in the work zone and are exposed to vehicle traffic or construction equipment to wear the high-visibility apparel described in this section.  
+• The Contractor shall ensure that a competent person as identified in the MUTCD selects the appropriate high-visibility apparel suitable for the jobsite conditions.  
+• High-visibility garments shall always be the outermost garments.  
+• High-visibility garments shall be labeled as, and in a condition compliant with the ANSI/ISEA 107-2015 (or later version) and shall be used in accordance with manufacturer recommendations.  
+
+[[SRC_7]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1010.06(8) | p427
+  [2] WSDOT Traffic Manual.pdf | WSDOT | §5-2.2 | p213
+  [3] WSDOT Construction Manual.pdf | WSDOT | §6-14.3(2) | p70
+  [4] WSDOT Design Manual.pdf | WSDOT | §1010.06(3)(a) | p424
+  [5] WSDOT Design Manual.pdf | WSDOT | §1010.08 | p431
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §1-07.19 | p153
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §1-07.1(3) | p123
+
+OK | 17.9s
+
+======================================================================
+PROMPT 17: What are OSHA requirements for entering a permit-required confined space?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- 2-11.1 Definitions There are two types of confined spaces: permit and nonpermit. 1. Permit-required confined space (permit space...
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p28
+  [2] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p29
+  [3] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p29
+  [4] WSDOT Highway Runoff Manual.pdf | WSDOT | §5-3.5 | p232
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §10.8.1.B | p799
+  [6] Seattle Standard Specifications.pdf | SEATTLE | §2-17.3(5) | p229
+  [7] PROWAG.pdf | ADA | §404.6 | p57
+
+OK | 10.6s
+
+======================================================================
+PROMPT 18: What does the MUTCD specify for mounting height of road signs above pavement?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (4 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Standard: 11 Directional signs on freeways and expressways shall be installed with a minimum height of 7 feet, measured vertically from the bottom of the sign to the elevation of the near edge of the pavement. All route signs, warning signs, and regulatory signs on freeways and expressways shall be installed with a minimum height of 7 feet, measured vertically from the bottom of the sign to the elevation of the near edge of the pavement.
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p830
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p155
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p714
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1038
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p100
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p100
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p242
+
+OK | 12.6s
+
+======================================================================
+PROMPT 19: What does the MUTCD require for speed limit sign placement near school zones?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (1 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The Higher Fines signs and plaque shall have a black legend and border on a white rectangular background.  
+- The FINES HIGHER plaque shall be mounted below an applicable regulatory or warning sign in a temporary traffic control zone (see Section 6G.08), a school zone (see Section 7B.06), or other applicable designated zone.  
+- Alternate legends such as BEGIN (or END) DOUBLE FINES ZONE may also be used for the R2-10 and R2-11 signs.  
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p129
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1016
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1013
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1014
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1019
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1024
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1021
+
+OK | 18.9s
+
+======================================================================
+PROMPT 20: What freeboard does USACE recommend for a levee protecting an urban area?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Levee height should provide 0.61 m (2 ft) of freeboard above forecast flood crest. In urban areas, the upstream end of the project should use a larger freeboard than the downstream end.
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] EM_1110-2-1913.pdf | USACE | §27.4 | p125
+  [2] EM_1110-2-1913.pdf | USACE | §27.4 | p47
+  [3] EM_1110-2-1913.pdf | USACE | §27.4 | p62
+  [4] EM_1110-2-1913.pdf | USACE | §23.8 | p151
+  [5] EM_1110-2-2502.pdf | USACE | §6.9.7.3.4 | p184
+  [6] EM_1110-2-2502.pdf | USACE | §5606.0001151 | p468
+  [7] EM_1110-2-1913.pdf | USACE | §27.4 | p62
+
+OK | 9.6s
+
+======================================================================
+PROMPT 21: What minimum factor of safety for slope stability does USACE recommend for embankments?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (2 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The provided sections do not contain a specific minimum factor of safety for slope stability for embankments as recommended by USACE.
+
+[[FAIL]]
+
+SOURCES (7):
+  [1] EM_1110-2-1902.pdf | USACE | §1.1-1.3 | p26
+  [2] EM_1110-2-1913.pdf | USACE | §27.4 | p50
+  [3] EM_1110-2-1913.pdf | USACE | §27.4 | p51
+  [4] EM_1110-2-1902.pdf | USACE | §UNKNOWN | p24
+  [5] EM_1110-2-1902.pdf | USACE | §1.1-1.3 | p27
+  [6] EM_1110-2-1902.pdf | USACE | §1.1-1.3 | p27
+  [7] EM_1110-2-1902.pdf | USACE | §UNKNOWN | p24
+
+FAIL | 6.2s
+
+======================================================================
+PROMPT 22: What are the general permit requirements for stormwater discharge from construction sites?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (1 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The following stormwater discharges are authorized under this permit provided that appropriate stormwater controls are designed, installed, and maintained (see Parts 2 and 3):  
+  Stormwater discharges, including stormwater runoff, snowmelt runoff, and surface runoff and drainage, associated with construction activity under 40 CFR § 122.26(b)(14) or § 122.26(b)(15)(i);  
+  Stormwater discharges designated by EPA as needing a permit under 40 CFR §122.26(a)(1)(v) or § 122.26(b)(15)(ii);  
+  Stormwater discharges from on or off-site construction support activities (e.g., concrete or asphalt batch plants, equipment staging yards, material storage areas, excavated material disposal areas, borrow areas) provided that:  
+  The support activity is directly related to the construction site required to have permit coverage for stormwater discharges;  
+  The support activity is not a commercial operation, nor does it serve multiple unrelated construction sites;  
+  The support activity does not continue to operate after the construction activity is terminated.  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §UNKNOWN | p1
+  [2] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §1.2.1 | p7
+  [3] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §1.2.1 | p7
+  [4] 40 CFR Part 122.pdf | ENVIROMENTAL | §35.2005(b)(20) | p83
+  [5] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §1.4.5 | p12
+  [6] WSDOT Emergency Funds Manual.pdf | WSDOT | §47.28.035 | p19
+  [7] 40 CFR Part 122.pdf | ENVIROMENTAL | §124.17 | p56
+
+OK | 32.7s
+
+======================================================================
+PROMPT 23: What is the definition of an engineer of record in WSDOT contracts?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (3 section, 0 doc_page)
+Exception in thread enrichment:
+Traceback (most recent call last):
+  File "/home/justin/rag-civil/ingestion/retag.py", line 6, in <module>
+    from ingestion.metadata import detect_doc_page, propagate_metadata
+  File "/home/justin/rag-civil/ingestion/metadata.py", line 3, in <module>
+    from section_parser import (
+ModuleNotFoundError: No module named 'section_parser'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "/home/justin/.pyenv/versions/3.11.9/lib/python3.11/threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/justin/rag-civil/rag/query_engine.py", line 609, in _enrich_and_persist
+    from ingestion.retag import log_correction
+  File "/home/justin/rag-civil/ingestion/retag.py", line 13, in <module>
+    from metadata import detect_doc_page, propagate_metadata
+ModuleNotFoundError: No module named 'metadata'
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Wherever “designer” appears in this manual, design-build personnel shall deem it to mean: Engineer of Record, Design Quality Assurance Manager, design-builder, or any other term used in the design-build contract to indicate design-build personnel responsible for the design elements of a design-build project, depending on the context of information being conveyed.
+- Wherever “Project Engineer” appears in this manual, the design-builder shall deem it to mean “Engineer of Record.”
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §110.02(1) | p44
+  [2] WSDOT Construction Manual.pdf | WSDOT | §39.04.250 | p221
+  [3] WSDOT Design-Build Manual.pdf | WSDOT | §8-4.2.1.1 | p248
+  [4] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p22
+  [5] WSDOT Design-Build Manual.pdf | WSDOT | §8-4.2.1.1 | p249
+  [6] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p18
+  [7] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p19
+
+OK | 14.4s
+
+======================================================================
+PROMPT 24: What are the required elements of a traffic control plan for a lane closure?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Where allowed by the Contract and where shown on approved traffic control plans or directed by the Engineer, the Contractor must set up traffic control measures to close 1 or more lanes of a multi-lane facility. When this is to occur and called for in the approved traffic control plan, the following sequence must be followed: 1. Advance warning signs are set up on the shoulder of the roadway opposite th...
+- Where allowed by the Contract and shown on the traffic control plans or directed by the Engineer, the Contractor shall set up traffic control measures to close one or more lanes of a Freeway or multi-lane roadway 45 mph or higher. When this is to occur, the following sequence shall be followed: 1. If shown on the traffic control plan...
+- Temporary traffic control signals shall be installed and operated in accordance with the provisions of Part 4. Temporary traffic control signals shall meet the physical display and operational requirements of conventional traffic control signals.
+- Temporary traffic control signal timing shall be established by authorized officials. Durations of red clearance intervals shall be adequate to clear the one-lane section of conflicting vehicles.
+- When the temporary traffic control signal is changed to the flashing mode, either manually or automatically, red signal indications shall be flashed to both approaches.
+- Stop lines shall be installed with temporary traffic control signals for long-term closures. Existing conflicting pavement markings and raised pavement marker reflectors between the activity area and each stop line shall be removed.
+
+[[SRC_1]]
+[[SRC_2]]
+[[SRC_6]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §60.28.051 | p176
+  [2] WSDOT Standard Specifications.pdf | WSDOT | §1-09.11 | p202
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §5-04.3(13) | p267
+  [4] Seattle Standard Specifications.pdf | SEATTLE | §5-04.3(13) | p268
+  [5] WSDOT Design-Build Manual.pdf | WSDOT | §2.15.6.1 | p140
+  [6] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p190
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p923
+
+OK | 45.4s
+
+======================================================================
+PROMPT 25: What is the seismic design category for a highway bridge in a high-seismic zone?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Detailing as normally required in either SDC C or D, as appropriate, must be provided. It is permitted to use expected material strengths for the determination of member strength...
+
+[[SRC_4]]
+
+SOURCES (7):
+  [1] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.4.1 | p1032
+  [2] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.5.2 | p223
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.12.1 | p1079
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.2.2 | p199
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.2.2 | p198
+  [6] WSDOT Geotech Design Manual.pdf | WSDOT | §5.13.11 | p172
+  [7] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.3.3 | p217
+
+OK | 10.0s
+
+======================================================================
+PROMPT 26: What ASME code governs pressure vessel inspection intervals for industrial boilers?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §7-08.3(3) | p470
+  [2] WSDOT Standard Specifications.pdf | WSDOT | §7-09.3(21) | p735
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §9-29.16(2) | p1130
+  [4] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(13) | p397
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §6-03.3(25) | p380
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §6-18.3(4) | p647
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(19) | p455
+
+FAIL | 8.6s
+
+======================================================================
+PROMPT 27: What does OSHA 29 CFR 1926.502 require for fall protection systems?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- For retaining walls where staff could be subject to a potential fall of 4 feet or more to the ground or lower level, worker fall protection shall be provided. The worker fall protection system shall be in accordance with WAC 296-880 (Guardrail Systems) and as described in the Design Manual Chapter 1060.  
+- For retaining walls with a fascia, the worker fall protection shall be located directly on top of the fascia or attached to the back face of the fascia. For retaining walls without a fascia, the worker fall protection shall be located within 6 inches of the face of the wall.  
+- During the design phase, evaluate worker fall protection issues related to eventual maintenance and operations activities that will be required in the final, constructed configuration, determined through consultation with responsible region and HQ maintenance, landscape restoration and/or monitoring, and other WSDOT staff that require long term access to a site. Examples of activities to include in this evaluation include routine facility upkeep, debris removal, and planting maintenance. Although it provides advantages to those engaged in maintenance activities, it is often not feasible to eliminate, through design, situations where workers will be in close proximity to the kind of drops or steep slopes described in WAC 296-880. Therefore, evaluate the need for, and the feasibility of, permanent passive systems, such as physical barriers, rails, and covers. Where installation of a passive system is not practicable, provide permanent anchors that worker...  
+- Design and install permanent fall protection in accordance with WAC 296-880-20005 and 40005 under the following conditions:  
+  • along constructed features within the project limits that are a vertical face or steep slope, defined as one upon which normal footing cannot be maintained without the use of devices due to the pitch of the surface, weather conditions, or surface material (normally 3H:1V and steeper unless more detailed information can be documented), and  
+  • where maintenance, operations, or environmental staff have indicated that there will be regular, periodic, or sporadic maintenance or operations activities required during the service life of the installation, and  
+  • where staff are engaged in these activities and are subject to a potential fall 4 feet or more, and access to the top of the feature is intended solely for the use of maintenance, operations or environmental personnel.  
+- At the top of steep slopes that will require staff to perform ongoing maintenance, determine whether there are any locations for which temporary fall protection measures will be insufficient or are infeasible. If so, install permanent anchorage points (as defined above) that are located and designed to serve the ongoing maintenance activity.  
+- Allowable fall rail systems are: • Wire rope railing with top and intermediate rails of ½-inch-diameter steel wire rope, or • Steel pipe railing with 1½-inch nominal
+
+SOURCES (7):
+  [1] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.1.11.B | p663
+  [2] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p384
+  [3] WSDOT Design Manual.pdf | WSDOT | §1060.01 | p530
+  [4] WSDOT Design Manual.pdf | WSDOT | §1060.02(1) | p530
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.1.11.C | p664
+  [6] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.3.3.F | p678
+  [7] WSDOT Design Manual.pdf | WSDOT | §1060.03 | p531
+
+OK | 87.6s
+
+======================================================================
+PROMPT 28: What does the MUTCD require for Type III barricades at road closures?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (2 section, 0 doc_page)
+  [4/4] Building context...
+  [5/5] Generating response...
+  Logged section correction: Manual on Uniform Traffic Control Devices 11th Ed..pdf p242 c0 → 2C.73
+  [enrich] section Manual on Uniform Traffic Control Devices 11th Ed..pdf__p242__c0 → 2C.73
+  Logged section correction: Manual on Uniform Traffic Control Devices 11th Ed..pdf p184 c0 → 2B.75
+  [enrich] section Manual on Uniform Traffic Control Devices 11th Ed..pdf__p184__c0 → 2B.75
+RESPONSE:
+- When used to warn and alert road users of the terminus of a roadway, other than in temporary traffic control zones, barricades shall meet the design criteria of Section 6K.07 for a Type 3 Barricade, except that the colors of the stripes shall be retroreflective white and retroreflective red.
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p862
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p915
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p242
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p184
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p834
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p857
+  [7] fp-24.pdf | FHWA | §635.01 | p781
+
+OK | 15.8s
+
+======================================================================
+PROMPT 29: What are the standard steps for installing a precast concrete box culvert?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Design and construct precast concrete box culverts according to Section 578.  
+- Submit design drawings and details with supporting calculations according to Subsection 104.06.  
+- Do not order culvert material until the CO has accepted the final structure size, length, and alignment.  
+- Plans show the size, length, and approximate location of culverts. Determine final location, skew, length, elevations, and grade according to Section 152.  
+- Excavate and backfill according to Section 209.  
+- For precast concrete box culverts, install according to Section 578.  
+- When measuring pipe and box culverts by the linear foot, measure along the invert.  
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §602.04 | p695
+  [2] WSDOT Hydraulics Manual.pdf | WSDOT | §8-2.3.4.9 | p194
+  [3] WSDOT Highway Surveying Manual.pdf | WSDOT | §15-02.1 | p198
+  [4] WSDOT Hydraulics Manual.pdf | WSDOT | §8-2.3.4.9 | p194
+  [5] fp-24.pdf | FHWA | §602.03 | p695
+  [6] WSDOT Hydraulics Manual.pdf | WSDOT | §3-2.1 | p64
+  [7] fp-24.pdf | FHWA | §106.03 | p696
+
+OK | 31.8s
+
+======================================================================
+PROMPT 30: What are WSDOT requirements for a Traffic Control Supervisor on construction projects?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (1 section, 0 doc_page)
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- WSDOT may designate a DOT employee who is qualified, but not necessarily certified, to serve as the State’s traffic control contact.  
+- It is intended to have qualified, trained representatives from both the Contractor and WSDOT work together to achieve safe traffic control operations on the project.  
+- Among the duties of the Project Engineer in the area of Traffic Control are the following: • Communication – About the planned work, traffic control needed and adjustments to the accepted Traffic Control Plan. During the work, to stay aware of changes, events and issues. • Monitoring – The activities of the Contractor TCS and traffic control workers. The status of signs and control devices. Conformance with specifications and requirements.  
+
+[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1130.13 | p631
+  [2] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p40
+  [3] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p186
+  [4] WSDOT Construction Manual.pdf | WSDOT | §6-14.3(2) | p70
+  [5] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p183
+  [6] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p189
+  [7] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p184
+
+OK | 28.5s
+
+======================================================================
+PROMPT 31: What are OSHA requirements for scaffold platform width and guardrails under 29 CFR 1926.451?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] guidance-2010-standards.pdf | ADA | §1004.1 | p158
+  [2] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p605
+  [3] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p604
+  [4] WSDOT Standard Specifications.pdf | WSDOT | §8-09.3(6) | p828
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §8-09.3(6) | p830
+  [6] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p604
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §9-16.3(3) | p1038
+
+FAIL | 8.5s
+
+======================================================================
+PROMPT 32: What does OSHA require for concrete and masonry construction formwork under 29 CFR 1926.703?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Design and construct falsework, shoring, and bracing according to Section 562.  
+- Provide watertight formwork with a non-absorbing finish.  
+- Use an approved form release agent to produce a minimum of staining, air holes, and hydration discoloration.  
+- Fasten formwork to existing concrete using adhesives or other approved methods that do not damage the existing concrete.  
+- Do not use drilling, nailing, or post anchor systems to fasten temporary works or formwork to existing concrete.  
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §571.14 | p647
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §9-11.1 | p687
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(13) | p415
+  [4] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(17) | p444
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(13) | p416
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(17) | p441
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(17) | p434
+
+OK | 20.5s
+
+======================================================================
+PROMPT 33: What are OSHA requirements for crane operator qualifications under 29 CFR 1926.1427?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(25) | p494
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §6-01.8 | p359
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §6-03.2 | p376
+  [4] 2010-design-standards.pdf | ADA | §105.2.2 | p45
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §5-05.1 | p337
+  [6] Seattle Standard Specifications.pdf | SEATTLE | §6-12.1 | p441
+  [7] EM_1110-2-2104.pdf | USACE | §3.2.1.3 | p28
+
+FAIL | 9.0s
+
+======================================================================
+PROMPT 34: What does OSHA specify for electrical safety grounding on construction sites?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §8-30.1(2) | p600
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §8-30.1(3) | p602
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §22.800-22.808 | p89
+  [4] Seattle Standard Specifications.pdf | SEATTLE | §22.800-22.808 | p89
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §8-30.1(3) | p603
+  [6] Seattle Standard Specifications.pdf | SEATTLE | §22.800-22.808 | p89
+  [7] Seattle Standard Specifications.pdf | SEATTLE | §22.800-22.808 | p89
+
+FAIL | 5.9s
+
+======================================================================
+PROMPT 35: What are OSHA requirements for stairways and ladders in construction under 29 CFR 1926.1052?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] guidance-2010-standards.pdf | ADA | §208.2 | p94
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §8-18.1 | p584
+  [3] PROWAG.pdf | ADA | §205.4 | p52
+  [4] Seattle Standard Specifications.pdf | SEATTLE | §8-18.1 | p583
+  [5] 2010-design-standards.pdf | ADA | §1010.1 | p271
+  [6] 2010-design-standards.pdf | ADA | §105.2.2 | p44
+  [7] 2010-design-standards.pdf | ADA | §410.1 | p151
+
+FAIL | 9.6s
+
+======================================================================
+PROMPT 36: What does OSHA require for personal protective equipment eye and face protection under 29 CFR 1926.102?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p18
+  [2] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p82
+  [3] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p164
+  [4] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p83
+  [5] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p86
+  [6] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p83
+  [7] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p91
+
+FAIL | 8.8s
+
+======================================================================
+PROMPT 37: What are OSHA requirements for demolition operations under 29 CFR 1926 Subpart T?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §205.03 | p131
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §2-02.3(5) | p190
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §6-21.2(2) | p679
+  [4] Seattle Standard Specifications.pdf | SEATTLE | §2-02.3(5) | p191
+  [5] fp-24.pdf | FHWA | §203.08 | p118
+  [6] 40 CFR Part 122.pdf | ENVIROMENTAL | §124.17 | p70
+  [7] Seattle Standard Specifications.pdf | SEATTLE | §2-02.3(5) | p190
+
+FAIL | 7.2s
+
+======================================================================
+PROMPT 38: What does OSHA specify for fire prevention plans on construction sites?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- When the Work is in or next to State or Federal forests, the Contractor shall know and observe all laws and rules (State or Federal) on fire prevention and sanitation.  
+- The Contractor shall ask the local forest supervisor or regional manager to outline requirements for permits, sanitation, firefighting equipment, and burning.  
+- The Contractor shall take precautions to prevent and suppress forest fires.  
+- In case of forest fire, the Contractor shall immediately notify the nearest forest headquarters of its exact site and shall make every effort to suppress it.  
+- If needed, the Contractor shall require its employees and those of all subcontractors to work under forest officials in fire‑control efforts.  
+
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Construction Manual.pdf | WSDOT | §6-14.3(2) | p75
+  [2] WSDOT Standard Specifications.pdf | WSDOT | §1-07.1(3) | p117
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §49.60.530(3) | p138
+  [4] Seattle Standard Specifications.pdf | SEATTLE | §8-01.3(2) | p520
+  [5] WSDOT Construction Manual.pdf | WSDOT | §6-14.3(2) | p74
+  [6] Seattle Standard Specifications.pdf | SEATTLE | §8-01.3(2) | p521
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §1-07.1(3) | p116
+
+OK | 17.3s
+
+======================================================================
+PROMPT 39: What are OSHA requirements for steel erection bolted connections under 29 CFR 1926.755?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Field connections shall be pinned and bolted in accordance with the requirements of Standard Specifications Section 6-03.3(32). This Section applies to connections and splices made in the field. Connections are when one structural steel member is bolted directly to another structural steel member; such as, cross-members and braces. Splices utilize structural steel plates to connect two structural steel members; such as, a plate girder. It also requires all connections and splices be securely drift-pinned and bolted before the weight of the member can be released or the next member is added. The field erection drawings must specify pinning and bolting requirements. Standard Specifications Section 6-03.3(32) then specifies the required minimum number of pins and bolts for field connections and splices.
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p425
+  [2] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p425
+  [3] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p425
+  [4] fp-24.pdf | FHWA | §555.16 | p533
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(25) | p501
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §9-05.50(1) | p984
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §9-05.50(1) | p982
+
+OK | 26.1s
+
+======================================================================
+PROMPT 40: What does OSHA 29 CFR 1910 require for lockout/tagout energy control procedures?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] WSDOT Standard Specifications.pdf | WSDOT | §19.28.101 | p854
+  [2] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p49
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §9-29.13(8) | p1104
+  [4] fp-24.pdf | FHWA | §563.07 | p572
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §9-29.2(2) | p1085
+  [6] guidance-2010-standards.pdf | ADA | §404.1 | p167
+  [7] fp-24.pdf | FHWA | §636.03 | p787
+
+FAIL | 8.8s
+
+======================================================================
+PROMPT 41: What are OSHA requirements for walking-working surfaces and floor openings?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The running slope of walking surfaces shall not be steeper than 1:20.  
+- The cross slope of walking surfaces shall not be steeper than 1:48.  
+- Walking surfaces shall provide clearances complying with 403.5.  
+- Except as provided in 403.5.2 and 403.5.3, the clear width of walking surfaces shall be 36 inches (915 mm) minimum.  
+- The clear width shall be permitted to be reduced to 32 inches (815 mm) minimum for a length of 24 inches (610 mm) maximum provided that reduced width segments are separated by segments that are 48 inches (1220 mm) long minimum and 36 inches (915 mm) wide minimum.  
+- Walks, halls, corridors, passageways, aisles, or other circulation spaces shall have 80 in (2030 mm) minimum clear head room.  
+- If vertical clearance of an area adjoining an accessible route is reduced to less than 80 in (nominal dimension), a barrier to warn blind or visually-impaired persons shall be provided.  
+- Ground and floor surfaces along accessible routes and in accessible rooms and spaces including floors, walks, ramps, stairs, and curb ramps, shall be stable, firm, and slip-resistant.  
+- Floor and ground surfaces shall be stable, firm, and slip resistant and shall comply with 302.  
+- A stable surface is one that remains unchanged by contaminants or applied force, so that when the contaminant or force is removed, the surface returns to its original condition.  
+- A firm surface resists deformation by either indentations or particles moving on its surface.  
+- A slip-resistant surface provides sufficient frictional counterforce to the forces exerted in walking to permit safe ambulation.  
+- Carpet or carpet tile shall be securely attached and shall have a firm cushion.  
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] 2010-design-standards.pdf | ADA | §403.5 | p121
+  [2] 1991-design-standards.pdf | ADA | §4.4.2 | p25
+  [3] guidance-2010-standards.pdf | ADA | §302.1 | p166
+  [4] 2010-design-standards.pdf | ADA | §302.1 | p108
+  [5] guidance-2010-standards.pdf | ADA | §302.1 | p165
+  [6] 1991-design-standards.pdf | ADA | §9.2.2(6)(d) | p80
+  [7] 2010-design-standards.pdf | ADA | §106.5 | p53
+
+OK | 63.9s
+
+======================================================================
+PROMPT 42: What does OSHA specify for machine guarding requirements in general industry?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+[[FAIL]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §563.08 | p574
+  [2] fp-24.pdf | FHWA | §107.08 | p61
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §1-05.13(3) | p106
+  [4] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p605
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §1-07.19 | p156
+  [6] WSDOT MatsLab Safety Manual.pdf | WSDOT | §2701.5 | p199
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §6-07.3(12) | p559
+
+FAIL | 9.5s
+
+======================================================================
+PROMPT 43: What does WSDOT specify for horizontal curve design and superelevation on rural highways?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+• Superelevation is the rotation or banking of the roadway cross section to overcome part of the centrifugal force that acts on a vehicle traversing a curve. Design information on the relationship between design speed, radius of curve, and superelevation is in Chapter 1250.  
+• Exhibit 1250-11 Superelevation Transitions for Highway Curves Design D1 – Pivot Point on Edge of Traveled Way Curve in Direction of Normal Pavement Slope: Plane Section Design D2 – Pivot Point on Edge of Traveled Way Curve Opposite to Normal Pavement Slope: Plane Section c = Normal crown (%) e = Superelevation rate (%) n = Number of lanes between points w = Width of lane  
+• Exhibit 1250-12 Superelevation Transitions for Highway Curves Design E1 – Six-Lane With Median, Pivot Point on Edge of Traveled Way: Inside of Curve Crown Section Design E2 – Six-Lane With Median, Pivot Point on Edge of Traveled Way: Outside of Curve Crown Section c = Normal crown (%) e = Superelevation rate (%) n = Number of lanes between points w = Width of lane  
+
+[[SRC_1]]  
+[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1210.02(2) | p636
+  [2] WSDOT Design Manual.pdf | WSDOT | §1250.08(2) | p736
+  [3] WSDOT Design Manual.pdf | WSDOT | §1250.08(2) | p734
+  [4] WSDOT Design Manual.pdf | WSDOT | §1250.08(2) | p735
+  [5] WSDOT Design Manual.pdf | WSDOT | §1250.08(2) | p737
+  [6] WSDOT Design Manual.pdf | WSDOT | §1220.03 | p648
+  [7] WSDOT Design Manual.pdf | WSDOT | §1250.08(2) | p733
+
+OK | 37.5s
+
+======================================================================
+PROMPT 44: What are WSDOT requirements for sidewalk width and design adjacent to curbs?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (1 section, 1 doc_page)
+  [4/4] Building context...
+  [5/5] Generating response...
+  Logged section correction: WSDOT ADA_Field_Guide.pdf p27 c0 → 1926.502
+  [enrich] section WSDOT ADA_Field_Guide.pdf__p27__c0 → 1926.502
+  Logged doc_page correction: WSDOT ADA_Field_Guide.pdf p27 c0 → 142
+  [enrich] doc_page WSDOT ADA_Field_Guide.pdf__p27__c0 → 142
+RESPONSE:
+- The WSDOT minimum sidewalk width is 5 feet (excluding the curb), but providing wider sidewalks is encouraged. Wider sidewalks are desirable on major arterials, in central business districts, and along parks, schools, and other major pedestrian generators. See Exhibit 1510-2. When sidewalks ab...
+- Land Use Urban Core: 10 ft sidewalk + 2 ft buffer + parking OR 10 ft sidewalk + 4 ft buffer; 10 ft sidewalk + 2 ft + parking OR 10 ft sidewalk + 6 ft buffer
+- Land Use Urban: 8 ft sidewalk + 2 ft buffer + parking OR 8 ft sidewalk + 4 ft buffer; 8 ft sidewalk + 6 ft buffer
+- Land Use Suburban: 6 ft sidewalk + 2 ft buffer + parking OR 6 ft sidewalk + 4 ft buffer; 6 ft sidewalk + 6 ft buffer
+- Vehicle posted speed (mph) ≤15 20 25 30 35 ≥40 * If the dimensions shown exceed the dimensions given by the PLTS tables, then use the values in the PLTS table as the minimum allowable dimensions.
+
+[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1510.07(1) | p1081
+  [2] WSDOT Design Manual.pdf | WSDOT | §1510.09(2) | p1101
+  [3] WSDOT ADA_Field_Guide.pdf | WSDOT | §UNKNOWN | p27
+  [4] WSDOT Traffic Manual.pdf | WSDOT | §2-8.39 | p163
+  [5] WSDOT Design Manual.pdf | WSDOT | §1510.09(2)(b) | p1103
+  [6] WSDOT Design Manual.pdf | WSDOT | §1510.07(1) | p1083
+  [7] WSDOT Design Manual.pdf | WSDOT | §900.01 | p394
+
+OK | 48.7s
+
+======================================================================
+PROMPT 45: What does WSDOT specify for the design of roundabouts?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Designing a roundabout for all users is an iterative process of creating an easily navigable intersection through smooth curvature, channelization, sidewalks and buffers, deflection required to achieve consistent speeds, well-marked lane paths, accessible cross walks, and appropriate sight distance. Pedestrians and bicyclists are best served by single lane roundabouts with no slip lanes. The roundabout design should address approach speeds of traffic ahead of the crosswalks. At higher approach speeds, pedestrians may be reluctant to step into a crosswalk if they cannot determine whether the driver can slow down in time.  
+- The center of a roundabout around which traffic circulates. The central island is typically non-traversable and is often landscaped, although on some smaller roundabouts, the central island may be completely traversable. If the central island is non-traversable, it ...  
+- Exhibit 1320-1 Suggested Initial Design Ranges:  
+  - Mini [1]: Number of Lanes 1; Inscribed Circle Diameter [2] 45’ – 80’; Circulating Roadway Width N/A; Entry Widths 16’ – 18’  
+  - Compact Single-Lane: Number of Lanes 1+; Inscribed Circle Diameter [2] 65’ – 120’; Circulating Roadway Width 14’ – 19’; Entry Widths 25’  
+  - Compact Multilane: Number of Lanes 2+; Inscribed Circle Diameter [2] 80’ – 150’; Circulating Roadway Width 29’; Entry Widths 25’  
+  - Multilane: Number of Lanes 2+; Inscribed Circle Diameter [2] 120’ – 165’; Circulating Roadway Width 29’; Entry Widths 25’  
+  [1] Reserved for urban/suburban intersections with a 25 mph or less posted speed.  
+  [2] The given diameters assume a circular roundabout; adjust accordingly for other shapes. Some conditions may require ICDs outside ranges shown here.  
+- Ideal alignment offers an entry design that provides deflection, speed control, and reasonable view angles to drivers while balancing property impacts and costs. While most other intersection types are at 90º angles with through movements that are straight, entry deflection is critical for roundabouts.  
+- Angled crossings are appropriate for use with larger roundabouts because they minimize pedestrian crossing distance. When developing angled crossings, place each leg of the crosswalk perpendicular to the outside curb of the entry and exit lanes and locate the angle point near the center of the splitter island. Exhibit 1320-4 shows this option.  
+- Straight crossings are appropriate for use when providing continuity of a shared-use path, and on smaller
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1320.01 | p838
+  [2] WSDOT Design Manual.pdf | WSDOT | §1103.05(1) | p569
+  [3] WSDOT Design Manual.pdf | WSDOT | §1320.04(3)(e) | p849
+  [4] WSDOT Design Manual.pdf | WSDOT | §1320.10 | p869
+  [5] WSDOT Design Manual.pdf | WSDOT | §1320.04(7)(a) | p856
+  [6] WSDOT Design Manual.pdf | WSDOT | §1320.05(3)(a) | p863
+  [7] WSDOT Design Manual.pdf | WSDOT | §1300.03(4) | p777
+
+OK | 96.9s
+
+======================================================================
+PROMPT 46: What are WSDOT requirements for shared use path width and design?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The desirable operational width of a shared-use path, excluding the shoulders on either side, is 12 feet.  
+- The minimum operational width, excluding the shoulders on either side, is 10 feet.  
+- In limited circumstances an exception to this minimum width can be used; see Section 1515.04(2)(c).  
+- The operational width of the shared-use path must provide a stable, firm, and slip-resistant surface to meet accessibility requirements.  
+
+[[SRC_6]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1515.05(2) | p1146
+  [2] WSDOT Design Manual.pdf | WSDOT | §1515.01 | p1128
+  [3] WSDOT Design Manual.pdf | WSDOT | §1515.04(1) | p1130
+  [4] WSDOT Design Manual.pdf | WSDOT | §1515.08(2) | p1149
+  [5] WSDOT Design Manual.pdf | WSDOT | §1515.04(2)(g) | p1136
+  [6] WSDOT Design Manual.pdf | WSDOT | §1515.04(2)(a) | p1131
+  [7] WSDOT Design Manual.pdf | WSDOT | §1515.02 | p1128
+
+OK | 20.8s
+
+======================================================================
+PROMPT 47: What does WSDOT specify for guardrail end treatment and terminal design?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- A terminal is used on the approach end and a transition is needed at the bridge end when a guardrail on the approach to a bridge is to be shifted laterally to connect with the bridge rail. Curves (bends) are shown in the guardrail to shift it to the bridge rail. However, the length of the curves are not critical. The criterion is to provide smooth curves that are not more abrupt than the allowable flare rate (see Exhibit 1610-5).  
+- Case 5-31 is a typical bridge approach where a terminal and a transition are needed.  
+- Case 10 (A-31, B-31, and C-31) is used at roadside fixed features (such as bridge piers) when 5 or more feet are available from the face of the guardrail to the feature. The approach end is the same for one-way or two-way traffic. Case 10A-31 is used with two-way traffic; therefore, a terminal is needed on the trailing end. Case 10B-31 is used for one-way traffic with a terminal on the trailing end.  
+- A Buried Terminal (BT) is designed to terminate the guardrail by burying the end in a backslope. The BT is the preferred terminal because it eliminates the exposed end of the guardrail. For new BT installations, use the Buried Terminal Type 2. Previously, another BT option (the Buried Terminal Type 1) was an available choice. For existing installations, it is acceptable to leave this option in service as long as height requirements and other design criteria are met. The backslope needed to install a BT is to be 3H:1V or steeper and at least 4 feet in height above the roadway. Do not place a mound of soil or base material over the Type 2 anchor located at the end of the buried terminal system. Install Type 2 anchors into the backslope.  
+- When the height of existing Type 1 guardrail, crashworthy terminals, and/or transitions will fall outside the height range from 26.5” to 31” (26.5” to 30” for terminals) in the project’s completed condition; the existing guardrail, terminals, and/or transitions must be adjusted to a minimum height of 28” up to a maximum height of 30”. This includes buried terminals that slope down such that the guardrail height is reduced to less than 26.5-inches (measured in relation to a 10H:1V line extended from the breakpoint at edge of shoulder).  
+
+[[SRC_1]]  
+[[SRC_2]]  
+[[SRC_7]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1610.04(7)(a) | p1234
+  [2] WSDOT Design Manual.pdf | WSDOT | §1610.04(5)(a) | p1229
+  [3] WSDOT Design Manual.pdf | WSDOT | §1610.03(2)(a) | p1211
+  [4] WSDOT Construction Manual.pdf | WSDOT | §2-03.3(3) | p496
+  [5] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p605
+  [6] WSDOT Design Manual.pdf | WSDOT | §1610.04(6) | p1232
+  [7] WSDOT Design Manual.pdf | WSDOT | §1120.02(7) | p594
+
+OK | 96.6s
+
+======================================================================
+PROMPT 48: What are WSDOT drainage ditch design criteria for rural highways?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (2 section, 0 doc_page)
+  [4/4] Building context...
+  [5/5] Generating response...
+  Logged section correction: WSDOT Highway Runoff Manual.pdf p63 c0 → 3-05.2
+  [enrich] section WSDOT Highway Runoff Manual.pdf__p63__c0 → 3-05.2
+  Logged section correction: WSDOT Hydraulics Manual.pdf p17 c0 → 1-1
+  [enrich] section WSDOT Hydraulics Manual.pdf__p17__c0 → 1-1
+RESPONSE:
+- Table 5-1 Design Frequency and Allowable Spread Road Classification Design Frequency (years) Allowable Spread (Zd) <45 mph 10 Shoulder + 2 feet Interstate ≥45 mph 10 Shoulder Underpasses and sag 50 Shoulder + 2 feet Principal, minor arterial, or divided <45 mph 10 Shoulder + 2 feet a ≥45 mph 10 Shoulder Sag 50 Shoulder + 2 feet a Collector and local streets <45 mph 10 Shoulder + one-half driving lane ≥45 mph 10 Shoulder Sag 50 Shoulder + one-half driving lane Roundabouts (circulating roadway)b All design speeds 10 One-half driving lane Roundabouts entry lane...
+
+[[SRC_5]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1320.04(3)(a) | p845
+  [2] WSDOT Design-Build Manual.pdf | WSDOT | §3-4.10 | p112
+  [3] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p63
+  [4] WSDOT Design Manual.pdf | WSDOT | §1130.10(10) | p624
+  [5] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p96
+  [6] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p86
+  [7] WSDOT Hydraulics Manual.pdf | WSDOT | §UNKNOWN | p17
+
+OK | 35.3s
+
+======================================================================
+PROMPT 49: What does WSDOT require for accessible pedestrian facility design in new construction?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- Wherever pedestrian facilities are intended to be a part of the transportation facility, federal regulations (28 CFR Part 35) require that those pedestrian facilities meet ADA guidelines.  
+- All new construction or alteration of existing facilities must meet the applicable accessibility requirements for pedestrian facilities.  
+- It is important that designers are trained to understand the ADA accessibility criteria to appropriately balance intersection design with the diversity of pedestrians and other roadway users’ needs.  
+
+[[SRC_4]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1510.02(1) | p1068
+  [2] WSDOT Design Manual.pdf | WSDOT | §1510.01 | p1068
+  [3] WSDOT Design Manual.pdf | WSDOT | §1510.03(2) | p1073
+  [4] WSDOT Design Manual.pdf | WSDOT | §1510.03(2) | p1072
+  [5] WSDOT Design Manual.pdf | WSDOT | §1510.01 | p1067
+  [6] WSDOT Design Manual.pdf | WSDOT | §1510.03 | p1071
+  [7] WSDOT Traffic Manual.pdf | WSDOT | §2-8.39 | p184
+
+OK | 17.2s
+
+======================================================================
+PROMPT 50: What are WSDOT requirements for vertical clearance on highway structures?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] All metadata known — skipping enrichment

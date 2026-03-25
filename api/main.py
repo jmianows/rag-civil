@@ -214,13 +214,19 @@ def submit_request(req: CodeRequest):
     return {"ok": True}
 
 
+@app.get("/standards", response_class=FileResponse)
+def standards_page():
+    return FileResponse(str(FRONTEND_DIR / "standards.html"))
+
+
 @app.get("/standards/list")
 def get_standards_list():
     """Return one entry per unique source file with agency/jurisdiction metadata."""
     try:
         db = lancedb.connect(str(VECTORDB_DIR))
         table = db.open_table("civil_engineering_codes")
-        rows = table.search().limit(999999).to_list()
+        cols = ['source_file', 'agency', 'jurisdiction', 'state', 'locality', 'file_link']
+        rows = table.search().select(cols).limit(999999).to_list()
         seen = {}
         for r in rows:
             sf = r.get("source_file", "")
