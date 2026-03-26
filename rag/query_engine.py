@@ -9,7 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
-from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE
+from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL
 
 _ollama_session = requests.Session()
 _ollama_session.headers.update({"Connection": "keep-alive"})
@@ -85,7 +85,10 @@ def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
     pairs = [(query, c.text) for c in chunks]
     scores = reranker.predict(pairs)
     ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
-    return [c for _, c in ranked[:top_k]]
+    top = ranked[:top_k]
+    for score, c in top:
+        c.rerank_score = float(score)
+    return [c for _, c in top]
 
 
 def _vector_search(table, embedding: list[float], n: int, where: str | None) -> list[dict]:
@@ -112,7 +115,6 @@ def _rrf_merge(lists: list[list[dict]], k: int = 60) -> list[dict]:
 
 VECTORDB_DIR  = Path(__file__).parent.parent / "vectordb"
 EMBED_MODEL   = "mxbai-embed-large"
-LLM_MODEL = "qwen3:4b-instruct"
 N_RESULTS     = 7
 
 # ── Ollama load balancer ───────────────────────────────────────────────────────
@@ -149,6 +151,7 @@ class RetrievedChunk:
     llm_corrected_doc_page: bool = False
     locality:               str = ""
     file_link:              str = ""
+    rerank_score:           float = 0.0
 
 
 def _ensure_fts_index(table) -> None:
@@ -738,6 +741,7 @@ def query_prepare(
                 "page":                  c.page,
                 "chunk_index":           c.chunk_index,
                 "distance":              c.distance,
+                "rerank_score":          c.rerank_score,
                 "llm_corrected_section": c.llm_corrected_section,
                 "file_link":             c.file_link,
             }

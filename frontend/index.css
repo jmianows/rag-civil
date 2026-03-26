@@ -907,25 +907,9 @@ html[data-theme="evolve-light"] .back-btn { border-radius: var(--radius); }
 html[data-theme="evolve"] ::-webkit-scrollbar-thumb,
 html[data-theme="evolve-light"] ::-webkit-scrollbar-thumb { border-radius: 3px; }
 
-/* ── Sidebar footer ─────────────────────────────────────────── */
-#sidebar-footer {
-  margin-top: auto;
-  padding: 1rem 0.75rem 0.75rem;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-#sidebar-request-btn {
-  width: 100%;
-  padding: 0.5rem;
-  background: none;
-  border: 1px solid var(--border2);
-  border-radius: 6px;
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-#sidebar-request-btn:hover { opacity: 0.8; }
+
+/* ── Sidebar footer (mobile only) ───────────────────────────── */
+#sidebar-footer { display: none; }
 
 /* ── Mobile nav (hidden on desktop) ─────────────────────────── */
 #mobile-nav    { display: none; }
@@ -939,12 +923,13 @@ html[data-theme="evolve-light"] ::-webkit-scrollbar-thumb { border-radius: 3px; 
 #sidebar-backdrop.visible { display: block; }
 
 @media (max-width: 680px) {
-  /* Header wraps into two rows */
-  #header { flex-wrap: wrap; padding: 0.4rem 0.6rem; }
-  .tagline { display: none; }
-
-  /* Tab row hidden — replaced by hamburger */
-  #mobile-nav { display: none; }
+  /* Header: only logo, title, hamburger */
+  #header { flex-wrap: nowrap; padding: 0.4rem 0.6rem; }
+  .tagline    { display: none; }
+  .spacer     { display: none; }
+  #status-bar { display: none; }
+  #request-btn { display: none; }
+  #mobile-nav  { display: none; }
 
   /* Hamburger open button */
   #sidebar-open {
@@ -999,4 +984,28 @@ html[data-theme="evolve-light"] ::-webkit-scrollbar-thumb { border-radius: 3px; 
 
   /* Prevent iOS auto-zoom on textarea focus */
   #query-input { font-size: 16px; }
+
+  /* Request button at bottom of sidebar drawer */
+  #sidebar-footer {
+    display: flex;
+    margin-top: auto;
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #sidebar-request-btn {
+    flex: 1;
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 0.2rem 0.65rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  html[data-theme="evolve"] #sidebar-request-btn,
+  html[data-theme="evolve-light"] #sidebar-request-btn { font-weight: 600; }
+  #sidebar-request-btn:hover { opacity: 0.8; }
 }

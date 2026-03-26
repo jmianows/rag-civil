@@ -148,6 +148,7 @@
   <div class="tagline">standards library</div>
   <div class="spacer"></div>
   <a href="/" class="back-btn">← dictionary</a>
+  <button id="request-btn">Request codes to add!</button>
 </div>
 
 <!-- ══ CONTENT ══ -->
@@ -169,7 +170,7 @@
       My goal was to create a bulk search function specifically for civil engineering standards better than ctrl+f. 
       This searches multiple documents at once and accepts naturalistic language inputs, so I think this succeeds. 
       <br><br>This is technically "powered by AI". Like any good AI, it grows more powerful the more documents it gains. 
-      Help me by telling me about public standards YOU constantly search!</div>
+      Help me by telling about public standards YOU constantly search!</div>
 
     <div class="std-title" style="font-size:14px; margin-bottom:0.25rem;">About the Author</div>
     <div class="std-subtitle">
@@ -295,7 +296,80 @@ async function loadStandards() {
 }
 
 loadStandards();
+
+/* ══ REQUEST MODAL ══ */
+const reqOverlay = document.getElementById('req-overlay');
+const reqSendBtn = document.getElementById('req-send');
+const reqStatus  = document.getElementById('req-status');
+let lastReqSend  = 0;
+
+document.getElementById('request-btn').addEventListener('click', () => {
+  document.getElementById('req-doc').value   = '';
+  document.getElementById('req-notes').value = '';
+  document.getElementById('req-email').value = '';
+  reqStatus.textContent = ''; reqStatus.className = '';
+  reqSendBtn.disabled = false; reqSendBtn.textContent = 'Send Request';
+  reqOverlay.classList.add('visible');
+  document.getElementById('req-doc').focus();
+});
+
+document.getElementById('req-cancel').addEventListener('click', () =>
+  reqOverlay.classList.remove('visible'));
+reqOverlay.addEventListener('click', e => {
+  if (e.target === reqOverlay) reqOverlay.classList.remove('visible');
+});
+
+reqSendBtn.addEventListener('click', async () => {
+  const doc   = document.getElementById('req-doc').value.trim().slice(0, 200);
+  const notes = document.getElementById('req-notes').value.trim().slice(0, 500);
+  const email = document.getElementById('req-email').value.trim().slice(0, 120);
+  if (!doc) {
+    reqStatus.textContent = 'Please specify a document or standard.';
+    reqStatus.className = 'err'; return;
+  }
+  if (Date.now() - lastReqSend < 30000) {
+    reqStatus.textContent = 'Please wait before sending another request.';
+    reqStatus.className = 'err'; return;
+  }
+  reqSendBtn.disabled = true; reqSendBtn.textContent = 'Sending\u2026';
+  reqStatus.textContent = ''; reqStatus.className = '';
+  try {
+    const r = await fetch(API + '/request', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({document: doc, notes, email}),
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    lastReqSend = Date.now();
+    reqStatus.textContent = 'Request sent \u2014 thank you!';
+    reqStatus.className = 'ok';
+    setTimeout(() => reqOverlay.classList.remove('visible'), 1800);
+  } catch(e) {
+    reqStatus.textContent = 'Send failed: ' + e.message;
+    reqStatus.className = 'err';
+    reqSendBtn.disabled = false; reqSendBtn.textContent = 'Send Request';
+  }
+});
 </script>
+
+<!-- ══ REQUEST MODAL ══ -->
+<div id="req-overlay">
+  <div id="req-modal">
+    <h3>Request a Document or Standard</h3>
+    <p class="req-desc">Let me know what engineering codes or standards you'd like added to this tool.</p>
+    <label>Document / standard to add <span class="req-required">*</span></label>
+    <input id="req-doc" type="text" maxlength="200" autocomplete="off" placeholder="I cannot add copyrighted material!">
+    <label>Link or related standards <span class="req-opt">(optional)</span></label>
+    <textarea id="req-notes" maxlength="500" placeholder="Paste a link to the document, or list related standards and any other notes..."></textarea>
+    <label>Email <span class="req-opt">(optional)</span></label>
+    <input id="req-email" type="email" maxlength="120" autocomplete="off" placeholder="Fill this out and I'll let you know when it's added">
+    <div class="modal-btns">
+      <button class="modal-btn" id="req-cancel">Cancel</button>
+      <button class="modal-btn confirm" id="req-send">Send Request</button>
+    </div>
+    <div id="req-status"></div>
+  </div>
+</div>
 
 </body>
 </html>

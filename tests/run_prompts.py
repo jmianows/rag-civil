@@ -23,7 +23,8 @@ JSON schema per prompt:
       "spurious_fail": bool,   # FAIL emitted despite [[SRC_N]] citations
       "time_s": float,         # total wall time including retrieval + generation
       "ttfl_s": float | null,  # time to first line: seconds from submit to first bullet (null for FAIL)
-      "sources": [{"source_file", "agency", "section", "page"}, ...],
+      "llm_model": str,            # e.g. "qwen3:4b-instruct"
+      "sources": [{"source_file", "agency", "section", "page", "rerank_score", "distance"}, ...],
       "response_preview": str  # first 300 chars of response
     }
 """
@@ -33,6 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from rag.query_engine import query_prepare, generate_response_stream
+from rag.env_config import LLM_MODEL
 
 # ── Prompt definitions ────────────────────────────────────────────────────────
 
@@ -261,9 +263,10 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
 
         run_meta = {
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "llm_model": LLM_MODEL,
             "prompts_run": prompt_nums,
         }
-        emit(f"Run started: {run_meta['timestamp']}  |  {len(prompt_nums)} prompts")
+        emit(f"Run started: {run_meta['timestamp']}  |  model={LLM_MODEL}  |  {len(prompt_nums)} prompts")
 
         for n in prompt_nums:
             p = PROMPTS[n]
@@ -305,12 +308,17 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             emit(f"\nSOURCES ({len(chunks_data)}):")
             sources = []
             for j, c in enumerate(chunks_data, 1):
-                emit(f"  [{j}] {c['source_file']} | {c['agency']} | §{c['section']} | p{c['page']}")
+                rscore = c.get("rerank_score", 0.0)
+                dist   = c.get("distance", 0.0)
+                emit(f"  [{j}] {c['source_file']} | {c['agency']} | §{c['section']} | p{c['page']}"
+                     f" | rerank={rscore:.2f} | dist={dist:.4f}")
                 sources.append({
-                    "source_file": c["source_file"],
-                    "agency":      c["agency"],
-                    "section":     c["section"],
-                    "page":        c["page"],
+                    "source_file":  c["source_file"],
+                    "agency":       c["agency"],
+                    "section":      c["section"],
+                    "page":         c["page"],
+                    "rerank_score": round(rscore, 4),
+                    "distance":     round(dist, 4),
                 })
             exp            = EXPECTED.get(n, {})
             exp_status     = exp.get("status", "OK")
@@ -327,6 +335,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             results.append({
                 "n":                n,
                 "prompt":           p,
+                "llm_model":        LLM_MODEL,
                 "status":           status,
                 "spurious_fail":    spurious,
                 "time_s":           elapsed,

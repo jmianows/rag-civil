@@ -56,12 +56,16 @@ OLLAMA_KEEP_ALIVE = -1 if IS_PRODUCTION else 300
 # Cross-encoder reranker device: GPU on production, CPU locally
 RERANKER_DEVICE = "cuda" if IS_PRODUCTION else "cpu"
 
+# LLM model: 8b on production GPU (T4 16GB), 4b locally
+LLM_MODEL = "qwen3:8b-instruct" if IS_PRODUCTION else "qwen3:4b-instruct"
+
 # Whether to ping Ollama and LanceDB at server startup to load them before
 # the first real user request arrives
 WARM_ON_STARTUP = IS_PRODUCTION
 
 print(
-    f"[env] {ENVIRONMENT.upper()} | keep_alive={OLLAMA_KEEP_ALIVE}s"
+    f"[env] {ENVIRONMENT.upper()} | model={LLM_MODEL}"
+    f" | keep_alive={OLLAMA_KEEP_ALIVE}s"
     f" | reranker={RERANKER_DEVICE} | warm_startup={WARM_ON_STARTUP}",
     flush=True,
 )
