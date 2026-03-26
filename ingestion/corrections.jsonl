@@ -4,3 +4,22 @@
 {"source_file": "WSDOT ADA_Field_Guide.pdf", "page": 27, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "142", "field": "doc_page", "timestamp": "2026-03-25T15:35:36.885717"}
 {"source_file": "WSDOT Highway Runoff Manual.pdf", "page": 63, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "3-05.2", "field": "section", "timestamp": "2026-03-25T15:39:58.319141"}
 {"source_file": "WSDOT Hydraulics Manual.pdf", "page": 17, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1-1", "field": "section", "timestamp": "2026-03-25T15:39:58.331909"}
+{"source_file": "WSDOT Highway Runoff Manual.pdf", "page": 11, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "5-4", "field": "section", "timestamp": "2026-03-25T15:48:35.828430"}
+{"source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf", "page": 192, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "2C.03", "field": "section", "timestamp": "2026-03-25T15:52:54.253412"}
+{"source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf", "page": 188, "chunk_index": 5, "old_value": "UNKNOWN", "correct_value": "2A.07", "field": "section", "timestamp": "2026-03-25T15:52:54.273015"}
+{"source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf", "page": 188, "chunk_index": 1, "old_value": "UNKNOWN", "correct_value": "2C.02", "field": "section", "timestamp": "2026-03-25T15:52:54.289731"}
+{"source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf", "page": 240, "chunk_index": 1, "old_value": "UNKNOWN", "correct_value": "6-04.3", "field": "section", "timestamp": "2026-03-25T15:52:54.306290"}
+{"source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf", "page": 240, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "2C.70", "field": "section", "timestamp": "2026-03-25T15:52:54.326743"}
+{"source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf", "page": 91, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "2A.12", "field": "section", "timestamp": "2026-03-25T15:52:54.344965"}
+{"source_file": "40 CFR Part 122.pdf", "page": 2, "chunk_index": 2, "old_value": "UNKNOWN", "correct_value": "142", "field": "doc_page", "timestamp": "2026-03-25T15:57:24.191206"}
+{"source_file": "EM_1110-2-1913.pdf", "page": 1, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1913", "field": "section", "timestamp": "2026-03-25T15:58:34.014306"}
+{"source_file": "EM_1110-2-2100.pdf", "page": 68, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1110-2-2100", "field": "section", "timestamp": "2026-03-25T15:58:34.027701"}
+{"source_file": "EM_1110-2-2502.pdf", "page": 2, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1110-2-2502", "field": "section", "timestamp": "2026-03-25T15:58:34.040885"}
+{"source_file": "EM_1110-2-1902.pdf", "page": 3, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1902", "field": "section", "timestamp": "2026-03-25T15:59:06.382449"}
+{"source_file": "EM_1110-2-1902.pdf", "page": 22, "chunk_index": 2, "old_value": "UNKNOWN", "correct_value": "1926.502", "field": "section", "timestamp": "2026-03-25T15:59:06.443879"}
+{"source_file": "EM_1110-2-1902.pdf", "page": 1, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1110.2.1902", "field": "section", "timestamp": "2026-03-25T15:59:06.460469"}
+{"source_file": "EM_1110-2-1902.pdf", "page": 6, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "1-1", "field": "section", "timestamp": "2026-03-25T15:59:06.478564"}
+{"source_file": "EM_1110-2-1902.pdf", "page": 24, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "3-1", "field": "section", "timestamp": "2026-03-25T15:59:17.825769"}
+{"source_file": "PROWAG.pdf", "page": 1, "chunk_index": 2, "old_value": "UNKNOWN", "correct_value": "1926.502", "field": "section", "timestamp": "2026-03-25T16:00:36.772603"}
+{"source_file": "PROWAG.pdf", "page": 1, "chunk_index": 3, "old_value": "UNKNOWN", "correct_value": "6-02.3", "field": "section", "timestamp": "2026-03-25T16:00:36.795028"}
+{"source_file": "Seattle Streets Illustrated ROWIM.pdf", "page": 118, "chunk_index": 0, "old_value": "UNKNOWN", "correct_value": "3.9.1", "field": "section", "timestamp": "2026-03-25T16:07:59.481452"}

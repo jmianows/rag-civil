@@ -1,0 +1,56 @@
+Loading all chunks...
+Loaded 44135 chunks
+Found 47 PDFs in docs tree for metadata refresh
+Refreshed metadata for 44135 rows
+  Retagged 385 chunks from 2022-cgp-permit-as-modified.pdf
+  Retagged 527 chunks from 40 CFR Part 122.pdf
+  Retagged 203 chunks from 40 CFR Part 1500-1508.pdf
+  Retagged 16 chunks from Executive Order 11988 Floodplains.pdf
+  Retagged 2699 chunks from fp-24.pdf
+  Retagged 3161 chunks from Manual on Uniform Traffic Control Devices 11th Ed..pdf
+  Retagged 404 chunks from 1991-design-standards.pdf
+  Retagged 1147 chunks from 2010-design-standards.pdf
+  Retagged 520 chunks from guidance-2010-standards.pdf
+  Retagged 376 chunks from PROWAG.pdf
+  Retagged 232 chunks from EM_1110-2-1603.pdf
+  Retagged 420 chunks from EM_1110-2-1902.pdf
+  Retagged 386 chunks from EM_1110-2-1913.pdf
+  Retagged 365 chunks from EM_1110-2-2100.pdf
+  Retagged 362 chunks from EM_1110-2-2104.pdf
+  Retagged 1633 chunks from EM_1110-2-2502.pdf
+  Retagged 432 chunks from EM_1110-2-2906.pdf
+  Retagged 3260 chunks from Seattle Standard Specifications.pdf
+  Retagged 764 chunks from Seattle Streets Illustrated ROWIM.pdf
+  Retagged 108 chunks from SDOT Traffic Control Manual.pdf
+  Retagged 132 chunks from SDOT Street Tree Manual.pdf
+  Retagged 203 chunks from SDOT ROWORR.pdf
+  Retagged 245 chunks from WSDOT Ad and Award Manual.pdf
+  Retagged 49 chunks from WSDOT ADA_Field_Guide.pdf
+  Retagged 274 chunks from WSDOT Communications Manual.pdf
+  Retagged 1965 chunks from WSDOT Construction Manual.pdf
+  Retagged 587 chunks from WSDOT Consultant Services Manual.pdf
+  Retagged 205 chunks from WSDOT Cost Estimation Guidelines.pdf
+  Retagged 3914 chunks from WSDOT Design Manual.pdf
+  Retagged 595 chunks from WSDOT Design-Build Manual.pdf
+  Retagged 1006 chunks from WSDOT Electronic Engineering Data Standards.pdf
+  Retagged 175 chunks from WSDOT Emergency Funds Manual.pdf
+  Retagged 1188 chunks from WSDOT Enviromental Manual.pdf
+  Retagged 2225 chunks from WSDOT Geotech Design Manual.pdf
+  Retagged 940 chunks from WSDOT Highway Runoff Manual.pdf
+  Retagged 500 chunks from WSDOT Highway Surveying Manual.pdf
+  Retagged 651 chunks from WSDOT Hydraulics Manual.pdf
+  Retagged 3110 chunks from WSDOT LRFD Bridge Design Manual.pdf
+  Retagged 399 chunks from WSDOT Maintenance Manual.pdf
+  Retagged 2345 chunks from WSDOT Materials Manual.pdf
+  Retagged 309 chunks from WSDOT MatsLab Safety Manual.pdf
+  Retagged 791 chunks from WSDOT Plans Preparation Manual.pdf
+  Retagged 797 chunks from WSDOT Program Management Manual.pdf
+  Retagged 11 chunks from WSDOT REES-TL1-Vertical-Illum-Grids-For-Crosswalks.pdf
+  Retagged 3372 chunks from WSDOT Standard Specifications.pdf
+  Retagged 682 chunks from WSDOT Traffic Manual.pdf
+  Retagged 65 chunks from WSDOT-Traffic-Electrical-REES-E1-RoadsidePowerDistribution.pdf
+Writing updated chunks back to database...
+Done — 44135 chunks written
+
+Applying corrections...
+  Applied 25 corrections

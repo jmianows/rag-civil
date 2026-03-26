@@ -16,6 +16,10 @@ except ImportError:
         segments_to_string,
         is_valid_advance,
     )
+try:
+    from rag.query_engine import _ensure_fts_index
+except ImportError:
+    from query_engine import _ensure_fts_index
 
 VECTORDB_DIR = Path("/home/justin/rag-civil/vectordb")
 
@@ -31,6 +35,74 @@ def retag():
     by_file = defaultdict(list)
     for row in all_rows:
         by_file[row["source_file"]].append(row)
+
+    # ── Metadata refresh from current docs tree ──────────────────────────────
+    DOCS_ROOT = Path("/home/justin/rag-civil/docs")
+    def _load_link(pdf_path: Path, root: Path) -> str:
+        import json as _json
+        for name in ("_links.json", "links.json"):
+            sidecar = pdf_path.parent / name
+            if sidecar.exists():
+                try:
+                    links = _json.loads(sidecar.read_text(encoding="utf-8"))
+                    url = links.get(pdf_path.name, "")
+                    if url:
+                        return url
+                except Exception:
+                    pass
+        for sidecar in pdf_path.parent.glob("*_links.json"):
+            try:
+                links = _json.loads(sidecar.read_text(encoding="utf-8"))
+                url = links.get(pdf_path.name, "")
+                if url:
+                    return url
+            except Exception:
+                pass
+        registry = root / "_registry.json"
+        if registry.exists():
+            try:
+                import json as _json2
+                reg = _json2.loads(registry.read_text(encoding="utf-8"))
+                url = reg.get(pdf_path.relative_to(root).as_posix(), "")
+                if url:
+                    return url
+            except Exception:
+                pass
+        return ""
+
+    file_map = {p.name: p for p in DOCS_ROOT.rglob("*.pdf")}
+    print(f"Found {len(file_map)} PDFs in docs tree for metadata refresh")
+
+    def _derive_metadata(pdf_path: Path) -> dict:
+        rel   = pdf_path.relative_to(DOCS_ROOT)
+        parts = rel.parts
+        tier  = parts[0].upper() if parts else "UNKNOWN"
+        jurisdiction = state = agency = "UNKNOWN"
+        locality = ""
+        if tier == "FEDERAL" and len(parts) >= 4:
+            jurisdiction, state, agency = "FEDERAL", parts[1].upper(), parts[2].upper()
+        elif tier == "STATE" and len(parts) >= 4:
+            jurisdiction, state, agency = "STATE", parts[1].upper(), parts[2].upper()
+        elif tier == "LOCAL" and len(parts) >= 4:
+            jurisdiction = "LOCAL"
+            state    = parts[1].upper()
+            locality = parts[2].title()
+            agency   = parts[3].upper() if len(parts) >= 5 else locality.upper()
+        return {
+            "jurisdiction": jurisdiction,
+            "state":        state,
+            "locality":     locality,
+            "agency":       agency,
+            "file_link":    _load_link(pdf_path, DOCS_ROOT),
+        }
+
+    refreshed = 0
+    for row in all_rows:
+        if row["source_file"] in file_map:
+            row.update(_derive_metadata(file_map[row["source_file"]]))
+            refreshed += 1
+    print(f"Refreshed metadata for {refreshed} rows")
+    # ─────────────────────────────────────────────────────────────────────────
 
     updated_rows = []
 
@@ -87,6 +159,10 @@ def retag():
 
     print("\nApplying corrections...")
     apply_corrections(new_table)
+
+    print("\nBuilding FTS index...")
+    _ensure_fts_index(new_table)
+    print("FTS index ready.")
 
 CORRECTIONS_LOG = Path("/home/justin/rag-civil/ingestion/corrections.jsonl")
 

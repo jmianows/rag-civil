@@ -138,10 +138,117 @@ PROMPTS = {
     100: "What does the ASTM standard specify for the tensile strength testing of structural bolts?",
 }
 
+# ── Expected outcomes ─────────────────────────────────────────────────────────
+# expected_status: "OK" if DB should answer, "FAIL" if topic not in DB
+# expected_agencies: for OK prompts, at least one must appear in retrieved sources
+
+EXPECTED = {
+    1:  {"status": "OK",   "agencies": ["WSDOT"]},
+    2:  {"status": "OK",   "agencies": ["ADA"]},
+    3:  {"status": "OK",   "agencies": ["WSDOT", "SEATTLE"]},
+    4:  {"status": "OK",   "agencies": ["WSDOT"]},
+    5:  {"status": "OK",   "agencies": ["WSDOT"]},
+    6:  {"status": "OK",   "agencies": ["ENVIROMENTAL", "WSDOT", "SEATTLE"]},
+    7:  {"status": "OK",   "agencies": ["WSDOT", "USACE"]},
+    8:  {"status": "OK",   "agencies": ["FHWA"]},
+    9:  {"status": "OK",   "agencies": ["WSDOT"]},
+    10: {"status": "OK",   "agencies": ["USACE"]},
+    11: {"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    12: {"status": "OK",   "agencies": ["WSDOT"]},
+    13: {"status": "OK",   "agencies": ["WSDOT"]},
+    14: {"status": "OK",   "agencies": ["WSDOT", "SEATTLE"]},
+    15: {"status": "FAIL", "agencies": []},
+    16: {"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    17: {"status": "OK",   "agencies": ["WSDOT"]},
+    18: {"status": "OK",   "agencies": ["FHWA"]},
+    19: {"status": "OK",   "agencies": ["FHWA"]},
+    20: {"status": "OK",   "agencies": ["USACE"]},
+    21: {"status": "OK",   "agencies": ["USACE"]},
+    22: {"status": "OK",   "agencies": ["ENVIROMENTAL", "WSDOT", "SEATTLE"]},
+    23: {"status": "OK",   "agencies": ["WSDOT"]},
+    24: {"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    25: {"status": "OK",   "agencies": ["WSDOT"]},
+    26: {"status": "FAIL", "agencies": []},
+    27: {"status": "OK",   "agencies": ["WSDOT"]},
+    28: {"status": "OK",   "agencies": ["FHWA"]},
+    29: {"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    30: {"status": "OK",   "agencies": ["WSDOT"]},
+    31: {"status": "FAIL", "agencies": []},
+    32: {"status": "FAIL", "agencies": []},
+    33: {"status": "FAIL", "agencies": []},
+    34: {"status": "FAIL", "agencies": []},
+    35: {"status": "FAIL", "agencies": []},
+    36: {"status": "FAIL", "agencies": []},
+    37: {"status": "FAIL", "agencies": []},
+    38: {"status": "FAIL", "agencies": []},
+    39: {"status": "FAIL", "agencies": []},
+    40: {"status": "FAIL", "agencies": []},
+    41: {"status": "FAIL", "agencies": []},
+    42: {"status": "FAIL", "agencies": []},
+    43: {"status": "OK",   "agencies": ["WSDOT"]},
+    44: {"status": "OK",   "agencies": ["WSDOT"]},
+    45: {"status": "OK",   "agencies": ["WSDOT"]},
+    46: {"status": "OK",   "agencies": ["WSDOT"]},
+    47: {"status": "OK",   "agencies": ["WSDOT"]},
+    48: {"status": "OK",   "agencies": ["WSDOT"]},
+    49: {"status": "OK",   "agencies": ["WSDOT", "ADA"]},
+    50: {"status": "OK",   "agencies": ["WSDOT"]},
+    51: {"status": "OK",   "agencies": ["WSDOT"]},
+    52: {"status": "OK",   "agencies": ["WSDOT"]},
+    53: {"status": "OK",   "agencies": ["WSDOT"]},
+    54: {"status": "OK",   "agencies": ["WSDOT"]},
+    55: {"status": "OK",   "agencies": ["WSDOT"]},
+    56: {"status": "OK",   "agencies": ["WSDOT"]},
+    57: {"status": "OK",   "agencies": ["WSDOT"]},
+    58: {"status": "OK",   "agencies": ["WSDOT"]},
+    59: {"status": "OK",   "agencies": ["WSDOT"]},
+    60: {"status": "OK",   "agencies": ["WSDOT", "ENVIROMENTAL", "SEATTLE"]},
+    61: {"status": "OK",   "agencies": ["WSDOT"]},
+    62: {"status": "OK",   "agencies": ["WSDOT"]},
+    63: {"status": "OK",   "agencies": ["WSDOT"]},
+    64: {"status": "OK",   "agencies": ["WSDOT"]},
+    65: {"status": "OK",   "agencies": ["FHWA"]},
+    66: {"status": "OK",   "agencies": ["FHWA"]},
+    67: {"status": "OK",   "agencies": ["FHWA"]},
+    68: {"status": "OK",   "agencies": ["FHWA"]},
+    69: {"status": "OK",   "agencies": ["FHWA", "WSDOT"]},
+    70: {"status": "OK",   "agencies": ["FHWA"]},
+    71: {"status": "OK",   "agencies": ["FHWA"]},
+    72: {"status": "OK",   "agencies": ["FHWA"]},
+    73: {"status": "OK",   "agencies": ["ENVIROMENTAL"]},
+    74: {"status": "OK",   "agencies": ["ENVIROMENTAL"]},
+    75: {"status": "OK",   "agencies": ["ENVIROMENTAL"]},
+    76: {"status": "OK",   "agencies": ["OSHA", "ENVIROMENTAL"]},
+    77: {"status": "OK",   "agencies": ["ENVIROMENTAL"]},
+    78: {"status": "OK",   "agencies": ["USACE"]},
+    79: {"status": "OK",   "agencies": ["USACE"]},
+    80: {"status": "OK",   "agencies": ["USACE"]},
+    81: {"status": "OK",   "agencies": ["USACE"]},
+    82: {"status": "OK",   "agencies": ["ADA"]},
+    83: {"status": "OK",   "agencies": ["ADA"]},
+    84: {"status": "OK",   "agencies": ["ADA"]},
+    85: {"status": "OK",   "agencies": ["ADA"]},
+    86: {"status": "OK",   "agencies": ["FHWA"]},
+    87: {"status": "OK",   "agencies": ["FHWA", "WSDOT"]},
+    88: {"status": "OK",   "agencies": ["FHWA", "WSDOT"]},
+    89: {"status": "OK",   "agencies": ["FHWA", "WSDOT"]},
+    90: {"status": "OK",   "agencies": ["WSDOT"]},
+    91: {"status": "OK",   "agencies": ["WSDOT", "USACE", "ENVIROMENTAL", "SEATTLE"]},
+    92: {"status": "OK",   "agencies": ["WSDOT", "SEATTLE"]},
+    93: {"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    94: {"status": "OK",   "agencies": ["WSDOT"]},
+    95: {"status": "OK",   "agencies": ["FHWA", "WSDOT"]},
+    96: {"status": "FAIL", "agencies": []},
+    97: {"status": "FAIL", "agencies": []},
+    98: {"status": "OK",   "agencies": ["USACE", "WSDOT"]},
+    99: {"status": "FAIL", "agencies": []},
+    100:{"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+}
+
 _SRC_RE = re.compile(r'\[\[SRC_\d+\]\]')
 
 
-def run(prompt_nums: list[int], log_path: Path, json_path: Path):
+def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: str = None):
     sep = "=" * 70
     results = []
     times = {}
@@ -182,16 +289,30 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path):
                     "section":     c["section"],
                     "page":        c["page"],
                 })
-            emit(f"\n{status}{'(spurious)' if spurious else ''} | {elapsed}s")
+            exp            = EXPECTED.get(n, {})
+            exp_status     = exp.get("status", "OK")
+            exp_agencies   = set(exp.get("agencies", []))
+            got_agencies   = {s["agency"] for s in sources}
+            status_ok      = (status == exp_status)
+            agency_ok      = (exp_status == "FAIL") or bool(exp_agencies & got_agencies)
+            correct        = status_ok and agency_ok
+
+            emit(f"\n{status}{'(spurious)' if spurious else ''} | {elapsed}s"
+                 f" | Expected:{exp_status} Status:{'✓' if status_ok else '✗'} Agency:{'✓' if agency_ok else '✗'}")
 
             results.append({
-                "n":               n,
-                "prompt":          p,
-                "status":          status,
-                "spurious_fail":   spurious,
-                "time_s":          elapsed,
-                "sources":         sources,
+                "n":                n,
+                "prompt":           p,
+                "status":           status,
+                "spurious_fail":    spurious,
+                "time_s":           elapsed,
+                "sources":          sources,
                 "response_preview": resp[:300].replace("\n", " "),
+                "expected_status":  exp_status,
+                "expected_agencies":sorted(exp_agencies),
+                "status_correct":   status_ok,
+                "agency_correct":   agency_ok,
+                "correct":          correct,
             })
 
         # ── Summary ──────────────────────────────────────────────────────────
@@ -200,13 +321,38 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path):
         spurious  = [r for r in results if r["spurious_fail"]]
         slowest   = sorted(results, key=lambda x: x["time_s"], reverse=True)[:5]
 
+        correct_list  = [r for r in results if r.get("correct")]
+        status_ok_list= [r for r in results if r.get("status_correct")]
+        agency_wrong  = [r for r in results if r.get("status_correct") and not r.get("agency_correct")]
+        wrong_list    = [r for r in results if not r.get("correct")]
+        pct = lambda n, d: f"{100*n//d}%" if d else "n/a"
+
+        emit("\n\n=== CORRECTNESS SUMMARY ===")
+        emit(f"  Overall correct:              {len(correct_list)}/{len(results)}  ({pct(len(correct_list), len(results))})")
+        emit(f"  Status correct:               {len(status_ok_list)}/{len(results)}")
+        emit(f"  Wrong agency (right status):  {[r['n'] for r in agency_wrong]}")
+        emit(f"  Incorrect prompts:            {[r['n'] for r in wrong_list]}")
+
         emit("\n\n=== TIMING SUMMARY ===")
         for res in sorted(results, key=lambda x: x["n"]):
-            emit(f"  P{res['n']:>3}: {res['status']:4} | {res['time_s']:.1f}s")
+            ok_mark = '✓' if res.get('correct') else '✗'
+            emit(f"  P{res['n']:>3}: {res['status']:4} {ok_mark} | {res['time_s']:.1f}s")
         emit(f"  MEAN: {mean_t}s")
         emit(f"  FAILs ({len(fails)}): {[r['n'] for r in fails]}")
         emit(f"  Spurious FAILs: {[r['n'] for r in spurious]}")
         emit(f"  Slowest 5: {[(r['n'], r['time_s']) for r in slowest]}")
+
+        if compare_path:
+            try:
+                prev_results = {r["n"]: r for r in json.loads(Path(compare_path).read_text())["results"]}
+                cur_results  = {r["n"]: r for r in results}
+                improved  = [n for n in cur_results if not prev_results.get(n, {}).get("correct") and cur_results[n].get("correct")]
+                regressed = [n for n in cur_results if prev_results.get(n, {}).get("correct") and not cur_results[n].get("correct")]
+                emit(f"\n=== DIFF vs {compare_path} ===")
+                emit(f"  Improved ({len(improved)}):  {improved}")
+                emit(f"  Regressed ({len(regressed)}): {regressed}")
+            except Exception as e:
+                emit(f"\n  [compare failed: {e}]")
 
         summary = {
             **run_meta,
@@ -229,8 +375,10 @@ if __name__ == "__main__":
                         help="Run only these prompt numbers")
     parser.add_argument("--out", default="/tmp/rag_run",
                         help="Output path prefix (default: /tmp/rag_run)")
+    parser.add_argument("--compare", default=None,
+                        help="Path to prior run JSON to diff against")
     args = parser.parse_args()
 
     nums = sorted(args.only if args.only else PROMPTS.keys())
     prefix = Path(args.out)
-    run(nums, prefix.with_suffix(".log"), prefix.with_suffix(".json"))
+    run(nums, prefix.with_suffix(".log"), prefix.with_suffix(".json"), compare_path=args.compare)
