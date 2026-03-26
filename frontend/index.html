@@ -2,7 +2,7 @@
 <html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Civil Standards Smart Dictionary</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
 <script>
@@ -25,6 +25,7 @@
   <div class="spacer"></div>
   <div id="status-bar">API: <span id="api-status">checking...</span></div>
   <button id="request-btn">Request codes to add!</button>
+  <button id="sidebar-open" aria-label="Open panel">☰</button>
   <div id="mobile-nav">
     <button class="mobile-tab-btn active" data-tab="about">About</button>
     <button class="mobile-tab-btn" data-tab="history">History</button>
@@ -108,6 +109,9 @@
       </div>
     </div>
 
+    <div id="sidebar-footer">
+      <button id="sidebar-request-btn">Submit codes and standards</button>
+    </div>
   </div><!-- /sidebar -->
 
   <!-- ══ MAIN ══ -->
@@ -908,6 +912,17 @@ document.querySelectorAll('.mobile-tab-btn').forEach(btn =>
 
 document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
 document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
+
+document.getElementById('sidebar-open').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('visible');
+  document.body.style.overflow = 'hidden';
+});
+
+document.getElementById('sidebar-request-btn').addEventListener('click', () => {
+  closeSidebar();
+  document.getElementById('request-btn').click();
+});
 </script>
 
 <div id="sidebar-backdrop"></div>
