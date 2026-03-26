@@ -102,6 +102,15 @@ class AnalyticsEvent(BaseModel):
 
 _RATE_LIMIT_WHITELIST = {"127.0.0.1", "::1"}
 
+
+def _real_ip(request: Request) -> str:
+    """Return the real client IP, reading X-Forwarded-For when behind a proxy (RunPod, nginx)."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host
+
+
 def _check_daily_limit(ip: str) -> None:
     """Raise 429 if this IP has exceeded the daily query limit. Logs cap hits."""
     if ip in _RATE_LIMIT_WHITELIST:
@@ -126,7 +135,7 @@ def _check_daily_limit(ip: str) -> None:
 
 @app.post("/query")
 def run_query(req: QueryRequest, request: Request):
-    _check_daily_limit(request.client.host)
+    _check_daily_limit(_real_ip(request))
     try:
         result = query(
             user_query=req.query,
@@ -143,7 +152,7 @@ def run_query(req: QueryRequest, request: Request):
 @app.post("/query/stream")
 def run_query_stream(req: QueryRequest, request: Request):
     """Server-sent events endpoint: yields source blocks one at a time as the LLM generates."""
-    _check_daily_limit(request.client.host)
+    _check_daily_limit(_real_ip(request))
     try:
         prep = query_prepare(
             user_query=req.query,

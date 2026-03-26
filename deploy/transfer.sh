@@ -40,6 +40,7 @@ rsync -avz --progress \
     --exclude='.env' \
     --include='vectordb/' \
     --exclude='docs/' \
+    --exclude='tests/' \
     "$LOCAL_DIR/" \
     "${REMOTE_USER}@${NODE_IP}:${REMOTE_DIR}/"
 
