@@ -21,7 +21,7 @@ try:
 except ImportError:
     from query_engine import _ensure_fts_index
 
-VECTORDB_DIR = Path("/home/justin/rag-civil/vectordb")
+VECTORDB_DIR = Path(__file__).parent.parent / "vectordb"
 
 
 def retag():
@@ -37,7 +37,7 @@ def retag():
         by_file[row["source_file"]].append(row)
 
     # ── Metadata refresh from current docs tree ──────────────────────────────
-    DOCS_ROOT = Path("/home/justin/rag-civil/docs")
+    DOCS_ROOT = Path(__file__).parent.parent / "docs"
     def _load_link(pdf_path: Path, root: Path) -> str:
         import json as _json
         for name in ("_links.json", "links.json"):
@@ -164,7 +164,14 @@ def retag():
     _ensure_fts_index(new_table)
     print("FTS index ready.")
 
-CORRECTIONS_LOG = Path("/home/justin/rag-civil/ingestion/corrections.jsonl")
+    try:
+        from rag.query_engine import invalidate_db_table
+        invalidate_db_table()
+        print("DB connection cache cleared.")
+    except Exception:
+        pass
+
+CORRECTIONS_LOG = Path(__file__).parent / "corrections.jsonl"
 
 
 def log_correction(

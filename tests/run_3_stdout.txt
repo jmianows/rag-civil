@@ -1,0 +1,42 @@
+Run started: 2026-03-25T22:56:09  |  100 prompts
+
+======================================================================
+PROMPT 1: What is the minimum lane width for a rural arterial highway according to WSDOT?
+======================================================================
+  [1/4] Connecting to database...
+  [2/4] Embedding query and retrieving chunks...
+  [reranker] Loading cross-encoder model...
+Loading weights:   0%|          | 0/105 [00:00<?, ?it/s]Loading weights: 100%|██████████| 105/105 [00:00<00:00, 2936.07it/s]
+[1mBertForSequenceClassification LOAD REPORT[0m from: cross-encoder/ms-marco-MiniLM-L-6-v2
+Key                          | Status     |  | 
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  | 
+
+[3mNotes:
+- UNEXPECTED[3m	:can be ignored when loading from different task/architecture; not ok if you expect identical arch.[0m
+  Retrieved 7 chunks (re-ranked from 20)
+  [3/4] Scheduling background enrichment (0 section, 1 doc_page)
+  [4/4] Building context...
+  [5/5] Generating response...
+RESPONSE:
+- The lane width ranges for highways are listed in Exhibit 1231-1.  
+- For highways with speeds ≥ 50 mph (freeway or interstate), lane width is not specified in this section.  
+- For all highways with speeds of 40 to 45 mph, the lane width range is 11' to 12'.  
+- For all highways with speeds ≤ 35 mph, the lane width range is 10' to 12'.  
+
+[[SRC_6]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(d) | p1016
+  [2] WSDOT Design Manual.pdf | WSDOT | §530.04(2)(b) | p202
+  [3] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1015
+  [4] WSDOT Design Manual.pdf | WSDOT | §1240.03(2) | p721
+  [5] WSDOT Design Manual.pdf | WSDOT | §1360.08(2) | p987
+  [6] WSDOT Design Manual.pdf | WSDOT | §1231.04(1)(a) | p661
+  [7] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1019
+
+OK | 41.5s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 2: What is the maximum cross-slope for a pedestrian access route per PROWAG?
+======================================================================

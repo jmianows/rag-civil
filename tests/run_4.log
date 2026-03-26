@@ -1,0 +1,593 @@
+Run started: 2026-03-26T00:23:36  |  100 prompts
+
+======================================================================
+PROMPT 1: What is the minimum lane width for a rural arterial highway according to WSDOT?
+======================================================================
+RESPONSE:
+- The lane width ranges for highways are listed in Exhibit 1231-1.
+- For highways with speeds ≥ 50 mph (freeway or interstate), lane width is not specified in this section.
+- For all highways with speeds of 40 to 45 mph, the lane width range is 11' to 12'.
+- For all highways with speeds ≤ 35 mph, the lane width range is 10' to 12'.[[SRC_6]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(d) | p1016
+  [2] WSDOT Design Manual.pdf | WSDOT | §530.04(2)(b) | p202
+  [3] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1015
+  [4] WSDOT Design Manual.pdf | WSDOT | §1240.03(2) | p721
+  [5] WSDOT Design Manual.pdf | WSDOT | §1360.08(2) | p987
+  [6] WSDOT Design Manual.pdf | WSDOT | §1231.04(1)(a) | p661
+  [7] WSDOT Design Manual.pdf | WSDOT | §1410.04(4)(a) | p1019
+
+OK | 21.4s | ttfl=20.36s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 2: What is the maximum cross-slope for a pedestrian access route per PROWAG?
+======================================================================
+RESPONSE:
+- The cross slope of ramp runs shall be 1:48 (2.1%) maximum.[[SRC_4]]
+
+SOURCES (7):
+  [1] PROWAG.pdf | ADA | §310.6 | p24
+  [2] PROWAG.pdf | ADA | §302.5 | p52
+  [3] PROWAG.pdf | ADA | §304.5.3 | p29
+  [4] PROWAG.pdf | ADA | §406.3 | p58
+  [5] PROWAG.pdf | ADA | §302.5 | p52
+  [6] PROWAG.pdf | ADA | §UNKNOWN | p9
+  [7] PROWAG.pdf | ADA | §304.5.3 | p30
+
+OK | 7.5s | ttfl=7.46s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 3: What does OSHA require to prevent cave-ins in trenches?
+======================================================================
+RESPONSE:
+- Excavations that are classified as trenches are required to have a safety system (refer to the requirements defined in the Washin...[[SRC_3]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §2-04.3(7) | p201
+  [2] Seattle Standard Specifications.pdf | SEATTLE | §2-04.3(7) | p201
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §7-04.3(1) | p721
+  [4] Seattle Streets Illustrated ROWIM.pdf | SEATTLE | §23.54.020 | p314
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §1-07.19 | p151
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §7-04.3(1) | p729
+  [7] 40 CFR Part 122.pdf | OSHA | §35.2005(b)(20) | p85
+
+OK | 5.0s | ttfl=4.98s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 4: What is the minimum concrete cover for reinforcing steel in a bridge pier column exposed to saltwater?
+======================================================================
+RESPONSE:
+- The minimum cover requirements for direct exposure to salt water and coastal situations of the LRFD-BDS shall apply.
+- Corrosion resistant reinforcement as defined in Section 5.1.2 shall be used in Marine or Non-Marine: Corrosive environments, and additional concrete cover may also be provided.
+- Salt/sea water can be an aggressive corrosive environment that significantly shortens the service life of reinforced concrete structures.[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Standard Specifications.pdf | WSDOT | §9.24.1 | p663
+  [2] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.3.4.E.2 | p689
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.1.1.L.2 | p243
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.7.2.E | p358
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(19) | p461
+  [6] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.7.4.A.1 | p360
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §9.24.1 | p651
+
+OK | 3.1s | ttfl=2.31s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 5: What is the stopping sight distance for a 45 mph design speed?
+======================================================================
+RESPONSE:
+- The design stopping sight distance is the sum of two distances: the distance traveled during perception and reaction time and the distance to stop the vehicle. The perception and reaction distance used in design is the distance traveled in 2.5 seconds at the design speed.
+- The design stopping sight distance is calculated using the design speed and a constant deceleration rate of 11.2 feet/second².
+- For stopping sight distances on grades less than 3%, see Exhibit 1260-1; for grades 3% or greater, see Exhibit 1260-2.
+- Exhibit 1260-10 Existing Stopping Sight Distance shows the existing stopping sight distance for a design speed of 45 mph as 305 feet.[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1260.03(7) | p750
+  [2] WSDOT Design Manual.pdf | WSDOT | §1260.03(1)(a) | p741
+  [3] WSDOT Design Manual.pdf | WSDOT | §1260.03(1)(b) | p741
+  [4] WSDOT Design Manual.pdf | WSDOT | §1260.03(1) | p740
+  [5] WSDOT Design Manual.pdf | WSDOT | §1260.04(1) | p750
+  [6] WSDOT Design Manual.pdf | WSDOT | §1320.04(8)(a) | p858
+  [7] WSDOT Design Manual.pdf | WSDOT | §1515.04(5) | p1141
+
+OK | 3.9s | ttfl=2.53s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 6: What are the required elements of a Stormwater Pollution Prevention Plan (SWPPP)?
+======================================================================
+RESPONSE:
+- Preserve Vegetation/Mark Clearing Limits
+- Establish Construction Access
+- Control Flow Rates
+- Install Sediment Controls
+- Stabilize Soils
+- Protect Slopes
+- Protect Drain Inlets
+- Stabilize Channels and Outlets
+- Control Pollutants
+- Control Dewatering
+- Maintain BMPs
+- Manage the Project
+- Protect Low Impact Development (LID) BMPs[[SRC_2]]
+
+SOURCES (7):
+  [1] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p52
+  [2] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §9.10.3 | p95
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §20.3(1) | p518
+  [4] WSDOT Enviromental Manual.pdf | WSDOT | §430.03(3) | p137
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §20.3(1) | p517
+  [6] WSDOT Highway Runoff Manual.pdf | WSDOT | §UNKNOWN | p52
+  [7] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §20.6.4.900 | p75
+
+OK | 2.8s | ttfl=1.91s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 7: What is the minimum headwall setback distance for a culvert outlet?
+======================================================================
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right![[FAIL]]
+
+SOURCES (7):
+  [1] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p73
+  [2] WSDOT Hydraulics Manual.pdf | WSDOT | §2.5.2 | p193
+  [3] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p64
+  [4] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p72
+  [5] WSDOT Hydraulics Manual.pdf | WSDOT | §3-3.1.7 | p74
+  [6] EM_1110-2-1913.pdf | USACE | §186.24 | p134
+  [7] WSDOT Hydraulics Manual.pdf | WSDOT | §2-6.3 | p63
+
+FAIL | 1.9s | ttfl=1.89s | Expected:OK Status:✗ Agency:✓
+
+======================================================================
+PROMPT 8: What does the MUTCD require for retroreflectivity of regulatory signs?
+======================================================================
+RESPONSE:
+- Regulatory, warning, and guide signs (see Section 2A.03), and object markers, shall be retroreflective or illuminated to show the same shape and similar color by both day and night, unless otherwise provided in this Manual for a particular sign or group of signs.
+- Regulatory signs shall be retroreflective or illuminated (see Section 2A.21).[[SRC_1]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p103
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p832
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p90
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p108
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p579
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p830
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p90
+
+OK | 3.0s | ttfl=2.74s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 9: What are WSDOT requirements for painting structural steel on highway bridges?
+======================================================================
+RESPONSE:
+- The final coat shall match the color of the existing paint on the structure when painting steel structures on existing bridges.
+- All steel in utility supports, including fastenings and anchorages, shall be galvanized in accordance with AASHTO M-111 or M-232 (ASTM A-123 or A-153 respectively).
+- All utilities and utility support surfaces, including any galvanized utilities, shall be painted in accordance with Standard Specifications Section 6-07.[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §1.3.5 | p484
+  [2] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p440
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §10.8.1.C | p800
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.9.6 | p450
+  [5] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p442
+  [6] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §1.3.5 | p484
+  [7] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p424
+
+OK | 3.2s | ttfl=2.17s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 10: What compaction requirements does USACE specify for highway embankment fill?
+======================================================================
+RESPONSE:
+- The Contractor shall use Method B unless the Special Provisions require another method.
+- Method B – The top 2 feet of each embankment shall be compacted to 95 percent of the maximum density as determined by the compaction control tests described in Section 2-03.3(14)D. All material below the 2-foot level shall be compacted to 90 percent of the same maximum density. In the top 2 feet, horizontal layers shall not exceed 4 inches.
+- Each embankment shall be made of layers no more than 2 feet thick. The Contractor shall compact each layer by routing loaded haul equipment over its entire width. If the Engineer approves, the Contractor may use end dumping to begin placing a side hill fill too narrow for hauling equipment. When the fill is wide enough, the remaining layers shall be compacted by the loaded hauling equipment.
+- Adjust the moisture content of embankment material to a moisture content suitable for compaction. Place embankment material in 12-inch lifts and compact each lift according to Subsection 204.11(a). If compacting with rollers is not practical, use approved mechanical or vibratory compaction equipment.[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p302
+  [2] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p302
+  [3] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p303
+  [4] EM_1110-2-1913.pdf | USACE | §27.4 | p54
+  [5] WSDOT Standard Specifications.pdf | WSDOT | §2-03.3(8) | p225
+  [6] fp-24.pdf | FHWA | §212.04 | p157
+  [7] WSDOT Geotech Design Manual.pdf | WSDOT | §10.8.4 | p363
+
+OK | 4.9s | ttfl=1.9s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 11: What is the minimum compressive strength of concrete for bridge deck construction?
+======================================================================
+RESPONSE:
+- The minimum compressive strength at 28 days for bridge decks shall be 4000 psi (Class D) as specified in Table 15.5.2-1 of the WSDOT LRFD Bridge Design Manual.
+- The minimum compressive strength at release (ƒ'ci) for prestressed concrete slab girders is 5.0 ksi, and for all other prestressed girders is 6.0 ksi.
+- The minimum compressive strength of bridge deck repair material shall be 2,500 psi.
+- The lower specification limit for compressive strength at 28 days for concrete overlays on bridge decks is shown in Table 569-1.[[SRC_5]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §6-02.3(25) | p355
+  [2] fp-24.pdf | FHWA | §552.16 | p502
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §5.1.1.A.2 | p236
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.5.5.A | p1048
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.5.2.A.1 | p1041
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §9-20.4(3) | p1051
+  [7] fp-24.pdf | FHWA | §569.18 | p627
+
+OK | 4.1s | ttfl=2.71s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 12: What is the maximum allowable slope ratio for a temporary cut in Type B soil?
+======================================================================
+RESPONSE:
+- WAC 296-155 presents maximum allowable temporary cut slope inclinations based on soil or rock type, as shown in Table 15-7. The allowable slopes presented in the WAC are applicable to cuts 20 feet or less in height. The WAC requires that slope inclinations steeper than those specified by the WAC or for slope heights greater than 20 feet, as well as slopes in soils or rock not meeting the requirements to be classified as stable rock, or Type A, B, or C soil, shall be designed by a registered professional engineer. As a minimum, the design by or under the supervision of the registered professional engineer shall include a geotechnical slope stability analysis (i.e., Chapter 7) that is based on a knowledge of the subsurface conditions present, including soil and rock...[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p493
+  [2] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p493
+  [3] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p494
+  [4] WSDOT Geotech Design Manual.pdf | WSDOT | §15-7 | p494
+  [5] WSDOT Geotech Design Manual.pdf | WSDOT | §10.3.4 | p406
+  [6] WSDOT Geotech Design Manual.pdf | WSDOT | §10.5 | p415
+  [7] WSDOT Geotech Design Manual.pdf | WSDOT | §10.1.3 | p398
+
+OK | 4.0s | ttfl=4.02s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 13: What foundation bearing capacity does AASHTO recommend for spread footings on sand?
+======================================================================
+RESPONSE:
+- For allowable stress design, spread footings on sandy soils may alternatively be designed for bearing and settlement by using Figure 17-5. When using Figure 17-5, a FS from Table 17-4 does not need to be applied, as the bearing stresses in the figure represent allowable bearing resistances. The design bearing resistance in Figure 17-5 has been developed assuming specific soil conditions for sandy soils.[[SRC_5]]
+
+SOURCES (7):
+  [1] WSDOT Geotech Design Manual.pdf | WSDOT | §17.3.2 | p886
+  [2] WSDOT Geotech Design Manual.pdf | WSDOT | §17.2.2 | p881
+  [3] WSDOT Geotech Design Manual.pdf | WSDOT | §8.11.2.4 | p278
+  [4] WSDOT Geotech Design Manual.pdf | WSDOT | §1.11.2 | p46
+  [5] WSDOT Geotech Design Manual.pdf | WSDOT | §17.5.2 | p893
+  [6] WSDOT Geotech Design Manual.pdf | WSDOT | §8.11.2.4.1 | p278
+  [7] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §10.1.5.C | p760
+
+OK | 6.8s | ttfl=6.78s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 14: What are OSHA requirements for worker protection in excavations deeper than 5 feet?
+======================================================================
+RESPONSE:
+- Slope the sides of excavations, use shoring and bracing, and use other safety features according to OSHA safety standards 29 CFR, Part 1926, Subpart P, Excavations.
+- If sides of excavations are sloped for safety considerations, submit one copy of the design that demonstrates compliance with OSHA standards.
+- If support systems, shield systems, or other protective systems are used, design the shoring according to Section 562.
+- Submit drawings and construction details according to Subsection 104.06.[[SRC_3]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §2-04.3(7) | p201
+  [2] WSDOT Standard Specifications.pdf | WSDOT | §2-03.3(8) | p244
+  [3] fp-24.pdf | FHWA | §208.03 | p145
+  [4] WSDOT Standard Specifications.pdf | WSDOT | §7-04.3(1) | p729
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §2-04.3(7) | p201
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §2-03.3(8) | p248
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §7-04.3(1) | p729
+
+OK | 3.2s | ttfl=2.14s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 15: What does OSHA require for portable ladder angle and extension above landing?
+======================================================================
+RESPONSE:
+- Pedestrian ramp handrails shall extend horizontally above the landing for 12 inches minimum beyond the top and bottom of ramp runs.
+- At the top of a stair flight, handrails shall extend horizontally above the landing for 12 inches minimum beginning directly above the first riser nosing.
+- At the bottom of a stair flight, handrails shall extend at the slope of the stair flight for a horizontal distance at least equal to one tread depth beyond the last riser nosing.
+- Handrail extensions shall return to a wall, guard, or the landing surface, or shall be continuous to the handrail of an adjacent pedestrian ramp run or stair flight.[[SRC_4]]
+
+SOURCES (7):
+  [1] 2010-design-standards.pdf | ADA | §505.10.1 | p160
+  [2] 2010-design-standards.pdf | ADA | §505.10.2 | p161
+  [3] PROWAG.pdf | ADA | §407.7 | p58
+  [4] WSDOT Design Manual.pdf | WSDOT | §1510.15(3)(d)(iv) | p1121
+  [5] 1991-design-standards.pdf | ADA | §9.2.2(6)(d) | p82
+  [6] guidance-2010-standards.pdf | ADA | §404.1 | p168
+  [7] Seattle Standard Specifications.pdf | SEATTLE | §6-02.3(6) | p332
+
+OK | 5.1s | ttfl=3.15s | Expected:FAIL Status:✗ Agency:✓
+
+======================================================================
+PROMPT 16: What PPE does OSHA require for workers in roadway construction zones?
+======================================================================
+RESPONSE:
+• WSDOT employees working on foot in the highway right of way and other areas exposed to vehicular traffic must comply with the high visibility clothing requirements of the WSDOT Safety Procedures.[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1010.06(8) | p427
+  [2] WSDOT Traffic Manual.pdf | WSDOT | §2-8.39 | p213
+  [3] WSDOT Construction Manual.pdf | WSDOT | §6-14.3(2) | p70
+  [4] WSDOT Design Manual.pdf | WSDOT | §1010.06(3)(a) | p424
+  [5] WSDOT Design Manual.pdf | WSDOT | §1010.08 | p431
+  [6] WSDOT Design Manual.pdf | WSDOT | §1010.08 | p432
+  [7] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p189
+
+OK | 2.5s | ttfl=2.44s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 17: What are OSHA requirements for entering a permit-required confined space?
+======================================================================
+RESPONSE:
+- A confined space is any place having a limited means of exit that is subject to the accumulation of toxic or flammable contaminants or an oxygen deficient environment.
+- Confined spaces include but are not limited to pontoons, box girder bridges, storage tanks, ventilation or exhaust ducts, utility vaults, tunnels, pipelines, and open-topped spaces more than 4 feet in depth such as pits, tubes, vaults, and vessels.
+- Permit-required confined space (permit space) is defined as a confined space that has a limited means of exit and is subject to the accumulation of toxic or flammable contaminants or an oxygen deficient environment.[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p28
+  [2] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p29
+  [3] WSDOT Highway Surveying Manual.pdf | WSDOT | §1-02.2 | p29
+  [4] WSDOT Highway Runoff Manual.pdf | WSDOT | §24.5 | p232
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §10.8.1.B | p799
+  [6] Seattle Standard Specifications.pdf | SEATTLE | §17.3(3) | p229
+  [7] 40 CFR Part 122.pdf | OSHA | §124.17 | p75
+
+OK | 3.9s | ttfl=2.12s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 18: What does the MUTCD specify for mounting height of road signs above pavement?
+======================================================================
+RESPONSE:
+- Standard: 11 Directional signs on freeways and expressways shall be installed with a minimum height of 7 feet, measured vertically from the bottom of the sign to the elevation of the near edge of the pavement. All route signs, warning signs, and regulatory signs on freeways and expressways shall be installed with a minimum height of 7 feet, measured vertically from the bottom of the sign to the elevation of the near edge of the pavement.
+- Option: 10 Signs that are placed 30 feet or more from the edge of the traveled way may be installed with a minimum height of 5 feet, measured vertically from the bottom of the sign to the elevation of the near edge of the pavement.
+- Where there are no parked cars, pedestrian activity, or other obstructions such as snow or vegetation, and if an engineering study indicates that a lower mounting height would address wrong-way movements on freeway or expressway exit ramps, a DO NOT ENTER sign(s) and/or a WRONG WAY sign(s) that is located along the exit ramp at a location downstream from the intersection with the crossroad facing a road user who is traveling in the wrong direction may be installed at a minimum mounting height of 3 feet, measured vertically from the bottom of the sign to the elevation of the near edge of the pavement. At the intersection with the crossroad, a WRONG WAY sign may be mounted at a minimum height of 3 feet on the same support on which a DO NOT ENTER sign is mounted at a height that complies with the provisions of Section 2A.15 (see Figure 2B-17).[[SRC_3]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p830
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p155
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p714
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1038
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p100
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p100
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §2C.73 | p242
+
+OK | 8.1s | ttfl=4.05s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 19: What does the MUTCD require for speed limit sign placement near school zones?
+======================================================================
+RESPONSE:
+- The Higher Fines signs and plaque shall have a black legend and border on a white rectangular background.
+- The FINES HIGHER plaque shall be mounted below an applicable regulatory or warning sign in a temporary traffic control zone (see Section 6G.08), a school zone (see Section 7B.06), or other applicable designated zone.
+- Alternate legends such as BEGIN (or END) DOUBLE FINES ZONE may also be used for the R2-10 and R2-11 signs.[[SRC_1]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §UNKNOWN | p129
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1016
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1013
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1014
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1019
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1024
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p1021
+
+OK | 4.4s | ttfl=2.76s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 20: What freeboard does USACE recommend for a levee protecting an urban area?
+======================================================================
+RESPONSE:
+- Levee height should provide 0.61 m (2 ft) of freeboard above forecast flood crest. In urban areas, the upstream end of the project should use a larger freeboard than the downstream end.[[SRC_1]]
+
+SOURCES (7):
+  [1] EM_1110-2-1913.pdf | USACE | §27.4 | p125
+  [2] EM_1110-2-1913.pdf | USACE | §27.4 | p47
+  [3] EM_1110-2-1913.pdf | USACE | §27.4 | p62
+  [4] EM_1110-2-1913.pdf | USACE | §23.8 | p151
+  [5] EM_1110-2-2502.pdf | USACE | §6.9.7.3.4 | p184
+  [6] EM_1110-2-2502.pdf | USACE | §5606.0001151 | p468
+  [7] EM_1110-2-1913.pdf | USACE | §27.4 | p62
+
+OK | 5.7s | ttfl=5.68s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 21: What minimum factor of safety for slope stability does USACE recommend for embankments?
+======================================================================
+RESPONSE:
+- The provided sections do not specify a minimum factor of safety for slope stability for embankments as recommended by USACE.[[FAIL]]
+
+SOURCES (7):
+  [1] EM_1110-2-1902.pdf | USACE | §1.1-1.3 | p26
+  [2] EM_1110-2-1913.pdf | USACE | §27.4 | p50
+  [3] EM_1110-2-1913.pdf | USACE | §27.4 | p51
+  [4] EM_1110-2-1902.pdf | USACE | §3-1 | p24
+  [5] EM_1110-2-1902.pdf | USACE | §1.1-1.3 | p27
+  [6] EM_1110-2-1902.pdf | USACE | §1.1-1.3 | p27
+  [7] EM_1110-2-1902.pdf | USACE | §UNKNOWN | p24
+
+FAIL | 2.2s | ttfl=2.14s | Expected:OK Status:✗ Agency:✓
+
+======================================================================
+PROMPT 22: What are the general permit requirements for stormwater discharge from construction sites?
+======================================================================
+RESPONSE:
+- The following stormwater discharges are authorized under this permit provided that appropriate stormwater controls are designed, installed, and maintained (see Parts 2 and 3):
+Stormwater discharges, including stormwater runoff, snowmelt runoff, and surface runoff and drainage, associated with construction activity under 40 CFR § 122.26(b)(14) or § 122.26(b)(15)(i);
+Stormwater discharges designated by EPA as needing a permit under 40 CFR §122.26(a)(1)(v) or § 122.26(b)(15)(ii);
+Stormwater discharges from on or off-site construction support activities (e.g., concrete or asphalt batch plants, equipment staging yards, material storage areas, excavated material disposal areas, borrow areas) provided that:
+The support activity is directly related to the construction site required to have permit coverage for stormwater discharges;
+The support activity is not a commercial operation, nor does it serve multiple unrelated construction sites;
+The support activity does not continue to operate after the construction site is no longer active.[[SRC_2]]
+
+SOURCES (7):
+  [1] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §UNKNOWN | p1
+  [2] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §1.2.1 | p7
+  [3] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §1.2.1 | p7
+  [4] 40 CFR Part 122.pdf | OSHA | §35.2005(b)(20) | p83
+  [5] 2022-cgp-permit-as-modified.pdf | ENVIROMENTAL | §1.4.5 | p12
+  [6] WSDOT Emergency Funds Manual.pdf | WSDOT | §47.28.035 | p19
+  [7] 40 CFR Part 122.pdf | OSHA | §124.17 | p56
+
+OK | 8.0s | ttfl=3.39s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 23: What is the definition of an engineer of record in WSDOT contracts?
+======================================================================
+RESPONSE:
+- Wherever “designer” appears in this manual, design-build personnel shall deem it to mean: Engineer of Record, Design Quality Assurance Manager, design-builder, or any other term used in the design-build contract to indicate design-build personnel responsible for the design elements of a design-build project, depending on the context of information being conveyed.
+- Wherever “Project Engineer” appears in this manual, the design-builder shall deem it to mean “Engineer of Record.”[[SRC_1]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §110.02(1) | p44
+  [2] WSDOT Construction Manual.pdf | WSDOT | §39.04.250 | p221
+  [3] WSDOT Design-Build Manual.pdf | WSDOT | §8-4.2.1.1 | p248
+  [4] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p22
+  [5] WSDOT Design-Build Manual.pdf | WSDOT | §8-4.2.1.1 | p249
+  [6] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p18
+  [7] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p19
+
+OK | 4.7s | ttfl=4.09s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 24: What are the required elements of a traffic control plan for a lane closure?
+======================================================================
+RESPONSE:
+- Where allowed by the Contract and where shown on approved traffic control plans or directed by the Engineer, the Contractor must set up traffic control measures to close 1 or more lanes of a multi-lane facility. When this is to occur and called for in the approved traffic control plan, the following sequence must be followed: 1. Advance warning signs are set up on the shoulder of the roadway opposite th...
+- Where allowed by the Contract and shown on the traffic control plans or directed by the Engineer, the Contractor shall set up traffic control measures to close one or more lanes of a Freeway or multi-lane roadway 45 mph or higher. When this is to occur, the following sequence shall be followed: 1. If shown on the traffic control plan...
+- Temporary traffic control signals shall be installed and operated in accordance with the provisions of Part 4. Temporary traffic control signals shall meet the physical display and operational requirements of conventional traffic control signals.
+- Temporary traffic control signal timing shall be established by authorized officials. Durations of red clearance intervals shall be adequate to clear the one-lane section of conflicting vehicles.
+- When the temporary traffic control signal is changed to the flashing mode, either manually or automatically, red signal indications shall be flashed to both approaches.
+- Stop lines shall be installed with temporary traffic control signals for long-term closures. Existing conflicting pavement markings and raised pavement marker reflectors between the activity area and each stop line shall be removed.[[SRC_1]][[SRC_2]][[SRC_6]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §60.28.051 | p176
+  [2] WSDOT Standard Specifications.pdf | WSDOT | §1-09.11 | p202
+  [3] Seattle Standard Specifications.pdf | SEATTLE | §17.3(5) | p267
+  [4] Seattle Standard Specifications.pdf | SEATTLE | §17.3(5) | p268
+  [5] WSDOT Design-Build Manual.pdf | WSDOT | §2.15.6.1 | p140
+  [6] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p190
+  [7] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p923
+
+OK | 8.9s | ttfl=3.72s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 25: What is the seismic design category for a highway bridge in a high-seismic zone?
+======================================================================
+RESPONSE:
+- Detailing as normally required in either SDC C or D, as appropriate, must be provided. It is permitted to use expected material strengths for the determination of member strength...[[SRC_4]]
+
+SOURCES (7):
+  [1] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.4.1 | p1032
+  [2] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.5.2 | p223
+  [3] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §15.12.1 | p1079
+  [4] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.2.2 | p199
+  [5] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.2.2 | p198
+  [6] WSDOT Geotech Design Manual.pdf | WSDOT | §5.13.11 | p172
+  [7] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §4.3.3 | p217
+
+OK | 3.0s | ttfl=3.02s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 26: What ASME code governs pressure vessel inspection intervals for industrial boilers?
+======================================================================
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right![[FAIL]]
+
+SOURCES (7):
+  [1] Seattle Standard Specifications.pdf | SEATTLE | §7-08.3(3) | p470
+  [2] WSDOT Standard Specifications.pdf | WSDOT | §7-09.3(21) | p735
+  [3] WSDOT Standard Specifications.pdf | WSDOT | §9-29.16(2) | p1130
+  [4] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(13) | p397
+  [5] Seattle Standard Specifications.pdf | SEATTLE | §6-02.3(27) | p380
+  [6] WSDOT Standard Specifications.pdf | WSDOT | §6-15.3(3) | p647
+  [7] WSDOT Standard Specifications.pdf | WSDOT | §6-02.3(19) | p455
+
+FAIL | 2.6s | ttfl=2.59s | Expected:FAIL Status:✓ Agency:✓
+
+======================================================================
+PROMPT 27: What does OSHA 29 CFR 1926.502 require for fall protection systems?
+======================================================================
+RESPONSE:
+- Worker fall protection shall be provided for retaining walls where staff could be subject to a potential fall of 4 feet or more to the ground or lower level. The worker fall protection system shall be in accordance with WAC 296-880 (Guardrail Systems) and as described in the Design Manual Chapter 1060.
+- For retaining walls with a fascia, the worker fall protection shall be located directly on top of the fascia or attached to the back face of the fascia. For retaining walls without a fascia, the worker fall protection shall be located within 6 inches of the face of the wall.
+- Worker fall protection shall be required regardless of the location of a traffic barrier placed behind the wall, unless the traffic barrier has a minimum height of 3’-6” and is either a permanent structure or designed to provide equivalent fall protection.[[SRC_2]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §208.03 | p145
+  [2] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.1.11.B | p663
+  [3] WSDOT Construction Manual.pdf | WSDOT | §23.6(4) | p384
+  [4] WSDOT Design Manual.pdf | WSDOT | §1060.01 | p530
+  [5] WSDOT Design Manual.pdf | WSDOT | §1330.04(8) | p914
+  [6] WSDOT Design Manual.pdf | WSDOT | §1060.02(1) | p530
+  [7] WSDOT LRFD Bridge Design Manual.pdf | WSDOT | §8.1.11.C | p664
+
+OK | 10.0s | ttfl=7.17s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 28: What does the MUTCD require for Type III barricades at road closures?
+======================================================================
+RESPONSE:
+- When used to warn and alert road users of the terminus of a roadway, other than in temporary traffic control zones, barricades shall meet the design criteria of Section 6K.07 for a Type 3 Barricade, except that the colors of the stripes shall be retroreflective white and retroreflective red.[[SRC_3]]
+
+SOURCES (7):
+  [1] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p862
+  [2] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p915
+  [3] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §2C.73 | p242
+  [4] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §2B.75 | p184
+  [5] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p834
+  [6] Manual on Uniform Traffic Control Devices 11th Ed..pdf | FHWA | §13.5 | p857
+  [7] fp-24.pdf | FHWA | §635.01 | p781
+
+OK | 3.8s | ttfl=3.75s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 29: What are the standard steps for installing a precast concrete box culvert?
+======================================================================
+RESPONSE:
+- Submit design drawings and details with supporting calculations according to Subsection 104.06.
+- Design and construct precast concrete box culverts according to Section 578.
+- Excavate and backfill according to Section 209.
+- For precast concrete box culverts, submit design drawings and details with supporting calculations according to Subsection 104.06.
+- Construct precast concrete box culverts according to Section 578.[[SRC_1]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §602.04 | p695
+  [2] WSDOT Hydraulics Manual.pdf | WSDOT | §8-2.3.4.9 | p194
+  [3] WSDOT Highway Surveying Manual.pdf | WSDOT | §7-02.1 | p198
+  [4] WSDOT Hydraulics Manual.pdf | WSDOT | §8-2.3.4.9 | p194
+  [5] fp-24.pdf | FHWA | §602.03 | p695
+  [6] WSDOT Hydraulics Manual.pdf | WSDOT | §2-6.3 | p64
+  [7] fp-24.pdf | FHWA | §106.03 | p696
+
+OK | 4.9s | ttfl=2.98s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 30: What are WSDOT requirements for a Traffic Control Supervisor on construction projects?
+======================================================================
+RESPONSE:
+- WSDOT may designate a DOT employee who is qualified, but not necessarily certified, to serve as the State’s traffic control contact.
+- It is intended to have qualified, trained representatives from both the Contractor and WSDOT work together to achieve safe traffic control operations on the project.
+- Among the duties of the Project Engineer in the area of Traffic Control are the following: • Communication – About the planned work, traffic control needed and adjustments to the accepted Traffic Control Plan. During the work, to stay aware of changes, events and issues. • Monitoring – The activities of the Contractor TCS and traffic control workers. The status of signs and control devices. Conformance with specifications and requirements.[[SRC_3]]
+
+SOURCES (7):
+  [1] WSDOT Design Manual.pdf | WSDOT | §1130.13 | p631
+  [2] WSDOT Construction Manual.pdf | WSDOT | §UNKNOWN | p40
+  [3] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p186
+  [4] WSDOT Construction Manual.pdf | WSDOT | §6-14.3(2) | p70
+  [5] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p183
+  [6] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p189
+  [7] WSDOT Construction Manual.pdf | WSDOT | §1-08.10(2) | p184
+
+OK | 5.5s | ttfl=2.6s | Expected:OK Status:✓ Agency:✓
+
+======================================================================
+PROMPT 31: What are OSHA requirements for scaffold platform width and guardrails under 29 CFR 1926.451?
+======================================================================
+RESPONSE:
+The provided standards do not address this query. Think I should? Request manuals to add using the button at top right![[FAIL]]
+
+SOURCES (7):
+  [1] fp-24.pdf | FHWA | §208.03 | p145
+  [2] WSDOT Design Manual.pdf | WSDOT | §1610.04(2) | p1224
+  [3] fp-24.pdf | FHWA | §205.03 | p131
+  [4] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p605
+  [5] fp-24.pdf | FHWA | §563.06 | p572
+  [6] fp-24.pdf | FHWA | §203.08 | p118
+  [7] WSDOT Construction Manual.pdf | WSDOT | §9-4.51 | p604
+
+FAIL | 3.1s | ttfl=3.07s | Expected:FAIL Status:✓ Agency:✓
+
+======================================================================
+PROMPT 32: What does OSHA require for concrete and masonry construction formwork under 29 CFR 1926.703?
+======================================================================

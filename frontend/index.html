@@ -9,7 +9,7 @@
 /* Apply theme before first paint — prevents flash on dark-mode systems. */
 (function(){
   var k='rag-civil-theme';
-  var t=localStorage.getItem(k)||(window.matchMedia('(prefers-color-scheme: dark)').matches?'evolve':'evolve-light');
+  var t=localStorage.getItem(k)||'evolve-light';
   document.documentElement.dataset.theme=t;
 })();
 </script>
@@ -101,26 +101,8 @@
             <li data-n="2">Filter by agency/jurisdiction using the dropdowns to narrow results.</li>
             <li data-n="3">Citations should include links to the document itself, along with the passage's location.</li>
             <li data-n="5">Past queries are saved in the History tab — click any entry to view it again.</li>
-            <li data-n="6">Request standards using the top right. Report poor citations with the button in the citation boxes. A full list of included documents can be found by clicking More Info below.</li>
+            <li data-n="6">Request standards using the top right. Report poor citations with the button in the citation boxes. A full list of included documents can be found at <a href="/standards">this link here!</a></li>
           </ol>
-        </div>
-
-        
-
-        <div>
-          <div class="about-section-label">This Project</div>
-          <p class="about-text">My goal was to create a bulk search function specifically for civil engineering standards better than ctrl+f. This searches multiple documents at once and accept naturalistic language inputs, so I think this succeeds. This is technically "powered by AI".</p>
-        </div>
-<!-- To display a photo: set src="filename.jpg" below (place file in frontend/) -->
-        
-        <div>
-          <div class="about-section-label">About the Author</div>
-          <img id="bio-photo" src="" alt="Profile photo">
-          <!-- Add your bio here -->
-          <p class="about-text about-bio">Justin Mianowski is a Transportation Engineer E.I.T. with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time he enjoys rock climbing, reading, and just doing things (like this!).
-            <br><br>contact: jmianows@umich.edu
-            <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
-            <br><br><a href="/standards">More Info</a></p>
         </div>
 
       </div>
@@ -271,13 +253,6 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
   document.getElementById('adv-arrow').classList.toggle('open');
 });
 
-/* ══════════════════════════════════════════════════════════════
-   BIO PHOTO — auto-hide if no src set
-══════════════════════════════════════════════════════════════ */
-(function() {
-  const photo = document.getElementById('bio-photo');
-  photo.style.display = (photo.src && photo.src !== window.location.href) ? 'block' : 'none';
-})();
 
 /* ══════════════════════════════════════════════════════════════
    ROTATING PLACEHOLDER — typewriter effect, 10s interval
@@ -290,8 +265,9 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
     "What are the ADA design standards for pedestrian ramps?",
     "What compressive strength is required for bridge deck concrete?",
     "How far from a stream must a retaining wall be set back?",
-    "What fire flow rate is required for a commercial building?",
+    "How far must a street tree be planted from a fire hydrant in Seattle?",
   ];
+  const PREFIX = `Ask a question like \u201c`;
   const input = document.getElementById('query-input');
   let phraseIdx = 0;
   let charTimer = null;
@@ -299,8 +275,9 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
   function typePhrase() {
     const phrase = examples[phraseIdx];
     phraseIdx = (phraseIdx + 1) % examples.length;
-    const full = `Ask a question like \u201c${phrase}\u201d`;
-    let i = 0;
+    const full = `${PREFIX}${phrase}\u201d`;
+    let i = PREFIX.length;
+    input.placeholder = full.slice(0, i);
     if (charTimer) clearInterval(charTimer);
     charTimer = setInterval(() => {
       i++;
@@ -443,7 +420,6 @@ async function checkApi() {
     apiStatus.className = 'ok';
     apiStatus.textContent = 'online';
     queryInput.disabled = false;
-    queryInput.placeholder = 'Ask a question...';
     submitBtn.disabled = false;
     populateFilters(await r.json());
   } catch {

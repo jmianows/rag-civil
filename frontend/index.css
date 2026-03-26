@@ -9,9 +9,9 @@
   --bg3:      #222222;
   --border:   #2a2a2a;
   --border2:  #333333;
-  --text:     #c8c8c8;
-  --dim:      #666666;
-  --dim2:     #444444;
+  --text:     #d8d8d8;
+  --dim:      #848484;
+  --dim2:     #6a6a6a;
   --accent:   #4a9eff;
   --accent2:  #2a6acc;
   --green:    #4aff8a;
@@ -49,13 +49,13 @@ html[data-theme="evolve"] {
   --bg3:      #273027;
   --border:   #2e3d2e;
   --border2:  #3a4e3a;
-  --text:     #c8c8b0;
-  --dim:      #607060;
-  --dim2:     #3d4e3d;
-  --accent:   #8aaa6a;
+  --text:     #d6d6bc;
+  --dim:      #708870;
+  --dim2:     #587858;
+  --accent:   #9aba7a;
   --accent2:  #6a8a4a;
   --green:    #6aaa8a;
-  --yellow:   #c4a96a;
+  --yellow:   #d4ba7a;
   --red:      #aa6a6a;
   --orange:   #aa8a5a;
   --logo-color:          var(--accent);
@@ -90,7 +90,7 @@ html[data-theme="evolve-light"] {
   --border2:  #97897a;
   --text:     #2c201a;
   --dim:      #6e5e50;
-  --dim2:     #96866a;
+  --dim2:     #7a6a52;
   --accent:   #3d7a28;
   --accent2:  #2d5a1a;
   --green:    #2a7a4a;
@@ -305,7 +305,7 @@ html[data-theme="evolve-light"] .history-item:hover { border-left-color: var(--b
 html[data-theme="evolve"] .history-item.active,
 html[data-theme="evolve-light"] .history-item.active { border-left-color: var(--accent); }
 .history-item .ts { display: block; font-size: 11px; color: var(--dim2); }
-#history-empty { padding: 0.75rem 0.65rem; color: var(--dim2); font-size: 12px; }
+#history-empty { padding: 0.75rem 0.65rem; color: var(--dim2); font-size: 13px; }
 html[data-theme="evolve"] #history-empty,
 html[data-theme="evolve-light"] #history-empty { font-style: italic; font-size: 13px; }
 
@@ -409,7 +409,7 @@ html[data-theme="evolve-light"] #bio-photo { border-left: 3px solid var(--accent
 
 .about-section-label {
   color: var(--dim);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   margin-bottom: 0.35rem;
@@ -417,21 +417,21 @@ html[data-theme="evolve-light"] #bio-photo { border-left: 3px solid var(--accent
 html[data-theme="evolve"] .about-section-label,
 html[data-theme="evolve-light"] .about-section-label { color: var(--accent); font-weight: 600; }
 
-.about-text { color: var(--dim); font-size: 12px; line-height: 1.6; }
+.about-text { color: var(--dim); font-size: 14px; line-height: 1.6; }
 html[data-theme="evolve"] .about-text,
-html[data-theme="evolve-light"] .about-text { font-size: 13px; }
+html[data-theme="evolve-light"] .about-text { font-size: 14px; }
 
 .how-to-list { list-style: none; padding: 0; margin: 0; }
 .how-to-list li {
   color: var(--dim);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
   padding: 0.2rem 0;
   padding-left: 1.2rem;
   position: relative;
 }
 html[data-theme="evolve"] .how-to-list li,
-html[data-theme="evolve-light"] .how-to-list li { font-size: 13px; }
+html[data-theme="evolve-light"] .how-to-list li { font-size: 14px; }
 .how-to-list li::before {
   content: attr(data-n)".";
   position: absolute;
@@ -581,7 +581,7 @@ html[data-theme="evolve-light"] #error-msg { border-left: 4px solid var(--red); 
 
 .section-label {
   color: var(--section-label-color);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 0.15rem;
@@ -787,8 +787,8 @@ html[data-theme="evolve-light"] #req-modal { box-shadow: 0 8px 32px rgba(0,0,0,0
 html[data-theme="evolve"] #req-modal h3,
 html[data-theme="evolve-light"] #req-modal h3 { font-size: 14px; font-weight: 600; }
 
-.req-desc { color: var(--dim); font-size: 12px; line-height: 1.5; margin-bottom: 0.3rem; }
-.req-opt  { color: var(--dim2); font-size: 10px; }
+.req-desc { color: var(--dim); font-size: 13px; line-height: 1.5; margin-bottom: 0.3rem; }
+.req-opt  { color: var(--dim2); font-size: 12px; }
 .req-required { color: var(--red); }
 
 #req-modal label {

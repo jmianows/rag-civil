@@ -21,13 +21,16 @@ from rag.query_engine import (
     generate_response_stream,
     correct_section,
     get_db_table,
+    embed_query,
     _get_reranker,
 )
+from rag.env_config import WARM_ON_STARTUP, ENVIRONMENT
 
-VECTORDB_DIR   = Path("/home/justin/rag-civil/vectordb")
-FRONTEND_DIR   = Path(__file__).parent.parent / "frontend"
-REQUEST_LOG    = Path("/home/justin/rag-civil/code_requests.log")
-ANALYTICS_FILE = Path("/home/justin/rag-civil/analytics.json")
+_PROJECT_ROOT  = Path(__file__).parent.parent
+VECTORDB_DIR   = _PROJECT_ROOT / "vectordb"
+FRONTEND_DIR   = _PROJECT_ROOT / "frontend"
+REQUEST_LOG    = _PROJECT_ROOT / "code_requests.log"
+ANALYTICS_FILE = _PROJECT_ROOT / "analytics.json"
 
 app = FastAPI(title="Civil RAG API")
 
@@ -41,14 +44,29 @@ app.add_middleware(
 _analytics_lock = threading.Lock()
 
 
+def _startup_warmup():
+    """Background thread: pre-load all heavy resources before the first request."""
+    _get_reranker()
+    print("[startup] Cross-encoder ready", flush=True)
+
+    if WARM_ON_STARTUP:
+        try:
+            get_db_table()
+            print("[startup] LanceDB connection ready", flush=True)
+        except Exception as e:
+            print(f"[startup] LanceDB warm-up failed: {e}", flush=True)
+
+        try:
+            embed_query("warmup")
+            print("[startup] Ollama embedding model ready", flush=True)
+        except Exception as e:
+            print(f"[startup] Ollama warm-up failed: {e}", flush=True)
+
+
 @app.on_event("startup")
-async def preload_reranker():
-    threading.Thread(
-        target=_get_reranker,
-        daemon=True,
-        name="reranker-preload",
-    ).start()
-    print("[startup] Cross-encoder preload started in background", flush=True)
+async def startup_tasks():
+    print(f"[startup] Environment: {ENVIRONMENT}", flush=True)
+    threading.Thread(target=_startup_warmup, daemon=True, name="startup-warmup").start()
 
 
 # ── request / response models ──────────────────────────────────────────────────

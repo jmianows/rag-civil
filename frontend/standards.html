@@ -8,7 +8,7 @@
 <script>
 (function(){
   var k='rag-civil-theme';
-  var t=localStorage.getItem(k)||(window.matchMedia('(prefers-color-scheme: dark)').matches?'evolve':'evolve-light');
+  var t=localStorage.getItem(k)||'evolve-light';
   document.documentElement.dataset.theme=t;
 })();
 </script>
@@ -16,12 +16,26 @@
 <style>
 #std-layout {
   flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
 }
 #std-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
   max-width: 720px;
-  margin: 0 auto;
+}
+#std-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 1.5rem 1.5rem 1.5rem 1.5rem;
+  border-left: 1px solid var(--border);
+}
+#std-sidebar .std-subtitle {
+  font-size: 14px;
+  line-height: 1.4;
 }
 .std-title {
   font-size: 18px;
@@ -146,6 +160,25 @@
       Copyrighted materials from organizations such as AASHTO, IBC, and similar
       standards bodies are not included due to licensing restrictions. 
     </div>
+  </div>
+
+  <div id="std-sidebar">
+
+    <div class="std-title" style="font-size:14px; margin-bottom:0.25rem;">This Project</div>
+    <div class="std-subtitle" style="margin-bottom:1.5rem;">
+      My goal was to create a bulk search function specifically for civil engineering standards better than ctrl+f. 
+      This searches multiple documents at once and accepts naturalistic language inputs, so I think this succeeds. 
+      <br><br>This is technically "powered by AI". Like any good AI, it grows more powerful the more documents it gains. 
+      Help me by telling me about public standards YOU constantly search!</div>
+
+    <div class="std-title" style="font-size:14px; margin-bottom:0.25rem;">About the Author</div>
+    <div class="std-subtitle">
+      <img id="bio-photo" src="" alt="Profile photo">
+      Justin Mianowski is a Transportation Engineer with WSDOT. He holds a dual degree in Mechanical and Bioengineering. In his spare time he enjoys rock climbing, reading, and just doing things (like this!).
+      <br><br>contact: jmianows@umich.edu
+      <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
+    </div>
+
   </div>
 </div>
 

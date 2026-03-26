@@ -21,7 +21,8 @@ JSON schema per prompt:
       "prompt": str,
       "status": "OK" | "FAIL",
       "spurious_fail": bool,   # FAIL emitted despite [[SRC_N]] citations
-      "time_s": float,
+      "time_s": float,         # total wall time including retrieval + generation
+      "ttfl_s": float | null,  # time to first line: seconds from submit to first bullet (null for FAIL)
       "sources": [{"source_file", "agency", "section", "page"}, ...],
       "response_preview": str  # first 300 chars of response
     }
@@ -31,7 +32,7 @@ import sys, time, json, re, argparse, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from rag.query_engine import query
+from rag.query_engine import query_prepare, generate_response_stream
 
 # ── Prompt definitions ────────────────────────────────────────────────────────
 
@@ -268,20 +269,42 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             p = PROMPTS[n]
             emit(f"\n{sep}\nPROMPT {n}: {p}\n{sep}")
             t0 = time.time()
-            r = query(p)
+            prepared = query_prepare(p)
+
+            parts      = []
+            has_src    = False
+            t_first_line = None
+
+            if prepared.get("empty"):
+                parts.append("[[FAIL]]")
+                chunks_data = []
+            else:
+                chunks_data = prepared["chunks"]
+                for event in generate_response_stream(p, prepared["context"]):
+                    etype = event.get("type")
+                    if etype == "text":
+                        if t_first_line is None:
+                            t_first_line = time.time()
+                        parts.append(event["text"])
+                    elif etype == "fail":
+                        parts.append("[[FAIL]]")
+                    elif etype == "source_block":
+                        has_src = True
+                        parts.append(f"[[SRC_{event['n']}]]")
+
             elapsed = round(time.time() - t0, 1)
+            ttfl    = round(t_first_line - t0, 2) if t_first_line else None
             times[n] = elapsed
 
-            resp = r["response"]
+            resp     = "".join(parts)
             has_fail = "[[FAIL]]" in resp
-            has_src  = bool(_SRC_RE.search(resp))
             spurious = has_fail and has_src
             status   = "FAIL" if has_fail else "OK"
 
             emit("RESPONSE:\n" + resp)
-            emit(f"\nSOURCES ({len(r['chunks'])}):")
+            emit(f"\nSOURCES ({len(chunks_data)}):")
             sources = []
-            for j, c in enumerate(r["chunks"], 1):
+            for j, c in enumerate(chunks_data, 1):
                 emit(f"  [{j}] {c['source_file']} | {c['agency']} | §{c['section']} | p{c['page']}")
                 sources.append({
                     "source_file": c["source_file"],
@@ -297,7 +320,8 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             agency_ok      = (exp_status == "FAIL") or bool(exp_agencies & got_agencies)
             correct        = status_ok and agency_ok
 
-            emit(f"\n{status}{'(spurious)' if spurious else ''} | {elapsed}s"
+            ttfl_str = f" | ttfl={ttfl}s" if ttfl is not None else ""
+            emit(f"\n{status}{'(spurious)' if spurious else ''} | {elapsed}s{ttfl_str}"
                  f" | Expected:{exp_status} Status:{'✓' if status_ok else '✗'} Agency:{'✓' if agency_ok else '✗'}")
 
             results.append({
@@ -306,6 +330,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
                 "status":           status,
                 "spurious_fail":    spurious,
                 "time_s":           elapsed,
+                "ttfl_s":           ttfl,
                 "sources":          sources,
                 "response_preview": resp[:300].replace("\n", " "),
                 "expected_status":  exp_status,
@@ -333,14 +358,26 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
         emit(f"  Wrong agency (right status):  {[r['n'] for r in agency_wrong]}")
         emit(f"  Incorrect prompts:            {[r['n'] for r in wrong_list]}")
 
+        ttfl_vals  = [r["ttfl_s"] for r in results if r.get("ttfl_s") is not None]
+        mean_ttfl  = round(sum(ttfl_vals) / len(ttfl_vals), 2) if ttfl_vals else None
+        slowest_ttfl = sorted(
+            [r for r in results if r.get("ttfl_s") is not None],
+            key=lambda x: x["ttfl_s"], reverse=True
+        )[:5]
+
         emit("\n\n=== TIMING SUMMARY ===")
         for res in sorted(results, key=lambda x: x["n"]):
-            ok_mark = '✓' if res.get('correct') else '✗'
-            emit(f"  P{res['n']:>3}: {res['status']:4} {ok_mark} | {res['time_s']:.1f}s")
-        emit(f"  MEAN: {mean_t}s")
+            ok_mark  = '✓' if res.get('correct') else '✗'
+            ttfl_col = f" ttfl={res['ttfl_s']}s" if res.get('ttfl_s') is not None else ""
+            emit(f"  P{res['n']:>3}: {res['status']:4} {ok_mark} | {res['time_s']:.1f}s{ttfl_col}")
+        emit(f"  MEAN total: {mean_t}s")
+        if mean_ttfl is not None:
+            emit(f"  MEAN ttfl:  {mean_ttfl}s  ({len(ttfl_vals)} OK responses)")
         emit(f"  FAILs ({len(fails)}): {[r['n'] for r in fails]}")
         emit(f"  Spurious FAILs: {[r['n'] for r in spurious]}")
-        emit(f"  Slowest 5: {[(r['n'], r['time_s']) for r in slowest]}")
+        emit(f"  Slowest 5 (total): {[(r['n'], r['time_s']) for r in slowest]}")
+        if slowest_ttfl:
+            emit(f"  Slowest 5 (ttfl):  {[(r['n'], r['ttfl_s']) for r in slowest_ttfl]}")
 
         if compare_path:
             try:
@@ -357,6 +394,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
         summary = {
             **run_meta,
             "mean_time_s":   mean_t,
+            "mean_ttfl_s":   mean_ttfl,
             "total_time_s":  round(sum(times.values()), 1),
             "fail_count":    len(fails),
             "fail_prompts":  [r["n"] for r in fails],

@@ -44,16 +44,17 @@ import pyarrow as pa
 #            └── PBOT/
 #                └── portland_bike.pdf
 
-VECTORDB_DIR = Path("/home/justin/rag-civil/vectordb")
+_PROJECT_ROOT = Path(__file__).parent.parent
+VECTORDB_DIR  = _PROJECT_ROOT / "vectordb"
 EMBED_MODEL = "mxbai-embed-large"
 CHUNK_SIZE    = 220   # words — at 1.3 tokens/word ≈ 286 tokens, safe headroom
 CHUNK_OVERLAP = 20    # words
 MAX_CHARS     = 900   # characters — roughly 180 words, hard safety ceiling
 
-FAILED_LOG = Path("/home/justin/rag-civil/ingestion/failed_chunks.jsonl")
+FAILED_LOG = Path(__file__).parent / "failed_chunks.jsonl"
 
 # Runtime-set by CLI args in __main__
-DOCS_DIR: Path = Path("/home/justin/rag-civil/docs")
+DOCS_DIR: Path = _PROJECT_ROOT / "docs"
 FORCE_RERUN: bool = False
 
 #for looking at pages with images
@@ -668,7 +669,7 @@ PDF links (optional, no code changes needed):
     parser.add_argument(
         "root",
         nargs="?",
-        default="/home/justin/rag-civil/docs",
+        default=str(_PROJECT_ROOT / "docs"),
         help="Root folder containing FEDERAL/ STATE/ LOCAL/ subfolders (default: %(default)s)",
     )
     parser.add_argument(

@@ -4,9 +4,15 @@ import re
 import os
 import itertools
 import threading
+import requests
 from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
+
+from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE
+
+_ollama_session = requests.Session()
+_ollama_session.headers.update({"Connection": "keep-alive"})
 
 # ── Hybrid retrieval: detection patterns and agency term map ───────────────────
 
@@ -55,9 +61,17 @@ def _get_reranker():
     if _reranker is None:
         from sentence_transformers import CrossEncoder
         print("  [reranker] Loading cross-encoder model...", flush=True)
+        device = RERANKER_DEVICE
+        try:
+            import torch
+            if device == "cuda" and not torch.cuda.is_available():
+                print("  [reranker] CUDA requested but unavailable, falling back to CPU", flush=True)
+                device = "cpu"
+        except ImportError:
+            device = "cpu"
         _reranker = CrossEncoder(
             "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            device="cpu",
+            device=device,
             max_length=512,
         )
     return _reranker
@@ -96,7 +110,7 @@ def _rrf_merge(lists: list[list[dict]], k: int = 60) -> list[dict]:
             rows[cid] = row
     return [rows[cid] for cid in sorted(scores, key=lambda c: -scores[c])]
 
-VECTORDB_DIR  = Path("/home/justin/rag-civil/vectordb")
+VECTORDB_DIR  = Path(__file__).parent.parent / "vectordb"
 EMBED_MODEL   = "mxbai-embed-large"
 LLM_MODEL = "qwen3:4b-instruct"
 N_RESULTS     = 7
@@ -160,17 +174,42 @@ def _ensure_doc_page_flag_column(table) -> None:
         print("  [DB] Added llm_corrected_doc_page column.", flush=True)
 
 
+_db_table = None
+_db_lock  = threading.Lock()
+
 def get_db_table() -> lancedb.table.LanceTable:
-    db = lancedb.connect(str(VECTORDB_DIR))
-    table = db.open_table("civil_engineering_codes")
-    _ensure_fts_index(table)
-    _ensure_file_link_column(table)
-    _ensure_doc_page_flag_column(table)
-    return table
+    global _db_table
+    if _db_table is None:
+        with _db_lock:
+            if _db_table is None:
+                db = lancedb.connect(str(VECTORDB_DIR))
+                t  = db.open_table("civil_engineering_codes")
+                _ensure_fts_index(t)
+                _ensure_file_link_column(t)
+                _ensure_doc_page_flag_column(t)
+                _db_table = t
+    return _db_table
+
+def invalidate_db_table():
+    global _db_table
+    _db_table = None
+
+
+_ollama_clients: dict[str, ollama.Client] = {}
+_ollama_clients_lock = threading.Lock()
+
+def _get_ollama_client(host: str) -> ollama.Client:
+    """Return a cached ollama.Client for the given host, creating one if needed."""
+    if host not in _ollama_clients:
+        with _ollama_clients_lock:
+            if host not in _ollama_clients:
+                _ollama_clients[host] = ollama.Client(host=host)
+    return _ollama_clients[host]
 
 
 def embed_query(query: str) -> list[float]:
-    response = ollama.Client(host=_next_ollama_host()).embeddings(
+    host = _next_ollama_host()
+    response = _get_ollama_client(host).embeddings(
         model=EMBED_MODEL,
         prompt=f"Represent this sentence for searching relevant passages: {query}"
     )
@@ -480,7 +519,6 @@ def strip_spurious_fail(text: str) -> str:
     return text
 
 def generate_response(query: str, context: str) -> str:
-    import requests
     import json
 
     payload = {
@@ -495,8 +533,9 @@ def generate_response(query: str, context: str) -> str:
                 "content": f"Query: {query}\n\nRetrieved sections:\n\n{context}",
             }
         ],
-        "stream": False,
-        "think":  False,
+        "stream":     False,
+        "think":      False,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {
             "temperature":    0.1,
             "num_ctx":        4096,
@@ -507,7 +546,7 @@ def generate_response(query: str, context: str) -> str:
         }
     }
 
-    response = requests.post(
+    response = _ollama_session.post(
         _next_ollama_host() + "/api/chat",
         json=payload
     )
@@ -550,8 +589,6 @@ def correct_section(
     log_correction(source_file, page, chunk_index, old_section, new_section)
     return True
 def enrich_section(text: str, source_file: str) -> str:
-    import requests
-
     payload = {
         "model": LLM_MODEL,
         "messages": [
@@ -560,15 +597,16 @@ def enrich_section(text: str, source_file: str) -> str:
                 "content": f"You are reading a chunk from {source_file}.\nIdentify the section number this chunk belongs to.\nReturn ONLY the section number (e.g. '1926.502', '1310.02(13)(b)', '6-02.3').\nIf you cannot determine a section number return UNKNOWN.\nDo not explain your answer.\n\nText:\n{text[:500]}",
             }
         ],
-        "stream": False,
-        "think":  False,
+        "stream":     False,
+        "think":      False,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {
             "temperature": 0,
             "num_predict": 20,
         }
     }
 
-    response = requests.post(
+    response = _ollama_session.post(
         _next_ollama_host() + "/api/chat",
         json=payload
     )
@@ -584,7 +622,6 @@ def enrich_section(text: str, source_file: str) -> str:
 
 def enrich_doc_page(text: str, source_file: str) -> str:
     """Ask the LLM for the document page number/range of this chunk."""
-    import requests as _req
     payload = {
         "model": LLM_MODEL,
         "messages": [{"role": "user", "content":
@@ -594,10 +631,10 @@ def enrich_doc_page(text: str, source_file: str) -> str:
             f"If you cannot determine the page number return UNKNOWN.\n"
             f"Do not explain.\n\nText:\n{text[:500]}",
         }],
-        "stream": False, "think": False,
+        "stream": False, "think": False, "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {"temperature": 0, "num_predict": 10},
     }
-    response = _req.post(_next_ollama_host() + "/api/chat", json=payload)
+    response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
     result = strip_thinking(response.json()["message"]["content"].strip())
     if re.match(r'^\d[\d\-]*$', result) and len(result) >= 1:
         return result
@@ -712,7 +749,6 @@ def query_prepare(
 def generate_response_stream(user_query: str, context: str):
     """Generator: streams LLM response, yields source_block events + final done event.
     Detects [[SRC_N]] flags and yields a source_block when each one completes."""
-    import requests as _req
     import json as _json
     import re as _re
 
@@ -722,8 +758,9 @@ def generate_response_stream(user_query: str, context: str):
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": f"Query: {user_query}\n\nRetrieved sections:\n\n{context}"},
         ],
-        "stream": True,
-        "think":  False,
+        "stream":     True,
+        "think":      False,
+        "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {
             "temperature":    0.1,
             "num_ctx":        4096,
@@ -734,7 +771,7 @@ def generate_response_stream(user_query: str, context: str):
         },
     }
 
-    resp = _req.post(_next_ollama_host() + "/api/chat", json=payload, stream=True)
+    resp = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload, stream=True)
     flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer        = ""
     full_text     = ""
