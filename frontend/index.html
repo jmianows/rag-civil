@@ -592,7 +592,10 @@ async function runQuery() {
           if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
 
         } else if (ev.type === 'fail') {
-          if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+          const el = document.createElement('p');
+          el.className = 'fail-msg';
+          if (ev.text) el.textContent = ev.text;
+          respBox.appendChild(el);
           logAnalyticsEvent('fail_response');
 
         } else if (ev.type === 'done') {
@@ -664,15 +667,20 @@ function parseResponse(container, text, sourceGroups) {
   const re = /\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]/g;
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last)
-      container.appendChild(document.createTextNode(text.slice(last, m.index)));
     if (m[1] != null) {
+      if (m.index > last)
+        container.appendChild(document.createTextNode(text.slice(last, m.index)));
       // [[SRC_N]] — build citation line
       const n = parseInt(m[1], 10);
       const src = sourceGroups && sourceGroups[n - 1];
       if (src) container.appendChild(buildCitationLine(src));
+    } else {
+      // [[FAIL]] — wrap preceding text in fail-msg, skip flag itself
+      const el = document.createElement('p');
+      el.className = 'fail-msg';
+      if (m.index > last) el.textContent = text.slice(last, m.index);
+      container.appendChild(el);
     }
-    // [[FAIL]] — consume the flag, text before it already appended above
     last = re.lastIndex;
   }
   if (last < text.length)

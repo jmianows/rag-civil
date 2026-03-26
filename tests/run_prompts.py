@@ -280,7 +280,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
 
             if prepared.get("empty"):
                 parts.append("[[FAIL]]")
-                chunks_data = []
+                chunks_data = prepared.get("chunks", [])
             else:
                 chunks_data = prepared["chunks"]
                 for event in generate_response_stream(p, prepared["context"]):

@@ -602,6 +602,13 @@ html[data-theme="evolve-light"] .section-label { font-weight: 600; }
 html[data-theme="evolve"] .response-text,
 html[data-theme="evolve-light"] .response-text { border-left: 4px solid #6a8aaa; padding: 0.75rem 0.85rem; line-height: 1.75; }
 
+/* fail response message */
+.fail-msg {
+  color: var(--dim);
+  font-style: italic;
+  margin: 0.25rem 0;
+}
+
 /* single-line citation rows — rendered inline at [[SRC_N]] positions */
 .citation-line {
   display: flex;

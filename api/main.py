@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import lancedb
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,6 +31,8 @@ VECTORDB_DIR   = _PROJECT_ROOT / "vectordb"
 FRONTEND_DIR   = _PROJECT_ROOT / "frontend"
 REQUEST_LOG    = _PROJECT_ROOT / "code_requests.log"
 ANALYTICS_FILE = _PROJECT_ROOT / "analytics.json"
+RATE_LIMIT_LOG = _PROJECT_ROOT / "rate_limit.log"
+DAILY_QUERY_LIMIT = 20
 
 app = FastAPI(title="Civil RAG API")
 
@@ -42,6 +44,8 @@ app.add_middleware(
 )
 
 _analytics_lock = threading.Lock()
+_rate_lock      = threading.Lock()
+_daily_counts: dict[str, tuple[int, str]] = {}  # ip -> (count, date_str)
 
 
 def _startup_warmup():
@@ -96,8 +100,33 @@ class AnalyticsEvent(BaseModel):
 
 # ── endpoints ──────────────────────────────────────────────────────────────────
 
+_RATE_LIMIT_WHITELIST = {"127.0.0.1", "::1"}
+
+def _check_daily_limit(ip: str) -> None:
+    """Raise 429 if this IP has exceeded the daily query limit. Logs cap hits."""
+    if ip in _RATE_LIMIT_WHITELIST:
+        return
+    today = datetime.date.today().isoformat()
+    with _rate_lock:
+        count, date = _daily_counts.get(ip, (0, today))
+        if date != today:
+            count = 0
+        if count >= DAILY_QUERY_LIMIT:
+            entry = f"{datetime.datetime.now().isoformat()} | {ip} | daily cap hit\n"
+            print(entry.strip(), flush=True)
+            RATE_LIMIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+            with RATE_LIMIT_LOG.open("a") as f:
+                f.write(entry)
+            raise HTTPException(
+                status_code=429,
+                detail="Daily query limit reached. The service resets at midnight UTC.",
+            )
+        _daily_counts[ip] = (count + 1, today)
+
+
 @app.post("/query")
-def run_query(req: QueryRequest):
+def run_query(req: QueryRequest, request: Request):
+    _check_daily_limit(request.client.host)
     try:
         result = query(
             user_query=req.query,
@@ -112,8 +141,9 @@ def run_query(req: QueryRequest):
 
 
 @app.post("/query/stream")
-def run_query_stream(req: QueryRequest):
+def run_query_stream(req: QueryRequest, request: Request):
     """Server-sent events endpoint: yields source blocks one at a time as the LLM generates."""
+    _check_daily_limit(request.client.host)
     try:
         prep = query_prepare(
             user_query=req.query,

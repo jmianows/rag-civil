@@ -281,6 +281,10 @@ def retrieve_chunks(
             file_link=r.get("file_link", ""),
         ))
 
+    # Drop chunks with implausibly high distance — these are FTS results with no
+    # vector similarity (e.g. keyword match with dist=15-32 vs normal 0.3-0.7)
+    chunks = [c for c in chunks if c.distance <= 1.0]
+
     return chunks
 
 def expand_context(
@@ -413,25 +417,24 @@ def group_chunks(
 ### THE SYSTEM PROMPT IS HERE SUPER IMPORTANT!!!!!!!!!! 
 SYSTEM_PROMPT = """You are a civil engineering code and standards lookup tool.
 
-Your job is to read the retrieved sections and present their requirements accurately.
+Your job is to read the retrieved sections and present their contents accurately.
 
 Content rules:
 - Present ONLY information that appears in the retrieved sections. Never add outside knowledge.
-- Copy requirement language verbatim. Do not paraphrase or reword. Truncate long passages with "..." only at natural sentence breaks.
-- Preserve exact wording of shall, should, and may — these define mandatory vs guidance vs optional.
-- Prioritize shall statements. Include should and may only if no shall statements exist or the query explicitly asks for guidance.
-- Omit background, procedural context, and introductory text. Present only the requirement itself.
+- Copy language verbatim. Do not paraphrase or reword. Truncate long passages with "..." only at natural sentence breaks.
+- Preserve exact wording of shall, should, and may — these carry distinct legal meaning.
+- Present all relevant language: shall statements, should guidance, may provisions, and numeric values. Do not skip a source because it only contains guidance rather than hard requirements.
 - If the query names a specific regulation or section number (e.g., "OSHA 1926.502"), prioritize retrieved sections from that regulation over summaries of it in other documents.
 - Show most local jurisdiction first, then expand to federal below.
 - Never provide engineering advice, opinions, or recommendations.
 
 Source rules:
 - Work through each retrieved source one at a time.
-- For each source: extract only bullets that directly answer the query. If a source has nothing relevant, skip it entirely — do not mention it, do not tag it.
+- For each source: if the source addresses the topic of the query in any way — even partially, even as guidance — extract the relevant bullets and tag it. Only skip a source if it is entirely off-topic.
 - Never interleave content from different sources.
 
 Output format — follow this exactly:
-1. Write all relevant requirement bullets from SOURCE N as a bullet list.
+1. Write all relevant bullets from SOURCE N as a bullet list.
 2. On a new line by itself, write [[SRC_N]] — where N matches the source number from "--- SOURCE N ---" in the context.
 3. Leave one blank line, then repeat for the next source.
 - [[SRC_N]] must appear on its own line, never inline or mid-sentence.
@@ -441,8 +444,8 @@ Output format — follow this exactly:
 
 FAIL rule — read carefully:
 - If you have written ANY bullet points above, you are done. Do NOT emit [[FAIL]] under any circumstances.
-- Only if NONE of the retrieved sections contain even one relevant requirement, output EXACTLY the following two lines and nothing else:
-The provided standards do not address this query. Think I should? Request manuals to add using the button at top right!
+- Only emit [[FAIL]] if every single retrieved section is entirely unrelated to the query topic — the documents do not address it at all. If any section touches on the subject, even without an exact value, answer with what is there.
+- Output EXACTLY this and nothing else:
 [[FAIL]]"""
 
 def deduplicate_lines(text: str) -> str:
@@ -705,22 +708,20 @@ def query_prepare(
     chunks = rerank_chunks(user_query, chunks, top_k=N_RESULTS)
     print(f"  Retrieved {len(chunks)} chunks (re-ranked from {RERANK_POOL})")
 
-    if not chunks:
-        return {"empty": True, "source_groups": [], "chunks": [], "context": ""}
+    RERANK_FLOOR = 2.3
+    if not chunks or chunks[0].rerank_score < RERANK_FLOOR:
+        top = round(chunks[0].rerank_score, 2) if chunks else None
+        print(f"  [threshold] Top rerank score {top} below floor {RERANK_FLOOR} — declining")
+        return {"empty": True, "source_groups": [], "chunks": [
+            {"source_file": c.source_file, "agency": c.agency, "jurisdiction": c.jurisdiction,
+             "state": c.state, "locality": c.locality, "section": c.section,
+             "doc_page": c.doc_page, "page": c.page, "chunk_index": c.chunk_index,
+             "distance": c.distance, "rerank_score": c.rerank_score,
+             "llm_corrected_section": c.llm_corrected_section, "file_link": c.file_link}
+            for c in chunks
+        ], "context": ""}
 
-    chunks_sec  = [c for c in chunks if c.section  == "UNKNOWN" and not c.llm_corrected_section]
-    chunks_page = [c for c in chunks if c.doc_page == "UNKNOWN" and not c.llm_corrected_doc_page]
-    if chunks_sec or chunks_page:
-        print(f"  [3/4] Scheduling background enrichment "
-              f"({len(chunks_sec)} section, {len(chunks_page)} doc_page)", flush=True)
-        threading.Thread(
-            target=_enrich_and_persist,
-            args=(chunks_sec, chunks_page, table),
-            daemon=True,
-            name="enrichment",
-        ).start()
-    else:
-        print("  [3/4] All metadata known — skipping enrichment", flush=True)
+    print("  [3/4] Skipping live enrichment — use ingestion/enrich_file.py", flush=True)
 
     print("  [4/4] Building context...")
     groups = group_chunks(chunks, table)
@@ -795,16 +796,16 @@ def generate_response_stream(user_query: str, context: str):
         if m:
             text_before = strip_thinking(buffer[:m.start()])
             buffer = buffer[m.end():]
-            if text_before:
-                yield {"type": "text", "text": text_before}
             if m.group(1) is not None:
-                # [[SRC_N]] — collect for end, don't emit citation inline
+                # [[SRC_N]] — yield preceding text normally, collect citation for end
+                if text_before:
+                    yield {"type": "text", "text": text_before}
                 citations.append(int(m.group(1)))
                 has_src_block = True
             else:
-                # [[FAIL]] — suppress if any [[SRC_N]] was already seen
+                # [[FAIL]] — package message text into the fail event; suppress if citations seen
                 if not has_src_block:
-                    yield {"type": "fail", "text": ""}
+                    yield {"type": "fail", "text": "My current knowledge base can't find this. Think I should? Request manuals to add using the button at top right!"}
         else:
             # Flush only complete newline-terminated lines from the safe zone.
             # GUARD chars are kept buffered to avoid splitting a [[SRC_N]] marker.
