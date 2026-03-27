@@ -1,0 +1,378 @@
+[
+  {
+    "source_file": "1991-design-standards.pdf",
+    "agency": "ADA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.ada.gov/assets/pdfs/1991-design-standards.pdf"
+  },
+  {
+    "source_file": "2010-design-standards.pdf",
+    "agency": "ADA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.ada.gov/assets/pdfs/2010-design-standards.pdf"
+  },
+  {
+    "source_file": "PROWAG.pdf",
+    "agency": "ADA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.access-board.gov/files/prowag/2023-16149.pdf"
+  },
+  {
+    "source_file": "guidance-2010-standards.pdf",
+    "agency": "ADA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://archive.ada.gov/regs2010/2010ADAStandards/Guidance_2010ADAStandards.pdf"
+  },
+  {
+    "source_file": "2022-cgp-permit-as-modified.pdf",
+    "agency": "ENVIROMENTAL",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.epa.gov/system/files/documents/2022-01/2022-cgp-final-permit.pdf"
+  },
+  {
+    "source_file": "Executive Order 11988 Floodplains.pdf",
+    "agency": "ENVIROMENTAL",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.archives.gov/federal-register/codification/executive-order/11988.html"
+  },
+  {
+    "source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf",
+    "agency": "FHWA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://mutcd.fhwa.dot.gov/pdfs/11th_Edition/mutcd11thedition.pdf"
+  },
+  {
+    "source_file": "fp-24.pdf",
+    "agency": "FHWA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://highways.fhwa.dot.gov/federal-lands/specs/fp-24.pdf"
+  },
+  {
+    "source_file": "40 CFR Part 122.pdf",
+    "agency": "OSHA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.ecfr.gov/current/title-40/chapter-I/subchapter-D/part-122"
+  },
+  {
+    "source_file": "40 CFR Part 1500-1508.pdf",
+    "agency": "OSHA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://ceq.doe.gov/docs/laws-regulations/NEPA-Implementing-Regulations-Desk-Reference-2024.pdf"
+  },
+  {
+    "source_file": "SDOT ROWORR.pdf",
+    "agency": "SEATTLE",
+    "jurisdiction": "LOCAL",
+    "state": "WA",
+    "locality": "Seattle",
+    "file_link": "https://www.seattle.gov/documents/Departments/SDOT/About/DocumentLibrary/ROWORR_Manual.pdf"
+  },
+  {
+    "source_file": "SDOT Street Tree Manual.pdf",
+    "agency": "SEATTLE",
+    "jurisdiction": "LOCAL",
+    "state": "WA",
+    "locality": "Seattle",
+    "file_link": "https://www.seattle.gov/documents/departments/sdot/about/documentlibrary/streettreemanualweb.pdf"
+  },
+  {
+    "source_file": "SDOT Traffic Control Manual.pdf",
+    "agency": "SEATTLE",
+    "jurisdiction": "LOCAL",
+    "state": "WA",
+    "locality": "Seattle",
+    "file_link": "https://www.seattle.gov/documents/Departments/SDOT/About/DocumentLibrary/2024_Traffic_Control_Manual.pdf"
+  },
+  {
+    "source_file": "Seattle Standard Specifications.pdf",
+    "agency": "SEATTLE",
+    "jurisdiction": "LOCAL",
+    "state": "WA",
+    "locality": "Seattle",
+    "file_link": "https://www.seattle.gov/documents/Departments/SPU/Construction-Resources/standards-guidelines/specifications-plans/2026-Standard-Specifications.pdf"
+  },
+  {
+    "source_file": "Seattle Streets Illustrated ROWIM.pdf",
+    "agency": "SEATTLE",
+    "jurisdiction": "LOCAL",
+    "state": "WA",
+    "locality": "Seattle",
+    "file_link": "https://streetsillustrated.seattle.gov"
+  },
+  {
+    "source_file": "EM_1110-2-1603.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-1603.pdf"
+  },
+  {
+    "source_file": "EM_1110-2-1902.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-1902.pdf"
+  },
+  {
+    "source_file": "EM_1110-2-1913.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-1913.pdf"
+  },
+  {
+    "source_file": "EM_1110-2-2100.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-2100.pdf"
+  },
+  {
+    "source_file": "EM_1110-2-2104.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-2104.pdf"
+  },
+  {
+    "source_file": "EM_1110-2-2502.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-2502.pdf"
+  },
+  {
+    "source_file": "EM_1110-2-2906.pdf",
+    "agency": "USACE",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.publications.usace.army.mil/Portals/76/Publications/EngineerManuals/EM_1110-2-2906.pdf"
+  },
+  {
+    "source_file": "WSDOT ADA_Field_Guide.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/Publications/Manuals/fulltext/m0000/ADA_Field_Guide.pdf"
+  },
+  {
+    "source_file": "WSDOT Ad and Award Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/m27-02/adandaward.pdf"
+  },
+  {
+    "source_file": "WSDOT Communications Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M3030/Communications.pdf"
+  },
+  {
+    "source_file": "WSDOT Construction Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/manuals/fulltext/m41-01/construction.pdf"
+  },
+  {
+    "source_file": "WSDOT Consultant Services Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M27-50/ConsultantServiceManual.pdf"
+  },
+  {
+    "source_file": "WSDOT Cost Estimation Guidelines.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M3034/EstimatingGuidelines.pdf"
+  },
+  {
+    "source_file": "WSDOT Design Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M22-01/design.pdf"
+  },
+  {
+    "source_file": "WSDOT Design-Build Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M3126/DBM.pdf"
+  },
+  {
+    "source_file": "WSDOT Electronic Engineering Data Standards.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M3028/ElectronicEngDataStandards.pdf"
+  },
+  {
+    "source_file": "WSDOT Emergency Funds Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/manuals/fulltext/M3009/EmergencyFunds.pdf"
+  },
+  {
+    "source_file": "WSDOT Enviromental Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M31-11/em.pdf"
+  },
+  {
+    "source_file": "WSDOT Geotech Design Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M46-03/Geotech.pdf"
+  },
+  {
+    "source_file": "WSDOT Highway Runoff Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M31-16/highwayrunoff.pdf"
+  },
+  {
+    "source_file": "WSDOT Highway Surveying Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M22-97/highwaysurvey.pdf"
+  },
+  {
+    "source_file": "WSDOT Hydraulics Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M23-03/HydraulicsManual.pdf"
+  },
+  {
+    "source_file": "WSDOT LRFD Bridge Design Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M23-50/BDM.pdf"
+  },
+  {
+    "source_file": "WSDOT Maintenance Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M51-01/Maintenance.pdf"
+  },
+  {
+    "source_file": "WSDOT Materials Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M46-01/Materials.pdf"
+  },
+  {
+    "source_file": "WSDOT MatsLab Safety Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M46-04/MatsLab.pdf"
+  },
+  {
+    "source_file": "WSDOT Plans Preparation Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M22-31/PlansPreparation.pdf"
+  },
+  {
+    "source_file": "WSDOT Program Management Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/fulltext/ProjectMgmt/Website/ProgramManagementManual.pdf"
+  },
+  {
+    "source_file": "WSDOT REES-TL1-Vertical-Illum-Grids-For-Crosswalks.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/sites/default/files/2022-11/WSDOT-Traffic-Illumination-REES-TL1-Vertical-Illum-Grids-For-Crosswalks.pdf"
+  },
+  {
+    "source_file": "WSDOT Standard Specifications.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M41-10/SS.pdf"
+  },
+  {
+    "source_file": "WSDOT Traffic Manual.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M51-02/Traffic.pdf"
+  },
+  {
+    "source_file": "WSDOT-Traffic-Electrical-REES-E1-RoadsidePowerDistribution.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/sites/default/files/2022-11/WSDOT-Traffic-Electrical-REES-E1-RoadsidePowerDistribution.pdf"
+  }
+]
