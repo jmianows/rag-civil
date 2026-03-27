@@ -22,7 +22,7 @@ echo "==> Transferring project to ${REMOTE_USER}@${NODE_IP}:${NODE_PORT}:${REMOT
 echo "    Source: $LOCAL_DIR"
 echo ""
 
-rsync -avz --progress \
+rsync -avz --progress --no-owner --no-group \
     -e "ssh -p ${NODE_PORT} -i ${SSH_KEY} -o StrictHostKeyChecking=no" \
     --exclude='.venv/' \
     --exclude='venv/' \
