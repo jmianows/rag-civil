@@ -1,0 +1,47 @@
+name: RunPod Schedule
+
+on:
+  schedule:
+    - cron: '0 14 * * 1-5'   # 6am PST (UTC-8) Mon–Fri — START
+    - cron: '0 3 * * 2-6'    # 7pm PST (UTC-8) Mon–Fri — STOP (next UTC day)
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'start or stop'
+        required: true
+        type: choice
+        options: [start, stop]
+
+env:
+  POD_ID: 39cc6137e04a
+
+jobs:
+  manage-pod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine action
+        id: action
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "action=${{ inputs.action }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 14 * * 1-5" ]; then
+            echo "action=start" >> $GITHUB_OUTPUT
+          else
+            echo "action=stop" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Start pod
+        if: steps.action.outputs.action == 'start'
+        run: |
+          echo "Starting pod $POD_ID..."
+          curl -sf -X POST "https://api.runpod.io/graphql?api_key=${{ secrets.RUNPOD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { podResume(input: {podId: \\\"$POD_ID\\\", gpuCount: 1}) { id desiredStatus } }\"}"
+
+      - name: Stop pod
+        if: steps.action.outputs.action == 'stop'
+        run: |
+          echo "Stopping pod $POD_ID..."
+          curl -sf -X POST "https://api.runpod.io/graphql?api_key=${{ secrets.RUNPOD_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { podStop(input: {podId: \\\"$POD_ID\\\"}) { id desiredStatus } }\"}"
