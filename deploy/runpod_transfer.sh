@@ -25,6 +25,7 @@ echo ""
 rsync -avz --progress \
     -e "ssh -p ${NODE_PORT} -i ${SSH_KEY} -o StrictHostKeyChecking=no" \
     --exclude='.venv/' \
+    --exclude='venv/' \
     --exclude='__pycache__/' \
     --exclude='.git/' \
     --exclude='*.pyc' \
