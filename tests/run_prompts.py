@@ -297,10 +297,6 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
                         parts.append("[[FAIL]]")
                     elif etype == "source_block":
                         has_src = True
-                        if t_first_line is None:
-                            t_first_line = time.time()
-                        if event.get("text"):
-                            parts.append(event["text"])
                         parts.append(f"[[SRC_{event['n']}]]")
 
             elapsed = round(time.time() - t0, 1)
