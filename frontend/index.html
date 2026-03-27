@@ -541,6 +541,7 @@ async function runQuery() {
   chatWindow.appendChild(card);
 
   let sourceGroups = [];
+  let tailBlock = null;
 
   try {
     const scopeOpt = filterScope.selectedIndex > 0
@@ -584,12 +585,31 @@ async function runQuery() {
           }
 
         } else if (ev.type === 'source_block') {
-          if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+          tailBlock = null;
+          const block = document.createElement('div');
+          block.className = 'response-block';
+          if (ev.text) {
+            const sp = document.createElement('span');
+            sp.className = 'block-text';
+            sp.textContent = ev.text;
+            block.appendChild(sp);
+          }
           const src = (ev.n != null) ? sourceGroups[ev.n - 1] : null;
-          if (src) respBox.appendChild(buildCitationLine(src));
+          if (src) block.appendChild(buildCitationLine(src));
+          respBox.appendChild(block);
 
         } else if (ev.type === 'text') {
-          if (ev.text) respBox.appendChild(document.createTextNode(ev.text));
+          if (ev.text) {
+            if (!tailBlock) {
+              tailBlock = document.createElement('div');
+              tailBlock.className = 'response-block';
+              const sp = document.createElement('span');
+              sp.className = 'block-text';
+              tailBlock.appendChild(sp);
+              respBox.appendChild(tailBlock);
+            }
+            tailBlock.querySelector('.block-text').textContent += ev.text;
+          }
 
         } else if (ev.type === 'fail') {
           const el = document.createElement('p');
@@ -668,12 +688,18 @@ function parseResponse(container, text, sourceGroups) {
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
     if (m[1] != null) {
-      if (m.index > last)
-        container.appendChild(document.createTextNode(text.slice(last, m.index)));
-      // [[SRC_N]] — build citation line
-      const n = parseInt(m[1], 10);
-      const src = sourceGroups && sourceGroups[n - 1];
-      if (src) container.appendChild(buildCitationLine(src));
+      // [[SRC_N]] — wrap text + citation in a response-block
+      const block = document.createElement('div');
+      block.className = 'response-block';
+      if (m.index > last) {
+        const sp = document.createElement('span');
+        sp.className = 'block-text';
+        sp.textContent = text.slice(last, m.index);
+        block.appendChild(sp);
+      }
+      const src = sourceGroups && sourceGroups[parseInt(m[1], 10) - 1];
+      if (src) block.appendChild(buildCitationLine(src));
+      container.appendChild(block);
     } else {
       // [[FAIL]] — wrap preceding text in fail-msg, skip flag itself
       const el = document.createElement('p');
@@ -683,8 +709,15 @@ function parseResponse(container, text, sourceGroups) {
     }
     last = re.lastIndex;
   }
-  if (last < text.length)
-    container.appendChild(document.createTextNode(text.slice(last)));
+  if (last < text.length) {
+    const block = document.createElement('div');
+    block.className = 'response-block';
+    const sp = document.createElement('span');
+    sp.className = 'block-text';
+    sp.textContent = text.slice(last);
+    block.appendChild(sp);
+    container.appendChild(block);
+  }
 }
 
 /** reportError — stub: logs flag event; wire to /report endpoint when ready. */

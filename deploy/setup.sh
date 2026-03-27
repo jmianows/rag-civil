@@ -78,7 +78,7 @@ for i in {1..20}; do
     sleep 3
 done
 
-ollama pull qwen3:1.7b
+ollama pull qwen3:8b
 ollama pull mxbai-embed-large
 
 kill $OLLAMA_PID 2>/dev/null || true
@@ -96,6 +96,21 @@ sudo -u ubuntu bash -c "
     $PYTHON_BIN -m venv $PROJECT_DIR/.venv
     $PROJECT_DIR/.venv/bin/pip install --upgrade pip
     $PROJECT_DIR/.venv/bin/pip install -r $PROJECT_DIR/requirements.txt
+"
+
+echo "==> [6b/9] Verifying PyTorch CUDA — fixing if needed"
+# pip may install a CUDA 13 PyTorch build which requires a newer driver than
+# EC2/RunPod typically ships. Force cu124 build if CUDA is not available.
+sudo -u ubuntu bash -c "
+    if ! $PROJECT_DIR/.venv/bin/python -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null; then
+        echo '    CUDA unavailable — reinstalling PyTorch with cu124 build...'
+        $PROJECT_DIR/.venv/bin/pip install 'torch==2.6.0' \
+            --index-url https://download.pytorch.org/whl/cu124 \
+            --force-reinstall --quiet
+        echo '    PyTorch cu124 installed'
+    else
+        echo '    PyTorch CUDA OK'
+    fi
 "
 
 echo "==> [7/9] Installing systemd service files"

@@ -1,19 +1,45 @@
 #!/usr/bin/env bash
 # RunPod startup script — RTX 4090
-# RunPod's proxy handles HTTPS/SSL; no nginx or systemd needed.
-# Run this from the pod terminal or paste into the pod's "On Start" command field.
+# Handles first-time setup and service startup.
+# Run from the pod terminal after rsyncing the project.
 set -e
 
-# Start Ollama in background
-ollama serve &
-sleep 5
+cd /workspace/rag-civil
 
-# Pull required models if not already cached
+# ── First-time setup ───────────────────────────────────────────────────────────
+
+# Install Python deps if venv is missing or freshly created
+if [ ! -f ".venv/bin/uvicorn" ]; then
+    echo "==> Installing Python dependencies..."
+    python3 -m venv .venv
+    .venv/bin/pip install -r requirements.txt
+fi
+
+# Force PyTorch to CUDA 12.4 build — the default pip install pulls CUDA 13
+# which requires a newer driver than RunPod currently ships (12.8 max).
+if .venv/bin/python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
+    echo "==> PyTorch CUDA OK"
+else
+    echo "==> Fixing PyTorch CUDA version (installing cu124 build)..."
+    .venv/bin/pip install "torch==2.6.0" \
+        --index-url https://download.pytorch.org/whl/cu124 \
+        --force-reinstall --quiet
+fi
+
+# ── Start Ollama ───────────────────────────────────────────────────────────────
+
+if ! curl -sf http://127.0.0.1:11434/ &>/dev/null; then
+    ollama serve &
+    sleep 5
+else
+    echo "==> Ollama already running"
+fi
+
 ollama pull mxbai-embed-large
 ollama pull qwen3:8b
 
-# Start FastAPI — listen on all interfaces so RunPod proxy can reach it
-cd /workspace/rag-civil
+# ── Start FastAPI ──────────────────────────────────────────────────────────────
+
 CIVIL_ENV=production \
   .venv/bin/uvicorn api.main:app \
     --host 0.0.0.0 \

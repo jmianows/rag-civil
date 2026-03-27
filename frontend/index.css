@@ -594,13 +594,19 @@ html[data-theme="evolve-light"] .section-label { font-weight: 600; }
   background: var(--bg2);
   border: 1px solid var(--border);
   padding: 0.65rem 0.75rem;
-  white-space: pre-wrap;
   line-height: 1.65;
   color: var(--text);
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
 }
 html[data-theme="evolve"] .response-text,
 html[data-theme="evolve-light"] .response-text { border-left: 4px solid #6a8aaa; padding: 0.75rem 0.85rem; line-height: 1.75; }
+
+/* text+citation pairs — each block groups the bullets it cites */
+.response-block { display: flex; flex-direction: column; }
+.response-block + .response-block { margin-top: 0.6rem; }
+.block-text { white-space: pre-wrap; }
 
 /* fail response message */
 .fail-msg {
@@ -620,7 +626,7 @@ html[data-theme="evolve-light"] .response-text { border-left: 4px solid #6a8aaa;
   padding: 0.22rem 0.5rem 0.22rem 0.6rem;
   font-size: 12px;
   min-width: 0;
-  margin: 0.25rem 0;
+  margin: 0.15rem 0 0 0;
 }
 html[data-theme="evolve"] .citation-line,
 html[data-theme="evolve-light"] .citation-line { border-left-width: 4px; }

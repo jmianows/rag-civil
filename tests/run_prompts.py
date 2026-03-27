@@ -29,8 +29,12 @@ JSON schema per prompt:
     }
 """
 
-import sys, time, json, re, argparse, datetime
+import os, sys, time, json, re, argparse, datetime
 from pathlib import Path
+
+# Default to production so the test uses the deployed model/config when run
+# on RunPod without an explicit CIVIL_ENV.  A local override still wins.
+os.environ.setdefault("CIVIL_ENV", "production")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from rag.query_engine import query_prepare, generate_response_stream
@@ -293,6 +297,10 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
                         parts.append("[[FAIL]]")
                     elif etype == "source_block":
                         has_src = True
+                        if t_first_line is None:
+                            t_first_line = time.time()
+                        if event.get("text"):
+                            parts.append(event["text"])
                         parts.append(f"[[SRC_{event['n']}]]")
 
             elapsed = round(time.time() - t0, 1)

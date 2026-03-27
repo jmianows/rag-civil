@@ -13,7 +13,7 @@ on:
         options: [start, stop]
 
 env:
-  POD_ID: 39cc6137e04a
+  POD_ID: 51x0kid0tj2r2t
 
 jobs:
   manage-pod:
