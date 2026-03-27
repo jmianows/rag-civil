@@ -636,6 +636,7 @@ def enrich_section(text: str, source_file: str) -> str:
         _next_ollama_host() + "/api/chat",
         json=payload
     )
+    response.raise_for_status()
 
     data = response.json()
     result = data["message"]["content"].strip()

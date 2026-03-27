@@ -127,13 +127,15 @@ def health_check():
             if r.status != 200:
                 result["ollama"] = f"unexpected status {r.status}"
     except Exception as e:
-        result["ollama"] = f"error: {e}"
+        print(f"[health] ollama check failed: {e}", flush=True)
+        result["ollama"] = "error"
 
     try:
         tbl = get_db_table()
         result["rows"] = tbl.count_rows()
     except Exception as e:
-        result["lancedb"] = f"error: {e}"
+        print(f"[health] lancedb check failed: {e}", flush=True)
+        result["lancedb"] = "error"
 
     result["status"] = "ok" if result["ollama"] == "ok" and result["lancedb"] == "ok" else "degraded"
     status_code = 200 if result["status"] == "ok" else 503

@@ -4,8 +4,14 @@
 # Example: bash deploy/ec2_transfer.sh 3.14.12.134 ~/.ssh/id_ed25519
 set -euo pipefail
 
-NODE_IP="${1:-3.14.12.134}"
+NODE_IP="${1:-}"
 SSH_KEY="${2:-~/.ssh/id_ed25519}"
+
+if [ -z "$NODE_IP" ]; then
+    echo "Usage: bash deploy/ec2_transfer.sh <ip> [ssh-key-path]"
+    echo "Example: bash deploy/ec2_transfer.sh 3.14.12.134 ~/.ssh/id_ed25519"
+    exit 1
+fi
 REMOTE_USER=ubuntu
 REMOTE_DIR=/home/ubuntu/rag-civil
 

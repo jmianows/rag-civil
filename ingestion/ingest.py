@@ -325,6 +325,27 @@ def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
 #init_chromadb — creates or opens your persistent ChromaDB database in the vectordb/ folder. Using cosine similarity which is the best metric for text retrieval. If you re-run ingestion it won't duplicate chunks — upsert updates existing ones.
 #store_chunks — builds up batches of chunks with their embeddings and metadata and writes them to ChromaDB in one operation. Wraps each embedding in a try/except so one bad chunk doesn't crash the whole ingestion run.
 #The chunk ID format filename__p142__c3 means page 142, chunk index 3 — unique and human readable so you can trace any retrieved chunk back to its exact location.
+def _write_standards_json(table, out_path: Path) -> None:
+    rows = table.search().select(
+        ["source_file", "agency", "jurisdiction", "state", "locality", "file_link"]
+    ).limit(999999).to_list()
+    seen: dict[str, dict] = {}
+    for r in rows:
+        sf = r.get("source_file", "")
+        if sf and sf not in seen:
+            seen[sf] = {
+                "source_file":  sf,
+                "agency":       r.get("agency", ""),
+                "jurisdiction": r.get("jurisdiction", ""),
+                "state":        r.get("state", ""),
+                "locality":     r.get("locality", "") or "",
+                "file_link":    r.get("file_link", ""),
+            }
+    standards = sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
+    out_path.write_text(json.dumps(standards, indent=2))
+    print(f"  Wrote {len(standards)} entries → {out_path}")
+
+
 def get_embedding(text: str) -> list[float]:
     words = text.split()
     if len(words) > 250:
@@ -654,6 +675,7 @@ def main(docs_dir: Path, force: bool, only: str | None) -> None:
     print(f"  Successful : {len(success)} files")
     print(f"  Failed     : {len(failed)} files")
     print(f"  Total chunks in database: {table.count_rows()}")
+    _write_standards_json(table, Path(__file__).parent.parent / "frontend" / "standards.json")
 
     if failed:
         print("\nFailed files:")

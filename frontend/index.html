@@ -375,7 +375,7 @@ function logAnalyticsEvent(event, source_file = null) {
 ══════════════════════════════════════════════════════════════ */
 const PROD_HOSTS = ['civilsmartdictionary.com', 'www.civilsmartdictionary.com'];
 const API = PROD_HOSTS.includes(window.location.hostname)
-  ? 'https://q7x29u33n45e10-8000.proxy.runpod.net' : '';
+  ? 'https://api.civilsmartdictionary.com' : '';
 let queryHistory = [];
 let currentIndex = -1;
 let pendingCorrection = null;
