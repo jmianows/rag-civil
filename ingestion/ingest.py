@@ -45,7 +45,11 @@ import pyarrow as pa
 #                └── portland_bike.pdf
 
 _PROJECT_ROOT = Path(__file__).parent.parent
-VECTORDB_DIR  = _PROJECT_ROOT / "vectordb"
+import sys as _sys; _sys.path.insert(0, str(_PROJECT_ROOT))
+try:
+    from rag.env_config import VECTORDB_DIR
+except ImportError:
+    VECTORDB_DIR = _PROJECT_ROOT / "vectordb"
 EMBED_MODEL = "mxbai-embed-large"
 CHUNK_SIZE    = 220   # words — at 1.3 tokens/word ≈ 286 tokens, safe headroom
 CHUNK_OVERLAP = 20    # words

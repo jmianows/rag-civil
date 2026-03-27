@@ -11,6 +11,7 @@ Usage:
 """
 
 import os
+from pathlib import Path
 
 
 def _is_aws_ec2() -> bool:
@@ -62,6 +63,10 @@ LLM_MODEL = "qwen3:8b" if IS_PRODUCTION else "qwen3:4b-instruct"
 # Whether to ping Ollama and LanceDB at server startup to load them before
 # the first real user request arrives
 WARM_ON_STARTUP = IS_PRODUCTION
+
+# Vector database path — override via CIVIL_VECTORDB_DIR env var for non-default layouts
+_default_vectordb = Path(__file__).parent.parent / "vectordb"
+VECTORDB_DIR = Path(os.environ.get("CIVIL_VECTORDB_DIR", str(_default_vectordb)))
 
 print(
     f"[env] {ENVIRONMENT.upper()} | model={LLM_MODEL}"

@@ -27,7 +27,10 @@ from rag.query_engine import (
 )
 from ingestion.retag import log_correction
 
-VECTORDB_DIR = Path(__file__).parent.parent / "vectordb"
+try:
+    from rag.env_config import VECTORDB_DIR
+except ImportError:
+    VECTORDB_DIR = Path(__file__).parent.parent / "vectordb"
 BATCH_SIZE = 8
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
-from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL
+from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL, VECTORDB_DIR
 
 _ollama_session = requests.Session()
 _ollama_session.headers.update({"Connection": "keep-alive"})
@@ -113,7 +113,6 @@ def _rrf_merge(lists: list[list[dict]], k: int = 60) -> list[dict]:
             rows[cid] = row
     return [rows[cid] for cid in sorted(scores, key=lambda c: -scores[c])]
 
-VECTORDB_DIR  = Path(__file__).parent.parent / "vectordb"
 EMBED_MODEL   = "mxbai-embed-large"
 N_RESULTS     = 7
 

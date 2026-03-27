@@ -21,7 +21,10 @@ try:
 except ImportError:
     from query_engine import _ensure_fts_index
 
-VECTORDB_DIR = Path(__file__).parent.parent / "vectordb"
+try:
+    from rag.env_config import VECTORDB_DIR
+except ImportError:
+    VECTORDB_DIR = Path(__file__).parent.parent / "vectordb"
 
 
 def retag():

@@ -6,6 +6,14 @@ set -e
 
 cd /workspace/rag-civil
 
+# ── Pod identity ───────────────────────────────────────────────────────────────
+# RunPod sets RUNPOD_POD_ID in the environment. Use it to build the proxy URL
+# so CIVIL_API_URL is always correct without manual edits after pod replacement.
+if [ -z "${CIVIL_API_URL:-}" ] && [ -n "${RUNPOD_POD_ID:-}" ]; then
+    export CIVIL_API_URL="https://${RUNPOD_POD_ID}-8000.proxy.runpod.net"
+    echo "==> API URL: ${CIVIL_API_URL}"
+fi
+
 # ── System dependencies ────────────────────────────────────────────────────────
 
 # Install system packages needed for Ollama install and rsync transfers.
@@ -68,7 +76,7 @@ ollama pull qwen3:8b
 
 # Start uvicorn in background, wait for /health, then keep it alive with restart loop.
 echo "==> Starting FastAPI..."
-CIVIL_ENV=production .venv/bin/uvicorn api.main:app \
+CIVIL_ENV=production CIVIL_API_URL="${CIVIL_API_URL:-}" .venv/bin/uvicorn api.main:app \
     --host 0.0.0.0 --port 8000 --workers 1 &
 UVICORN_PID=$!
 
@@ -85,7 +93,7 @@ while true; do
     wait "$UVICORN_PID" 2>/dev/null || true
     echo "==> uvicorn exited, restarting in 3s..."
     sleep 3
-    CIVIL_ENV=production .venv/bin/uvicorn api.main:app \
+    CIVIL_ENV=production CIVIL_API_URL="${CIVIL_API_URL:-}" .venv/bin/uvicorn api.main:app \
         --host 0.0.0.0 --port 8000 --workers 1 &
     UVICORN_PID=$!
 done

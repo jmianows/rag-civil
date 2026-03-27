@@ -24,15 +24,19 @@ from rag.query_engine import (
     embed_query,
     _get_reranker,
 )
-from rag.env_config import WARM_ON_STARTUP, ENVIRONMENT, IS_PRODUCTION
+from rag.env_config import WARM_ON_STARTUP, ENVIRONMENT, IS_PRODUCTION, VECTORDB_DIR
 
 _PROJECT_ROOT  = Path(__file__).parent.parent
-VECTORDB_DIR   = _PROJECT_ROOT / "vectordb"
 FRONTEND_DIR   = _PROJECT_ROOT / "frontend"
 REQUEST_LOG    = _PROJECT_ROOT / "code_requests.log"
 ANALYTICS_FILE = _PROJECT_ROOT / "analytics.json"
 RATE_LIMIT_LOG = _PROJECT_ROOT / "rate_limit.log"
 DAILY_QUERY_LIMIT = 20
+
+# Public API URL — set CIVIL_API_URL to override (e.g. the RunPod proxy URL).
+# If unset, the frontend falls back to same-origin requests (local/dev mode).
+import os as _os
+_PUBLIC_API_URL = _os.environ.get("CIVIL_API_URL", "")
 
 app = FastAPI(title="Civil RAG API")
 
@@ -128,6 +132,16 @@ def health_check():
     status_code = 200 if result["status"] == "ok" else 503
     from fastapi.responses import JSONResponse
     return JSONResponse(content=result, status_code=status_code)
+
+
+@app.get("/config")
+def get_config():
+    """Return runtime configuration for the frontend.
+
+    The frontend calls this on load to discover the backend URL instead of
+    having it hardcoded. Set CIVIL_API_URL on the pod to expose the proxy URL.
+    """
+    return {"api_url": _PUBLIC_API_URL, "environment": ENVIRONMENT}
 
 
 _RATE_LIMIT_WHITELIST = {"127.0.0.1", "::1"}
