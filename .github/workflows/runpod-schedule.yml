@@ -33,10 +33,21 @@ jobs:
       - name: Start pod
         if: steps.action.outputs.action == 'start'
         run: |
-          echo "Starting pod $POD_ID..."
-          curl -sf -X POST "https://api.runpod.io/graphql?api_key=${{ secrets.RUNPOD_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"query\": \"mutation { podResume(input: {podId: \\\"$POD_ID\\\", gpuCount: 1}) { id desiredStatus } }\"}"
+          for attempt in $(seq 1 20); do
+            echo "Starting pod $POD_ID (attempt $attempt/20)..."
+            RESPONSE=$(curl -s -X POST "https://api.runpod.io/graphql?api_key=${{ secrets.RUNPOD_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": \"mutation { podResume(input: {podId: \\\"$POD_ID\\\", gpuCount: 1}) { id desiredStatus } }\"}")
+            echo "$RESPONSE"
+            if echo "$RESPONSE" | grep -q '"desiredStatus"'; then
+              echo "Pod started successfully."
+              exit 0
+            fi
+            echo "GPU unavailable, waiting 1 minute before retry..."
+            sleep 60
+          done
+          echo "Failed to start pod after 20 attempts."
+          exit 1
 
       - name: Stop pod
         if: steps.action.outputs.action == 'stop'
