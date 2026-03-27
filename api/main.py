@@ -56,6 +56,13 @@ _analytics_lock = threading.Lock()
 _rate_lock      = threading.Lock()
 _daily_counts: dict[str, tuple[int, str]] = {}  # ip -> (count, date_str)
 
+import time as _time
+_FILTERS_TTL = 3600  # 1 hour — refresh after new documents are ingested
+_filters_cache: dict | None = None
+_filters_cache_ts: float = 0.0
+_standards_cache: list | None = None
+_standards_cache_ts: float = 0.0
+
 
 def _startup_warmup():
     """Background thread: pre-load all heavy resources before the first request."""
@@ -240,6 +247,9 @@ def run_correct(req: CorrectRequest):
 
 @app.get("/filters")
 def get_filters():
+    global _filters_cache, _filters_cache_ts
+    if _filters_cache and (_time.time() - _filters_cache_ts) < _FILTERS_TTL:
+        return _filters_cache
     try:
         db = lancedb.connect(str(VECTORDB_DIR))
         table = db.open_table("civil_engineering_codes")
@@ -289,7 +299,10 @@ def get_filters():
         scopes = sorted(seen_scopes.values(),
                         key=lambda x: (x["jurisdiction"], x["state"], x["locality"]))
 
-        return {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
+        result = {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
+        _filters_cache = result
+        _filters_cache_ts = _time.time()
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -323,6 +336,9 @@ def standards_page():
 @app.get("/standards/list")
 def get_standards_list():
     """Return one entry per unique source file with agency/jurisdiction metadata."""
+    global _standards_cache, _standards_cache_ts
+    if _standards_cache and (_time.time() - _standards_cache_ts) < _FILTERS_TTL:
+        return _standards_cache
     try:
         db = lancedb.connect(str(VECTORDB_DIR))
         table = db.open_table("civil_engineering_codes")
@@ -340,7 +356,10 @@ def get_standards_list():
                     "locality":     r.get("locality", ""),
                     "file_link":    r.get("file_link", ""),
                 }
-        return sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
+        result = sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
+        _standards_cache = result
+        _standards_cache_ts = _time.time()
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

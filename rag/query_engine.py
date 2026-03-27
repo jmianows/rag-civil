@@ -559,6 +559,7 @@ def generate_response(query: str, context: str) -> str:
         _next_ollama_host() + "/api/chat",
         json=payload
     )
+    response.raise_for_status()
 
     data = response.json()
     content = data["message"]["content"].strip()
@@ -572,7 +573,7 @@ def correct_section(
 ) -> bool:
     from ingestion.retag import log_correction
     table = get_db_table()
-    chunk_id = f"{source_file}__p{page}__c{chunk_index}"
+    chunk_id = f"{_sf(source_file)}__p{page}__c{chunk_index}"
 
     try:
         result = table.search() \
@@ -779,51 +780,52 @@ def generate_response_stream(user_query: str, context: str):
         },
     }
 
-    resp = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload, stream=True)
     flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer        = ""
     full_text     = ""
     has_src_block = False
     GUARD         = 12   # len("[[SRC_99]]") == 11
 
-    for line in resp.iter_lines():
-        if not line:
-            continue
-        data  = _json.loads(line)
-        token = data.get("message", {}).get("content", "")
-        buffer    += token
-        full_text += token
+    with _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload, stream=True) as resp:
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if not line:
+                continue
+            data  = _json.loads(line)
+            token = data.get("message", {}).get("content", "")
+            buffer    += token
+            full_text += token
 
-        m = flag_re.search(buffer)
-        if m:
-            text_before = strip_thinking(buffer[:m.start()])
-            buffer = buffer[m.end():]
-            if m.group(1) is not None:
-                # [[SRC_N]] — yield preceding text, then emit citation inline
-                if text_before:
-                    yield {"type": "text", "text": text_before}
-                yield {"type": "source_block", "n": int(m.group(1))}
-                has_src_block = True
+            m = flag_re.search(buffer)
+            if m:
+                text_before = strip_thinking(buffer[:m.start()])
+                buffer = buffer[m.end():]
+                if m.group(1) is not None:
+                    # [[SRC_N]] — yield preceding text, then emit citation inline
+                    if text_before:
+                        yield {"type": "text", "text": text_before}
+                    yield {"type": "source_block", "n": int(m.group(1))}
+                    has_src_block = True
+                else:
+                    # [[FAIL]] — package message text into the fail event; suppress if citations seen
+                    if not has_src_block:
+                        yield {"type": "fail", "text": "My current knowledge base can't find this. Think I should? Request manuals to add using the button at top right!"}
             else:
-                # [[FAIL]] — package message text into the fail event; suppress if citations seen
-                if not has_src_block:
-                    yield {"type": "fail", "text": "My current knowledge base can't find this. Think I should? Request manuals to add using the button at top right!"}
-        else:
-            # Flush only complete newline-terminated lines from the safe zone.
-            # GUARD chars are kept buffered to avoid splitting a [[SRC_N]] marker.
-            safe_end = max(0, len(buffer) - GUARD)
-            while True:
-                nl = buffer.find('\n', 0, safe_end)
-                if nl == -1:
-                    break
-                line = strip_thinking(buffer[:nl+1])
-                buffer = buffer[nl+1:]
+                # Flush only complete newline-terminated lines from the safe zone.
+                # GUARD chars are kept buffered to avoid splitting a [[SRC_N]] marker.
                 safe_end = max(0, len(buffer) - GUARD)
-                if line.strip():
-                    yield {"type": "text", "text": line + '\n'}
+                while True:
+                    nl = buffer.find('\n', 0, safe_end)
+                    if nl == -1:
+                        break
+                    line = strip_thinking(buffer[:nl+1])
+                    buffer = buffer[nl+1:]
+                    safe_end = max(0, len(buffer) - GUARD)
+                    if line.strip():
+                        yield {"type": "text", "text": line + '\n'}
 
-        if data.get("done"):
-            break
+            if data.get("done"):
+                break
 
     # Flush remaining buffer
     remainder = strip_thinking(buffer)
