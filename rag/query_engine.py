@@ -781,7 +781,6 @@ def generate_response_stream(user_query: str, context: str):
     buffer        = ""
     full_text     = ""
     has_src_block = False
-    citations     = []   # [[SRC_N]] numbers collected in order
     GUARD         = 12   # len("[[SRC_99]]") == 11
 
     for line in resp.iter_lines():
@@ -797,10 +796,10 @@ def generate_response_stream(user_query: str, context: str):
             text_before = strip_thinking(buffer[:m.start()])
             buffer = buffer[m.end():]
             if m.group(1) is not None:
-                # [[SRC_N]] — yield preceding text normally, collect citation for end
+                # [[SRC_N]] — yield preceding text, then emit citation inline
                 if text_before:
                     yield {"type": "text", "text": text_before}
-                citations.append(int(m.group(1)))
+                yield {"type": "source_block", "n": int(m.group(1))}
                 has_src_block = True
             else:
                 # [[FAIL]] — package message text into the fail event; suppress if citations seen
@@ -827,10 +826,6 @@ def generate_response_stream(user_query: str, context: str):
     remainder = strip_thinking(buffer)
     if remainder.strip():
         yield {"type": "text", "text": remainder}
-
-    # Emit citation rows after all text is done
-    for n in citations:
-        yield {"type": "source_block", "n": n}
 
     print(f"\n── LLM RAW OUTPUT ──\n{full_text}\n── END ──\n", flush=True)
     yield {"type": "done", "raw": full_text}
