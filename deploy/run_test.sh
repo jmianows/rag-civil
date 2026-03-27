@@ -75,16 +75,18 @@ echo "  run_${NEXT_RUN} SUMMARY"
 echo "════════════════════════════════════════════════"
 if [ -f "${LOCAL_JSON}" ]; then
     python3 - <<PYEOF
-import json, sys
-with open("${LOCAL_JSON}") as f:
-    runs = json.load(f)
+import json
+d = json.load(open("${LOCAL_JSON}"))
+runs   = d.get("results", [])
 total  = len(runs)
-passed = sum(1 for r in runs if r.get("pass"))
+passed = sum(1 for r in runs if r.get("correct"))
 failed = total - passed
-avg_t  = sum(r.get("elapsed", 0) for r in runs) / total if total else 0
+avg_t  = d.get("mean_time_s", 0)
+fails  = d.get("fail_prompts", [])
+print(f"  Model  : {d.get('llm_model','?')}")
 print(f"  Total  : {total}")
-print(f"  Passed : {passed}  ({100*passed//total}%)" if total else "  Passed : 0")
-print(f"  Failed : {failed}")
+print(f"  Passed : {passed}  ({100*passed//total if total else 0}%)")
+print(f"  Failed : {failed}  {fails}")
 print(f"  Avg t  : {avg_t:.1f}s")
 PYEOF
 fi
