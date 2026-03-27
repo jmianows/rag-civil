@@ -24,7 +24,7 @@ from rag.query_engine import (
     embed_query,
     _get_reranker,
 )
-from rag.env_config import WARM_ON_STARTUP, ENVIRONMENT
+from rag.env_config import WARM_ON_STARTUP, ENVIRONMENT, IS_PRODUCTION
 
 _PROJECT_ROOT  = Path(__file__).parent.parent
 VECTORDB_DIR   = _PROJECT_ROOT / "vectordb"
@@ -36,9 +36,14 @@ DAILY_QUERY_LIMIT = 20
 
 app = FastAPI(title="Civil RAG API")
 
+_CORS_ORIGINS = (
+    ["https://civilsmartdictionary.com", "https://www.civilsmartdictionary.com"]
+    if IS_PRODUCTION else ["*"]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -99,6 +104,31 @@ class AnalyticsEvent(BaseModel):
 
 
 # ── endpoints ──────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health_check():
+    """Liveness + readiness probe. Returns 200 if both Ollama and LanceDB are reachable."""
+    import urllib.request
+    result = {"ollama": "ok", "lancedb": "ok", "rows": None}
+
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:11434/", timeout=2) as r:
+            if r.status != 200:
+                result["ollama"] = f"unexpected status {r.status}"
+    except Exception as e:
+        result["ollama"] = f"error: {e}"
+
+    try:
+        tbl = get_db_table()
+        result["rows"] = tbl.count_rows()
+    except Exception as e:
+        result["lancedb"] = f"error: {e}"
+
+    result["status"] = "ok" if result["ollama"] == "ok" and result["lancedb"] == "ok" else "degraded"
+    status_code = 200 if result["status"] == "ok" else 503
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=result, status_code=status_code)
+
 
 _RATE_LIMIT_WHITELIST = {"127.0.0.1", "::1"}
 

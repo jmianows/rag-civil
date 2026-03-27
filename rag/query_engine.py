@@ -235,16 +235,20 @@ def retrieve_chunks(
     # User-explicit filters always win; auto-detection only fires when no UI filter is set
     user_filter_active = any([filter_agency, filter_jurisdiction, filter_state, filter_locality])
 
+    def _sf(v: str) -> str:
+        """Sanitize a user-supplied filter value for safe interpolation into a LanceDB WHERE string."""
+        return v.replace("'", "").replace("\\", "") if v else v
+
     # Build user-filter WHERE clause (hard filter, unchanged from before)
     clauses = []
-    if filter_agency:       clauses.append(f"agency = '{filter_agency}'")
-    if filter_jurisdiction: clauses.append(f"jurisdiction = '{filter_jurisdiction}'")
-    if filter_state:        clauses.append(f"state = '{filter_state}'")
-    if filter_locality:     clauses.append(f"locality = '{filter_locality}'")
+    if filter_agency:       clauses.append(f"agency = '{_sf(filter_agency)}'")
+    if filter_jurisdiction: clauses.append(f"jurisdiction = '{_sf(filter_jurisdiction)}'")
+    if filter_state:        clauses.append(f"state = '{_sf(filter_state)}'")
+    if filter_locality:     clauses.append(f"locality = '{_sf(filter_locality)}'")
     user_where = " AND ".join(clauses) if clauses else None
 
     # Auto-agency boost: a separate filtered vector search whose results get an RRF bonus
-    auto_where = f"agency = '{auto_agency}'" if (auto_agency and not user_filter_active) else None
+    auto_where = f"agency = '{_sf(auto_agency)}'" if (auto_agency and not user_filter_active) else None
 
     # Fetch larger pools from each search before merging
     pool_size = n_results * 3
