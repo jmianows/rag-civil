@@ -218,6 +218,11 @@ def embed_query(query: str) -> list[float]:
     return response["embedding"]
 
 
+def _sf(v: str) -> str:
+    """Sanitize a string value for safe interpolation into a LanceDB WHERE clause."""
+    return v.replace("'", "").replace("\\", "") if v else v
+
+
 def retrieve_chunks(
     query: str,
     table: lancedb.table.LanceTable,
@@ -234,9 +239,7 @@ def retrieve_chunks(
     # User-explicit filters always win; auto-detection only fires when no UI filter is set
     user_filter_active = any([filter_agency, filter_jurisdiction, filter_state, filter_locality])
 
-    def _sf(v: str) -> str:
-        """Sanitize a user-supplied filter value for safe interpolation into a LanceDB WHERE string."""
-        return v.replace("'", "").replace("\\", "") if v else v
+    # _sf is defined at module level below retrieve_chunks
 
     # Build user-filter WHERE clause (hard filter, unchanged from before)
     clauses = []

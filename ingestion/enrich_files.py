@@ -21,7 +21,7 @@ Options:
 """
 
 import sys, argparse, json, re
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -177,12 +177,9 @@ def enrich_one_file(
         print(f"    Total changes:         {len(all_updates)}")
 
         flag = "llm_corrected_section" if field == "section" else "llm_corrected_doc_page"
-        for cid, new_val in sorted(all_updates.items()):
-            row = next(
-                (r for r in rows
-                 if f"{r['source_file']}__p{r['page']}__c{r['chunk_index']}" == cid),
-                None,
-            )
+        cid_to_row = {f"{r['source_file']}__p{r['page']}__c{r['chunk_index']}": r for r in rows}
+        for cid, new_val in all_updates.items():
+            row = cid_to_row.get(cid)
             old_val = row.get(field, "UNKNOWN") if row else "?"
             src = "llm" if cid in llm_updates else ("bwd" if cid in new_bwd else "fwd")
             print(f"    [{src}] {cid}  {old_val!r} → {new_val!r}")
@@ -311,7 +308,7 @@ def main():
     # ── Single-file mode ───────────────────────────────────────────────────────
     if args.source_file:
         rows = table.search().where(
-            f"source_file = '{args.source_file.replace(chr(39), '')}'"
+            f"source_file = '{args.source_file.replace(chr(39), '').replace(chr(92), '')}'"
         ).limit(999999).to_list()
 
         if not rows:
@@ -357,7 +354,6 @@ def main():
     all_rows = table.search().limit(999999).to_list()
     print(f"Loaded {len(all_rows)} chunks across", end=" ")
 
-    from collections import defaultdict
     by_file: dict[str, list[dict]] = defaultdict(list)
     for r in all_rows:
         by_file[r["source_file"]].append(r)
