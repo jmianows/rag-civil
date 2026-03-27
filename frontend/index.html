@@ -367,7 +367,7 @@ function logAnalyticsEvent(event, source_file = null) {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({event, source_file}),
-  }).catch(() => {});
+  }).catch(e => console.error('[analytics]', e));
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -593,7 +593,7 @@ async function runQuery() {
             sp.textContent = ev.text;
             block.appendChild(sp);
           }
-          const src = (ev.n != null) ? sourceGroups[ev.n - 1] : null;
+          const src = (ev.n != null && ev.n > 0 && ev.n <= sourceGroups.length) ? sourceGroups[ev.n - 1] : null;
           if (src) block.appendChild(buildCitationLine(src));
           respBox.appendChild(block);
 
@@ -739,13 +739,14 @@ function buildCitationLine(chunk) {
   const distClass = d < 0.3 ? 'dist-close' : d < 0.6 ? 'dist-mid' : 'dist-far';
   const row = document.createElement('div');
   row.className = 'citation-line ' + distClass;
+  row.style.borderLeftColor = getSourceColor(chunk.source_file);
 
   const file = document.createElement('span');
   file.className = 'cit-file';
   if (chunk.file_link) {
     const a = document.createElement('a');
     const isPdf = chunk.file_link.toLowerCase().endsWith('.pdf');
-    a.href = isPdf ? chunk.file_link + '#page=' + (chunk.page || 1) : chunk.file_link;
+    a.href = isPdf ? chunk.file_link + '#page=' + Math.max(1, parseInt(chunk.page, 10) || 1) : chunk.file_link;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.textContent = chunk.source_file + ' 🔗';
@@ -761,7 +762,11 @@ function buildCitationLine(chunk) {
 
   const sec = document.createElement('span');
   sec.className = 'cit-meta';
-  sec.innerHTML = `§<span class="cit-section">${chunk.section || '??'}</span>`;
+  sec.textContent = '§';
+  const secSpan = document.createElement('span');
+  secSpan.className = 'cit-section';
+  secSpan.textContent = chunk.section || '??';
+  sec.appendChild(secSpan);
   sec.dataset.tooltip = 'section number';
   row.appendChild(sec);
 
@@ -769,7 +774,10 @@ function buildCitationLine(chunk) {
 
   const pg = document.createElement('span');
   pg.className = 'cit-meta';
-  pg.innerHTML = `pg <span>${chunk.doc_page || '?'}</span>`;
+  pg.textContent = 'pg ';
+  const pgSpan = document.createElement('span');
+  pgSpan.textContent = chunk.doc_page || '?';
+  pg.appendChild(pgSpan);
   pg.dataset.tooltip = 'document page';
   row.appendChild(pg);
 
@@ -777,7 +785,9 @@ function buildCitationLine(chunk) {
     row.appendChild(makeSep());
     const ag = document.createElement('span');
     ag.className = 'cit-meta';
-    ag.innerHTML = `<span>${chunk.agency}</span>`;
+    const agSpan = document.createElement('span');
+    agSpan.textContent = chunk.agency;
+    ag.appendChild(agSpan);
     ag.dataset.tooltip = 'issuing agency';
     row.appendChild(ag);
   }
@@ -841,7 +851,11 @@ function renderHistory() {
   queryHistory.forEach((entry, i) => {
     const item = document.createElement('div');
     item.className = 'history-item' + (i === currentIndex ? ' active' : '');
-    item.innerHTML = `<span class="ts">${entry.ts}</span>${entry.query}`;
+    const tsSpan = document.createElement('span');
+    tsSpan.className = 'ts';
+    tsSpan.textContent = entry.ts;
+    item.appendChild(tsSpan);
+    item.appendChild(document.createTextNode(entry.query));
     item.onclick = () => {
       currentIndex = i;
       renderHistory();
@@ -857,10 +871,23 @@ function renderHistory() {
 ══════════════════════════════════════════════════════════════ */
 function openCorrectModal(chunk) {
   pendingCorrection = chunk;
-  modalInfo.innerHTML =
-    `File: <span>${chunk.source_file}</span><br>` +
-    `Current section: <span>${chunk.section || 'UNKNOWN'}</span><br>` +
-    `Page: <span>${chunk.page}</span> &nbsp; Chunk: <span>${chunk.chunk_index !== undefined ? chunk.chunk_index : '?'}</span>`;
+  modalInfo.textContent = '';
+  [
+    ['File: ', chunk.source_file],
+    ['Current section: ', chunk.section || 'UNKNOWN'],
+    ['Page: ', chunk.page],
+  ].forEach(([label, value]) => {
+    modalInfo.appendChild(document.createTextNode(label));
+    const sp = document.createElement('span');
+    sp.textContent = String(value);
+    modalInfo.appendChild(sp);
+    modalInfo.appendChild(document.createElement('br'));
+  });
+  const chunkLabel = document.createTextNode('\u00a0\u00a0Chunk: ');
+  const chunkSpan = document.createElement('span');
+  chunkSpan.textContent = chunk.chunk_index !== undefined ? String(chunk.chunk_index) : '?';
+  modalInfo.appendChild(chunkLabel);
+  modalInfo.appendChild(chunkSpan);
   modalInput.value = chunk.section || '';
   modalOverlay.classList.add('visible');
   modalInput.focus(); modalInput.select();
@@ -890,7 +917,7 @@ async function applyCorrection() {
         new_section: newSection,
       }),
     });
-    if (!r.ok) throw new Error((await r.json()).detail);
+    if (!r.ok) { const errData = await r.json().catch(() => ({})); throw new Error(errData.detail || r.statusText); }
     c.section = newSection;
     c.llm_corrected_section = true;
     if (currentIndex >= 0) {

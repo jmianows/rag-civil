@@ -48,7 +48,7 @@ _CORS_ORIGINS = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -197,7 +197,8 @@ def run_query(req: QueryRequest, request: Request):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[error] /query failed: {e}", flush=True)
+        raise HTTPException(status_code=500, detail="Query failed. Please retry.")
 
 
 @app.post("/query/stream")
@@ -213,8 +214,9 @@ def run_query_stream(req: QueryRequest, request: Request):
             filter_locality=req.filter_locality or None,
         )
     except Exception as e:
+        print(f"[error] /query/stream failed: {e}", flush=True)
         def _err():
-            yield f'data: {_json.dumps({"type": "error", "message": str(e)})}\n\n'
+            yield f'data: {_json.dumps({"type": "error", "message": "Query failed. Please retry."})}\n\n'
         return StreamingResponse(_err(), media_type="text/event-stream")
 
     if prep.get("empty"):
@@ -304,7 +306,8 @@ def get_filters():
         _filters_cache_ts = _time.time()
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[error] /filters failed: {e}", flush=True)
+        raise HTTPException(status_code=500, detail="Failed to load filters.")
 
 
 @app.post("/request")
@@ -361,7 +364,8 @@ def get_standards_list():
         _standards_cache_ts = _time.time()
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[error] /standards/list failed: {e}", flush=True)
+        raise HTTPException(status_code=500, detail="Failed to load standards list.")
 
 
 @app.post("/analytics/event")

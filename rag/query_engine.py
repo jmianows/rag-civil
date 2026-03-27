@@ -286,7 +286,11 @@ def retrieve_chunks(
 
     # Drop chunks with implausibly high distance — these are FTS results with no
     # vector similarity (e.g. keyword match with dist=15-32 vs normal 0.3-0.7)
-    chunks = [c for c in chunks if c.distance <= 1.0]
+    filtered = [c for c in chunks if c.distance <= 1.0]
+    dropped = len(chunks) - len(filtered)
+    if dropped:
+        print(f"  [retrieve] dropped {dropped}/{len(chunks)} chunks (distance > 1.0)", flush=True)
+    chunks = filtered
 
     return chunks
 
@@ -296,7 +300,7 @@ def expand_context(
     window_before: int = 1,
     window_after: int = 2,
 ) -> str:
-    source_file  = chunk.source_file
+    source_file  = _sf(chunk.source_file)
     page         = chunk.page
     chunk_index  = chunk.chunk_index
 
@@ -555,11 +559,20 @@ def generate_response(query: str, context: str) -> str:
         }
     }
 
-    response = _ollama_session.post(
-        _next_ollama_host() + "/api/chat",
-        json=payload
-    )
-    response.raise_for_status()
+    import time as _t
+    for _attempt in range(3):
+        try:
+            response = _ollama_session.post(
+                _next_ollama_host() + "/api/chat",
+                json=payload
+            )
+            response.raise_for_status()
+            break
+        except Exception as _e:
+            if _attempt == 2:
+                raise
+            print(f"  [ollama] attempt {_attempt + 1} failed: {_e}, retrying in 2s...", flush=True)
+            _t.sleep(2)
 
     data = response.json()
     content = data["message"]["content"].strip()
@@ -645,46 +658,11 @@ def enrich_doc_page(text: str, source_file: str) -> str:
         "options": {"temperature": 0, "num_predict": 10},
     }
     response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
+    response.raise_for_status()
     result = strip_thinking(response.json()["message"]["content"].strip())
     if re.match(r'^\d[\d\-]*$', result) and len(result) >= 1:
         return result
     return "UNKNOWN"
-
-
-def _enrich_and_persist(chunks_sec: list, chunks_page: list, table) -> None:
-    """Background: enrich UNKNOWN sections and doc_pages, persist to DB and corrections log."""
-    from ingestion.retag import log_correction
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        sec_futs  = [(c, ex.submit(enrich_section,  c.text, c.source_file)) for c in chunks_sec]
-        page_futs = [(c, ex.submit(enrich_doc_page, c.text, c.source_file)) for c in chunks_page]
-
-    for chunk, fut in sec_futs:
-        try:
-            result = fut.result()
-            if result == "UNKNOWN":
-                continue
-            cid = f"{chunk.source_file}__p{chunk.page}__c{chunk.chunk_index}"
-            table.update(where=f"id = '{cid}'",
-                         values={"section": result, "llm_corrected_section": True})
-            log_correction(chunk.source_file, chunk.page, chunk.chunk_index,
-                           chunk.section, result, field="section")
-            print(f"  [enrich] section {cid} → {result}", flush=True)
-        except Exception as e:
-            print(f"  [enrich] warn section: {e}", flush=True)
-
-    for chunk, fut in page_futs:
-        try:
-            result = fut.result()
-            if result == "UNKNOWN":
-                continue
-            cid = f"{chunk.source_file}__p{chunk.page}__c{chunk.chunk_index}"
-            table.update(where=f"id = '{cid}'",
-                         values={"doc_page": result, "llm_corrected_doc_page": True})
-            log_correction(chunk.source_file, chunk.page, chunk.chunk_index,
-                           chunk.doc_page, result, field="doc_page")
-            print(f"  [enrich] doc_page {cid} → {result}", flush=True)
-        except Exception as e:
-            print(f"  [enrich] warn doc_page: {e}", flush=True)
 
 
 def query_prepare(

@@ -28,7 +28,8 @@ def _is_aws_ec2() -> bool:
             timeout=0.3,
         ) as resp:
             return resp.status == 200
-    except Exception:
+    except Exception as e:
+        print(f"[env] AWS detection failed ({type(e).__name__}) — defaulting to local", flush=True)
         return False
 
 

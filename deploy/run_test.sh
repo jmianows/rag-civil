@@ -16,7 +16,7 @@ if [ -z "$NODE_IP" ] || [ -z "$NODE_PORT" ]; then
     exit 1
 fi
 
-SSH_OPTS="-p ${NODE_PORT} -i ${SSH_KEY} -o StrictHostKeyChecking=no"
+SSH_OPTS="-p ${NODE_PORT} -i ${SSH_KEY} -o StrictHostKeyChecking=accept-new"
 RSYNC_E="ssh ${SSH_OPTS}"
 LOCAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 

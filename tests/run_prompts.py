@@ -276,7 +276,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             p = PROMPTS[n]
             emit(f"\n{sep}\nPROMPT {n}: {p}\n{sep}")
             t0 = time.time()
-            prepared = query_prepare(p)
+            prepared = query_prepare(p, None, None, None, None)
 
             parts      = []
             has_src    = False

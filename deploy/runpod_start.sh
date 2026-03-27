@@ -57,11 +57,11 @@ fi
 
 # ── Start Ollama ───────────────────────────────────────────────────────────────
 
-if ! curl -sf http://127.0.0.1:11434/ &>/dev/null; then
+if ! curl -sf --connect-timeout 2 http://127.0.0.1:11434/ &>/dev/null; then
     ollama serve &
     echo "==> Waiting for Ollama to be ready..."
     for i in $(seq 1 60); do
-        curl -sf http://127.0.0.1:11434/ &>/dev/null && echo "==> Ollama ready (${i}s)" && break
+        curl -sf --connect-timeout 2 http://127.0.0.1:11434/ &>/dev/null && echo "==> Ollama ready (${i}s)" && break
         [ "$i" -eq 60 ] && echo "ERROR: Ollama did not start within 60s" && exit 1
         sleep 1
     done

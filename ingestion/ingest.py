@@ -629,6 +629,14 @@ def main(docs_dir: Path, force: bool, only: str | None) -> None:
 
     print(f"\nFound {len(pdf_files)} PDF file(s) to process\n")
 
+    _EXPECTED_ROOTS = {"FEDERAL", "STATE", "LOCAL"}
+    bad_paths = [p for p in pdf_files if p.relative_to(DOCS_DIR).parts[0].upper() not in _EXPECTED_ROOTS]
+    if bad_paths:
+        print(f"[warn] {len(bad_paths)} PDF(s) outside expected FEDERAL/STATE/LOCAL structure:")
+        for bp in bad_paths:
+            print(f"  {bp.relative_to(DOCS_DIR)}")
+        print()
+
     failed  = []
     success = []
 

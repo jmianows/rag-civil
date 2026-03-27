@@ -23,7 +23,7 @@ echo "    Source: $LOCAL_DIR"
 echo ""
 
 rsync -avz --progress --no-owner --no-group \
-    -e "ssh -p ${NODE_PORT} -i ${SSH_KEY} -o StrictHostKeyChecking=no" \
+    -e "ssh -p ${NODE_PORT} -i ${SSH_KEY} -o StrictHostKeyChecking=accept-new" \
     --exclude='.venv/' \
     --exclude='venv/' \
     --exclude='__pycache__/' \

@@ -81,6 +81,10 @@ body { overflow: hidden; }
 <script>
 'use strict';
 
+const PROD_HOSTS = ['civilsmartdictionary.com', 'www.civilsmartdictionary.com'];
+const API = PROD_HOSTS.includes(window.location.hostname)
+  ? 'https://q7x29u33n45e10-8000.proxy.runpod.net' : '';
+
 const THEME_KEY = 'rag-civil-theme';
 
 /* ── Theme (read-only — follows whatever was set on the main page) ── */
@@ -183,7 +187,7 @@ async function loadStandards() {
     container.innerHTML = '';
     container.appendChild(frag);
   } catch(e) {
-    container.innerHTML = `<span id="std-error">Could not load standards list: ${e.message}</span>`;
+    container.innerHTML = '<span id="std-error">Failed to load standards list. Please refresh the page.</span>';
   }
 }
 
@@ -226,7 +230,7 @@ reqSendBtn.addEventListener('click', async () => {
   reqSendBtn.disabled = true; reqSendBtn.textContent = 'Sending\u2026';
   reqStatus.textContent = ''; reqStatus.className = '';
   try {
-    const r = await fetch('https://51x0kid0tj2r2t-8000.proxy.runpod.net/request', {
+    const r = await fetch(API + '/request', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({document: doc, notes, email}),

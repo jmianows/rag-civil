@@ -16,7 +16,7 @@ if [ -z "$NODE_IP" ]; then
 fi
 
 # Build SSH args
-SSH_ARGS="-o StrictHostKeyChecking=no"
+SSH_ARGS="-o StrictHostKeyChecking=accept-new"
 if [ -n "$SSH_KEY" ]; then
     SSH_ARGS="$SSH_ARGS -i $SSH_KEY"
 fi
