@@ -6,6 +6,27 @@ set -e
 
 cd /workspace/rag-civil
 
+# ── System dependencies ────────────────────────────────────────────────────────
+
+# Install system packages needed for Ollama install and rsync transfers.
+# pciutils/lshw let the Ollama installer auto-detect the NVIDIA GPU.
+PKGS_NEEDED=""
+for pkg in rsync zstd pciutils lshw; do
+    dpkg -s "$pkg" &>/dev/null || PKGS_NEEDED="$PKGS_NEEDED $pkg"
+done
+if [ -n "$PKGS_NEEDED" ]; then
+    echo "==> Installing system packages:$PKGS_NEEDED"
+    apt-get update -qq
+    apt-get install -y $PKGS_NEEDED -qq
+fi
+
+# ── Install Ollama if missing ──────────────────────────────────────────────────
+
+if ! command -v ollama &>/dev/null; then
+    echo "==> Installing Ollama..."
+    curl -fsSL https://ollama.com/install.sh | sh
+fi
+
 # ── First-time setup ───────────────────────────────────────────────────────────
 
 # Install Python deps if venv is missing or freshly created
