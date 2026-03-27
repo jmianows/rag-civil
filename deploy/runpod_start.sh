@@ -51,7 +51,12 @@ fi
 
 if ! curl -sf http://127.0.0.1:11434/ &>/dev/null; then
     ollama serve &
-    sleep 5
+    echo "==> Waiting for Ollama to be ready..."
+    for i in $(seq 1 60); do
+        curl -sf http://127.0.0.1:11434/ &>/dev/null && echo "==> Ollama ready (${i}s)" && break
+        [ "$i" -eq 60 ] && echo "ERROR: Ollama did not start within 60s" && exit 1
+        sleep 1
+    done
 else
     echo "==> Ollama already running"
 fi
@@ -61,8 +66,26 @@ ollama pull qwen3:8b
 
 # ── Start FastAPI ──────────────────────────────────────────────────────────────
 
-CIVIL_ENV=production \
-  .venv/bin/uvicorn api.main:app \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --workers 1
+# Start uvicorn in background, wait for /health, then keep it alive with restart loop.
+echo "==> Starting FastAPI..."
+CIVIL_ENV=production .venv/bin/uvicorn api.main:app \
+    --host 0.0.0.0 --port 8000 --workers 1 &
+UVICORN_PID=$!
+
+echo "==> Waiting for API to be ready..."
+for i in $(seq 1 90); do
+    curl -sf http://127.0.0.1:8000/health &>/dev/null && echo "==> API ready (${i}s)" && break
+    [ "$i" -eq 90 ] && echo "ERROR: API did not become ready within 90s" && kill "$UVICORN_PID" && exit 1
+    sleep 1
+done
+echo "===== DEPLOYMENT COMPLETE — API IS LIVE ====="
+
+# Wait for uvicorn; restart automatically if it exits
+while true; do
+    wait "$UVICORN_PID" 2>/dev/null || true
+    echo "==> uvicorn exited, restarting in 3s..."
+    sleep 3
+    CIVIL_ENV=production .venv/bin/uvicorn api.main:app \
+        --host 0.0.0.0 --port 8000 --workers 1 &
+    UVICORN_PID=$!
+done

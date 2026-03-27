@@ -45,7 +45,17 @@ if [ "${LAST_RUN}" -gt 0 ]; then
 fi
 echo "    Last run: ${LAST_RUN}  →  This run: run_${NEXT_RUN}"
 
-# ── 3. Run prompts on pod ──────────────────────────────────────────────────────
+# ── 3. Verify API is ready ────────────────────────────────────────────────────
+echo "==> Checking API health before running prompts..."
+ssh ${SSH_OPTS} "${REMOTE_USER}@${NODE_IP}" "
+for i in \$(seq 1 30); do
+    curl -sf http://127.0.0.1:8000/health &>/dev/null && echo \"API ready (\${i}s)\" && exit 0
+    sleep 1
+done
+echo 'ERROR: API not ready after 30s — is runpod_start.sh running?' && exit 1
+"
+
+# ── 4. Run prompts on pod ──────────────────────────────────────────────────────
 echo ""
 echo "==> Running 100 prompts on pod (run_${NEXT_RUN})..."
 echo "    Output: ${OUT_PREFIX}.{log,json}"
@@ -56,7 +66,7 @@ ssh ${SSH_OPTS} "${REMOTE_USER}@${NODE_IP}" \
        --out ${OUT_PREFIX} \
        ${COMPARE_ARG}"
 
-# ── 4. Sync results back to local tests/ ──────────────────────────────────────
+# ── 5. Sync results back to local tests/ ──────────────────────────────────────
 echo ""
 echo "==> Syncing run_${NEXT_RUN} results to local tests/..."
 rsync -avz \
@@ -68,7 +78,7 @@ rsync -avz \
 LOCAL_LOG="${LOCAL_DIR}/tests/run_${NEXT_RUN}.log"
 LOCAL_JSON="${LOCAL_DIR}/tests/run_${NEXT_RUN}.json"
 
-# ── 5. Quick pass/fail summary ─────────────────────────────────────────────────
+# ── 6. Quick pass/fail summary ─────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════"
 echo "  run_${NEXT_RUN} SUMMARY"
