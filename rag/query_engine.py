@@ -512,6 +512,11 @@ Output format — follow this exactly:
 - Only emit [[SRC_N]] if you have written at least one bullet for that source. A tag with no bullets is forbidden.
 - No preamble, summaries, or conclusions. Do not restate the question.
 
+Bold rule:
+- You may wrap the single most important numeric value or threshold — the direct answer to the query — with [[BO]] before and [[/BO]] after. Example: [[BO]]1:50[[/BO]].
+- Use this at most once per response. Only wrap a specific value (number + units, ratio, or percentage) that is the direct answer to the question. Do not wrap full sentences, ranges, or values that are context rather than the answer.
+- If there is no single clear numeric answer, omit the tags entirely.
+
 FAIL rule — read carefully:
 - If you have written ANY bullet points above, you are done. Do NOT emit [[FAIL]] under any circumstances.
 - Only emit [[FAIL]] if every single retrieved section is entirely unrelated to the query topic — the documents do not address it at all. If any section touches on the subject, even without an exact value, answer with what is there.
@@ -834,7 +839,7 @@ def generate_response_stream(user_query: str, context: str):
         },
     }
 
-    flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
+    flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]|\[\[BO\]\]|\[\[/BO\]\]')
     buffer        = ""
     full_text     = ""
     has_src_block = False
@@ -866,6 +871,14 @@ def generate_response_stream(user_query: str, context: str):
                         yield {"type": "text", "text": text_before}
                     yield {"type": "source_block", "n": int(m.group(1))}
                     has_src_block = True
+                elif m.group(0) == '[[BO]]':
+                    if text_before:
+                        yield {"type": "text", "text": text_before}
+                    yield {"type": "bold_open"}
+                elif m.group(0) == '[[/BO]]':
+                    if text_before:
+                        yield {"type": "text", "text": text_before}
+                    yield {"type": "bold_close"}
                 else:
                     # [[FAIL]] — package message text into the fail event; suppress if citations seen
                     if not has_src_block:

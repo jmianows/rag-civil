@@ -540,6 +540,7 @@ async function runQuery() {
 
   let sourceGroups = [];
   let tailBlock = null;
+  let boldEl = null;
 
   try {
     const scopeOpt = filterScope.selectedIndex > 0
@@ -584,6 +585,7 @@ async function runQuery() {
 
         } else if (ev.type === 'source_block') {
           tailBlock = null;
+          boldEl = null;
           const block = document.createElement('div');
           block.className = 'response-block';
           if (ev.text) {
@@ -606,8 +608,24 @@ async function runQuery() {
               tailBlock.appendChild(sp);
               respBox.appendChild(tailBlock);
             }
-            tailBlock.querySelector('.block-text').textContent += ev.text;
+            const target = boldEl || tailBlock.querySelector('.block-text');
+            target.appendChild(document.createTextNode(ev.text));
           }
+
+        } else if (ev.type === 'bold_open') {
+          if (!tailBlock) {
+            tailBlock = document.createElement('div');
+            tailBlock.className = 'response-block';
+            const sp = document.createElement('span');
+            sp.className = 'block-text';
+            tailBlock.appendChild(sp);
+            respBox.appendChild(tailBlock);
+          }
+          boldEl = document.createElement('strong');
+          tailBlock.querySelector('.block-text').appendChild(boldEl);
+
+        } else if (ev.type === 'bold_close') {
+          boldEl = null;
 
         } else if (ev.type === 'fail') {
           const el = document.createElement('p');
@@ -677,6 +695,19 @@ function renderResult(data) {
   chatWindow.appendChild(card);
 }
 
+function renderTextWithBold(parent, text) {
+  const boldRe = /\[\[BO\]\]([\s\S]*?)\[\[\/BO\]\]/g;
+  let last = 0, m;
+  while ((m = boldRe.exec(text)) !== null) {
+    if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const strong = document.createElement('strong');
+    strong.textContent = m[1];
+    parent.appendChild(strong);
+    last = boldRe.lastIndex;
+  }
+  if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+}
+
 /**
  * parseResponse — renders stored raw text into container,
  * converting [[SRC_N]] flags into inline citation rows.
@@ -692,7 +723,7 @@ function parseResponse(container, text, sourceGroups) {
       if (m.index > last) {
         const sp = document.createElement('span');
         sp.className = 'block-text';
-        sp.textContent = text.slice(last, m.index);
+        renderTextWithBold(sp, text.slice(last, m.index));
         block.appendChild(sp);
       }
       const src = sourceGroups && sourceGroups[parseInt(m[1], 10) - 1];
@@ -712,7 +743,7 @@ function parseResponse(container, text, sourceGroups) {
     block.className = 'response-block';
     const sp = document.createElement('span');
     sp.className = 'block-text';
-    sp.textContent = text.slice(last);
+    renderTextWithBold(sp, text.slice(last));
     block.appendChild(sp);
     container.appendChild(block);
   }
@@ -748,7 +779,7 @@ function buildCitationLine(chunk) {
     a.href = isPdf ? chunk.file_link + '#page=' + Math.max(1, parseInt(chunk.page, 10) || 1) : chunk.file_link;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.textContent = chunk.source_file + ' 🔗';
+    a.textContent = chunk.source_file + ' (SEE FILE)';
     file.appendChild(a);
   } else {
     file.textContent = chunk.source_file;
