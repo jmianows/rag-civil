@@ -513,9 +513,10 @@ Output format — follow this exactly:
 - No preamble, summaries, or conclusions. Do not restate the question.
 
 Bold rule:
-- You may wrap the single most important numeric value or threshold — the direct answer to the query — with [[BO]] before and [[/BO]] after. Example: [[BO]]1:50[[/BO]].
-- Use this at most once per response. Only wrap a specific value (number + units, ratio, or percentage) that is the direct answer to the question. Do not wrap full sentences, ranges, or values that are context rather than the answer.
-- If there is no single clear numeric answer, omit the tags entirely.
+- You may bold the single most important numeric value — the direct answer to the query — using standard Markdown: **value**. Example: cross slope shall not exceed **1:50**.
+- Use at most once per response. Only bold a specific value (number + units, ratio, or percentage) that is the direct answer. Do not bold full sentences or ranges.
+- If there is no single clear numeric answer, omit bold entirely.
+- Do not bold section numbers, code references, or headings (e.g. 10.8.1.B, §1926.502).
 
 FAIL rule — read carefully:
 - If you have written ANY bullet points above, you are done. Do NOT emit [[FAIL]] under any circumstances.
@@ -839,7 +840,7 @@ def generate_response_stream(user_query: str, context: str):
         },
     }
 
-    flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]|\[\[BO\]\]|\[\[/BO\]\]')
+    flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer        = ""
     full_text     = ""
     has_src_block = False
@@ -871,14 +872,6 @@ def generate_response_stream(user_query: str, context: str):
                         yield {"type": "text", "text": text_before}
                     yield {"type": "source_block", "n": int(m.group(1))}
                     has_src_block = True
-                elif m.group(0) == '[[BO]]':
-                    if text_before:
-                        yield {"type": "text", "text": text_before}
-                    yield {"type": "bold_open"}
-                elif m.group(0) == '[[/BO]]':
-                    if text_before:
-                        yield {"type": "text", "text": text_before}
-                    yield {"type": "bold_close"}
                 else:
                     # [[FAIL]] — package message text into the fail event; suppress if citations seen
                     if not has_src_block:

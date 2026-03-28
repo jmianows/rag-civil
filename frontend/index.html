@@ -540,7 +540,6 @@ async function runQuery() {
 
   let sourceGroups = [];
   let tailBlock = null;
-  let boldEl = null;
 
   try {
     const scopeOpt = filterScope.selectedIndex > 0
@@ -585,7 +584,6 @@ async function runQuery() {
 
         } else if (ev.type === 'source_block') {
           tailBlock = null;
-          boldEl = null;
           const block = document.createElement('div');
           block.className = 'response-block';
           if (ev.text) {
@@ -608,24 +606,8 @@ async function runQuery() {
               tailBlock.appendChild(sp);
               respBox.appendChild(tailBlock);
             }
-            const target = boldEl || tailBlock.querySelector('.block-text');
-            target.appendChild(document.createTextNode(ev.text));
+            tailBlock.querySelector('.block-text').appendChild(document.createTextNode(ev.text));
           }
-
-        } else if (ev.type === 'bold_open') {
-          if (!tailBlock) {
-            tailBlock = document.createElement('div');
-            tailBlock.className = 'response-block';
-            const sp = document.createElement('span');
-            sp.className = 'block-text';
-            tailBlock.appendChild(sp);
-            respBox.appendChild(tailBlock);
-          }
-          boldEl = document.createElement('strong');
-          tailBlock.querySelector('.block-text').appendChild(boldEl);
-
-        } else if (ev.type === 'bold_close') {
-          boldEl = null;
 
         } else if (ev.type === 'fail') {
           const el = document.createElement('p');
@@ -696,7 +678,7 @@ function renderResult(data) {
 }
 
 function renderTextWithBold(parent, text) {
-  const boldRe = /\[\[BO\]\]([\s\S]*?)\[\[\/BO\]\]/g;
+  const boldRe = /\*\*(.*?)\*\*/g;
   let last = 0, m;
   while ((m = boldRe.exec(text)) !== null) {
     if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
