@@ -69,12 +69,13 @@ def _startup_warmup():
     _get_reranker()
     print("[startup] Cross-encoder ready", flush=True)
 
+    try:
+        get_db_table()  # always run: ensures FTS index is built before first query
+        print("[startup] LanceDB connection ready", flush=True)
+    except Exception as e:
+        print(f"[startup] LanceDB warm-up failed: {e}", flush=True)
+
     if WARM_ON_STARTUP:
-        try:
-            get_db_table()
-            print("[startup] LanceDB connection ready", flush=True)
-        except Exception as e:
-            print(f"[startup] LanceDB warm-up failed: {e}", flush=True)
 
         try:
             embed_query("warmup")

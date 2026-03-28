@@ -31,6 +31,15 @@ body { overflow: hidden; }
   flex-shrink: 0;
   overflow-y: auto;
 }
+@media (max-width: 600px) {
+  body { overflow: auto; }
+  #std-layout {
+    flex-direction: column;
+    overflow: visible;
+  }
+  #std-content { overflow-y: visible; }
+  #std-sidebar { overflow-y: visible; order: 1; }
+}
 </style>
 </head>
 <body>
@@ -122,7 +131,7 @@ function makeHeading(cls, text) {
 async function loadStandards() {
   const container = document.getElementById('std-body');
   try {
-    const r = await fetch('../standards.json');
+    const r = await fetch(API + '/standards/list');
     if (!r.ok) throw new Error(r.statusText);
     const rows = await r.json();
 

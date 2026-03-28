@@ -2,6 +2,8 @@ import ollama
 import lancedb
 import re
 import os
+import json
+import time
 import itertools
 import threading
 import requests
@@ -22,6 +24,14 @@ _SECTION_RE = re.compile(
     r'|\d+-\d+\.\d[\d\.\(\)]*'            # WSDOT: 6-02.3(25)
     r')'
 )
+
+# Pre-compiled regexes used in text processing functions
+_THINK_RE         = re.compile(r'<think>.*?</think>', re.DOTALL)
+_SPURIOUS_FAIL_RE = re.compile(r'\n*The provided standards do not address[^\n]*\n?.*?\[\[FAIL\]\]', re.DOTALL)
+_SRC_TAG_RE       = re.compile(r'\[\[SRC_\d+\]\]')
+_SECTION_VAL_RE   = re.compile(r'^[\d][\d\.\-\(\)\[\]a-zA-Z]*$')
+_DOCPAGE_VAL_RE   = re.compile(r'^\d[\d\-]*$')
+_FLAG_RE          = re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
 
 # Uppercase key → agency value as stored in DB metadata
 _AGENCY_TERMS: dict[str, str] = {
@@ -232,17 +242,14 @@ def retrieve_chunks(
     filter_state: str = None,
     filter_locality: str = None,
 ) -> list[RetrievedChunk]:
-    import time as _t
-    _tr0 = _t.monotonic()
+    _tr0 = time.monotonic()
     embedding = embed_query(query)
-    print(f"  [time]   embed_query: {_t.monotonic()-_tr0:.2f}s", flush=True)
+    print(f"  [time]   embed_query: {time.monotonic()-_tr0:.2f}s", flush=True)
 
     has_section, auto_agency = _detect_intent(query)
 
     # User-explicit filters always win; auto-detection only fires when no UI filter is set
-    user_filter_active = any([filter_agency, filter_jurisdiction, filter_state, filter_locality])
-
-    # _sf is defined at module level below retrieve_chunks
+    user_filter_active = any((filter_agency, filter_jurisdiction, filter_state, filter_locality))
 
     # Build user-filter WHERE clause (hard filter, unchanged from before)
     clauses = []
@@ -258,7 +265,7 @@ def retrieve_chunks(
     # Fetch larger pools from each search before merging
     pool_size = n_results * 3
 
-    _tr1 = _t.monotonic()
+    _tr1 = time.monotonic()
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_vector  = ex.submit(_vector_search, table, embedding, pool_size, user_where)
         f_fts     = ex.submit(_fts_search,    table, query,     pool_size) if has_section    else None
@@ -268,7 +275,7 @@ def retrieve_chunks(
         fts_rows     = f_fts.result()     if f_fts     else []
         boosted_rows = f_boosted.result() if f_boosted else []
 
-    print(f"  [time]   vector+fts search: {_t.monotonic()-_tr1:.2f}s", flush=True)
+    print(f"  [time]   vector+fts search: {time.monotonic()-_tr1:.2f}s", flush=True)
 
     # Chunks appearing in multiple lists earn cumulative RRF score and rise to the top
     lists_to_merge = [l for l in [vector_rows, fts_rows, boosted_rows] if l]
@@ -303,72 +310,6 @@ def retrieve_chunks(
 
     return chunks
 
-def expand_context(
-    chunk: RetrievedChunk,
-    table: lancedb.table.LanceTable,
-    window_before: int = 1,
-    window_after: int = 2,
-) -> str:
-    source_file  = _sf(chunk.source_file)
-    page         = chunk.page
-    chunk_index  = chunk.chunk_index
-
-    neighbors = []
-
-    # fetch chunks before
-    for offset in range(-window_before, 0):
-        neighbor_id = f"{source_file}__p{page}__c{chunk_index + offset}"
-        try:
-            result = table.search() \
-                .where(f"id = '{neighbor_id}'") \
-                .limit(1) \
-                .to_list()
-            if result:
-                neighbors.append((chunk_index + offset, result[0]["text"]))
-        except Exception:
-            continue
-
-    # always include the chunk itself
-    neighbors.append((chunk_index, chunk.text))
-
-    # fetch chunks after — look across page boundaries too
-    for offset in range(1, window_after + 1):
-        neighbor_id = f"{source_file}__p{page}__c{chunk_index + offset}"
-        try:
-            result = table.search() \
-                .where(f"id = '{neighbor_id}'") \
-                .limit(1) \
-                .to_list()
-            if result:
-                neighbors.append((chunk_index + offset, result[0]["text"]))
-                continue
-        except Exception:
-            pass
-
-        # if not found on same page try next page chunk 0
-        if offset == 1:
-            next_page_id = f"{source_file}__p{page + 1}__c0"
-            try:
-                result = table.search() \
-                    .where(f"id = '{next_page_id}'") \
-                    .limit(1) \
-                    .to_list()
-                if result:
-                    neighbors.append((page + 1, result[0]["text"]))
-            except Exception:
-                pass
-
-    neighbors.sort(key=lambda x: x[0])
-    texts = [t for _, t in neighbors]
-
-    if len(texts) == 1:
-        return texts[0]
-
-    combined = texts[0]
-    for i in range(1, len(texts)):
-        combined = remove_overlap(combined, texts[i])
-
-    return combined
 
 def remove_overlap(text_a: str, text_b: str, min_overlap: int = 20) -> str:
     max_check = min(len(text_a), len(text_b), 200)
@@ -399,8 +340,7 @@ def _expand_from_cache(chunk: RetrievedChunk, id_map: dict[str, str]) -> str:
         nid = f"{sf}__p{page}__c{ci + offset}"
         if nid in id_map:
             neighbors.append((ci + offset, id_map[nid]))
-            continue
-        if offset == 1:
+        elif offset == 1:
             next_id = f"{sf}__p{page + 1}__c0"
             if next_id in id_map:
                 neighbors.append((ci + 1, id_map[next_id]))
@@ -583,52 +523,48 @@ def format_context(groups: list[dict]) -> tuple[str, list[dict]]:
 
 def strip_thinking(text: str) -> str:
     # remove any thinking blocks Qwen3 emits despite think=False
-    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-    return text.strip()
+    return _THINK_RE.sub('', text).strip()
 
-_SRC_TAG_RE = re.compile(r'\[\[SRC_\d+\]\]')
 
 def strip_spurious_fail(text: str) -> str:
     """Remove [[FAIL]] block if any [[SRC_N]] citation is already present (format violation guard)."""
     if _SRC_TAG_RE.search(text) and "[[FAIL]]" in text:
-        text = re.sub(
-            r'\n*The provided standards do not address[^\n]*\n?.*?\[\[FAIL\]\]',
-            '',
-            text,
-            flags=re.DOTALL,
-        ).strip()
+        text = _SPURIOUS_FAIL_RE.sub('', text).strip()
         text = text.replace("[[FAIL]]", "").strip()
     return text
 
-def generate_response(query: str, context: str) -> str:
-    import json
+_LLM_OPTIONS_FULL = {
+    "temperature":    0.1,
+    "num_ctx":        8192,
+    "num_predict":    1500,
+    "repeat_penalty": 1.3,
+    "top_k":          20,
+    "num_gpu":        999,
+}
 
-    payload = {
-        "model": LLM_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": f"Query: {query}\n\nRetrieved sections:\n\n{context}",
-            }
-        ],
-        "stream":     False,
+
+def _make_ollama_payload(messages: list, stream: bool = False, options: dict | None = None) -> dict:
+    payload: dict = {
+        "model":      LLM_MODEL,
+        "messages":   messages,
+        "stream":     stream,
         "think":      False,
         "keep_alive": OLLAMA_KEEP_ALIVE,
-        "options": {
-            "temperature":    0.1,
-            "num_ctx":        8192,
-            "num_predict":    1500,
-            "repeat_penalty": 1.3,
-            "top_k":          20,
-            "num_gpu":        999,
-        }
     }
+    if options:
+        payload["options"] = options
+    return payload
 
-    import time as _t
+
+def generate_response(query: str, context: str) -> str:
+    payload = _make_ollama_payload(
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": f"Query: {query}\n\nRetrieved sections:\n\n{context}"},
+        ],
+        options=_LLM_OPTIONS_FULL,
+    )
+
     for _attempt in range(3):
         try:
             response = _ollama_session.post(
@@ -641,7 +577,7 @@ def generate_response(query: str, context: str) -> str:
             if _attempt == 2:
                 raise
             print(f"  [ollama] attempt {_attempt + 1} failed: {_e}, retrying in 2s...", flush=True)
-            _t.sleep(2)
+            time.sleep(2)
 
     data = response.json()
     content = data["message"]["content"].strip()
@@ -681,58 +617,59 @@ def correct_section(
     log_correction(source_file, page, chunk_index, old_section, new_section)
     return True
 def enrich_section(text: str, source_file: str) -> str:
-    payload = {
-        "model": LLM_MODEL,
-        "messages": [
-            {
-                "role": "user",
-                "content": f"You are reading a chunk from {source_file}.\nIdentify the section number this chunk belongs to.\nReturn ONLY the section number (e.g. '1926.502', '1310.02(13)(b)', '6-02.3').\nIf you cannot determine a section number return UNKNOWN.\nDo not explain your answer.\n\nText:\n{text[:500]}",
-            }
-        ],
-        "stream":     False,
-        "think":      False,
-        "keep_alive": OLLAMA_KEEP_ALIVE,
-        "options": {
-            "temperature": 0,
-            "num_predict": 20,
-        }
-    }
-
-    response = _ollama_session.post(
-        _next_ollama_host() + "/api/chat",
-        json=payload
+    payload = _make_ollama_payload(
+        messages=[{"role": "user", "content":
+            f"You are reading a chunk from {source_file}.\nIdentify the section number this chunk belongs to.\n"
+            f"Return ONLY the section number (e.g. '1926.502', '1310.02(13)(b)', '6-02.3').\n"
+            f"If you cannot determine a section number return UNKNOWN.\nDo not explain your answer.\n\nText:\n{text[:500]}",
+        }],
+        options={"temperature": 0, "num_predict": 20},
     )
+
+    response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
     response.raise_for_status()
 
-    data = response.json()
-    result = data["message"]["content"].strip()
-    result = strip_thinking(result)
-
-    import re
-    if re.match(r'^[\d][\d\.\-\(\)\[\]a-zA-Z]*$', result) and len(result) >= 3:
+    result = strip_thinking(response.json()["message"]["content"].strip())
+    if _SECTION_VAL_RE.match(result) and len(result) >= 3:
         return result
     return "UNKNOWN"
 
 def enrich_doc_page(text: str, source_file: str) -> str:
     """Ask the LLM for the document page number/range of this chunk."""
-    payload = {
-        "model": LLM_MODEL,
-        "messages": [{"role": "user", "content":
+    payload = _make_ollama_payload(
+        messages=[{"role": "user", "content":
             f"You are reading a chunk from {source_file}.\n"
             f"Identify the document page number this chunk appears on.\n"
             f"Return ONLY the page number or range (e.g. '142', '142-143').\n"
             f"If you cannot determine the page number return UNKNOWN.\n"
             f"Do not explain.\n\nText:\n{text[:500]}",
         }],
-        "stream": False, "think": False, "keep_alive": OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": 0, "num_predict": 10},
-    }
+        options={"temperature": 0, "num_predict": 10},
+    )
     response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
     response.raise_for_status()
     result = strip_thinking(response.json()["message"]["content"].strip())
-    if re.match(r'^\d[\d\-]*$', result) and len(result) >= 1:
+    if _DOCPAGE_VAL_RE.match(result) and len(result) >= 1:
         return result
     return "UNKNOWN"
+
+
+def _chunk_to_dict(c) -> dict:
+    return {
+        "source_file":           c.source_file,
+        "agency":                c.agency,
+        "jurisdiction":          c.jurisdiction,
+        "state":                 c.state,
+        "locality":              c.locality,
+        "section":               c.section,
+        "doc_page":              c.doc_page,
+        "page":                  c.page,
+        "chunk_index":           c.chunk_index,
+        "distance":              c.distance,
+        "rerank_score":          c.rerank_score,
+        "llm_corrected_section": c.llm_corrected_section,
+        "file_link":             c.file_link,
+    }
 
 
 def query_prepare(
@@ -744,14 +681,13 @@ def query_prepare(
 ) -> dict:
     """Run retrieval + formatting pipeline without calling the LLM.
     Returns {context, source_groups, chunks} or {empty: True, ...} if no results."""
-    import time as _t
-    _t0 = _t.monotonic()
+    _t0 = time.monotonic()
 
     print("  [1/4] Connecting to database...")
     table = get_db_table()
-    print(f"  [time] db connect: {_t.monotonic()-_t0:.2f}s", flush=True)
+    print(f"  [time] db connect: {time.monotonic()-_t0:.2f}s", flush=True)
 
-    _t1 = _t.monotonic()
+    _t1 = time.monotonic()
     print("  [2/4] Embedding query and retrieving chunks...")
     chunks = retrieve_chunks(
         query=user_query,
@@ -762,107 +698,68 @@ def query_prepare(
         filter_state=filter_state,
         filter_locality=filter_locality,
     )
-    print(f"  [time] embed+search: {_t.monotonic()-_t1:.2f}s", flush=True)
+    print(f"  [time] embed+search: {time.monotonic()-_t1:.2f}s", flush=True)
 
-    _t2 = _t.monotonic()
+    _t2 = time.monotonic()
     chunks = rerank_chunks(user_query, chunks, top_k=N_RESULTS)
-    print(f"  [time] rerank: {_t.monotonic()-_t2:.2f}s", flush=True)
+    print(f"  [time] rerank: {time.monotonic()-_t2:.2f}s", flush=True)
     print(f"  Retrieved {len(chunks)} chunks (re-ranked from {RERANK_POOL})")
 
     RERANK_FLOOR = 2.3
     if not chunks or chunks[0].rerank_score < RERANK_FLOOR:
         top = round(chunks[0].rerank_score, 2) if chunks else None
         print(f"  [threshold] Top rerank score {top} below floor {RERANK_FLOOR} — declining")
-        return {"empty": True, "source_groups": [], "chunks": [
-            {"source_file": c.source_file, "agency": c.agency, "jurisdiction": c.jurisdiction,
-             "state": c.state, "locality": c.locality, "section": c.section,
-             "doc_page": c.doc_page, "page": c.page, "chunk_index": c.chunk_index,
-             "distance": c.distance, "rerank_score": c.rerank_score,
-             "llm_corrected_section": c.llm_corrected_section, "file_link": c.file_link}
-            for c in chunks
-        ], "context": ""}
+        return {"empty": True, "source_groups": [], "chunks": [_chunk_to_dict(c) for c in chunks], "context": ""}
 
     print("  [3/4] Skipping live enrichment — use ingestion/enrich_file.py", flush=True)
 
-    _t3 = _t.monotonic()
+    _t3 = time.monotonic()
     print("  [4/4] Building context...")
     groups = group_chunks(chunks, table)
     context, source_groups = format_context(groups)
-    print(f"  [time] context build: {_t.monotonic()-_t3:.2f}s", flush=True)
-    print(f"  [time] TOTAL pre-LLM: {_t.monotonic()-_t0:.2f}s", flush=True)
+    print(f"  [time] context build: {time.monotonic()-_t3:.2f}s", flush=True)
+    print(f"  [time] TOTAL pre-LLM: {time.monotonic()-_t0:.2f}s", flush=True)
 
     return {
         "context":       context,
         "source_groups": source_groups,
-        "chunks": [
-            {
-                "source_file":           c.source_file,
-                "agency":                c.agency,
-                "jurisdiction":          c.jurisdiction,
-                "state":                 c.state,
-                "locality":              c.locality,
-                "section":               c.section,
-                "doc_page":              c.doc_page,
-                "page":                  c.page,
-                "chunk_index":           c.chunk_index,
-                "distance":              c.distance,
-                "rerank_score":          c.rerank_score,
-                "llm_corrected_section": c.llm_corrected_section,
-                "file_link":             c.file_link,
-            }
-            for c in chunks
-        ],
+        "chunks":        [_chunk_to_dict(c) for c in chunks],
     }
 
 
 def generate_response_stream(user_query: str, context: str):
     """Generator: streams LLM response, yields source_block events + final done event.
     Detects [[SRC_N]] flags and yields a source_block when each one completes."""
-    import json as _json
-    import re as _re
-
-    payload = {
-        "model": LLM_MODEL,
-        "messages": [
+    payload = _make_ollama_payload(
+        messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": f"Query: {user_query}\n\nRetrieved sections:\n\n{context}"},
         ],
-        "stream":     True,
-        "think":      False,
-        "keep_alive": OLLAMA_KEEP_ALIVE,
-        "options": {
-            "temperature":    0.1,
-            "num_ctx":        8192,
-            "num_predict":    1500,
-            "repeat_penalty": 1.3,
-            "top_k":          20,
-            "num_gpu":        999,
-        },
-    }
+        stream=True,
+        options=_LLM_OPTIONS_FULL,
+    )
 
-    flag_re       = _re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
     buffer        = ""
     full_text     = ""
     has_src_block = False
     GUARD         = 12   # len("[[SRC_99]]") == 11
 
-    import time as _t
-    _llm_start = _t.monotonic()
+    _llm_start = time.monotonic()
     _first_token_logged = False
     with _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload, stream=True) as resp:
         resp.raise_for_status()
         for line in resp.iter_lines():
             if not line:
                 continue
-            data  = _json.loads(line)
+            data  = json.loads(line)
             token = data.get("message", {}).get("content", "")
             if token and not _first_token_logged:
-                print(f"  [time] LLM first token: {_t.monotonic()-_llm_start:.2f}s", flush=True)
+                print(f"  [time] LLM first token: {time.monotonic()-_llm_start:.2f}s", flush=True)
                 _first_token_logged = True
             buffer    += token
             full_text += token
 
-            m = flag_re.search(buffer)
+            m = _FLAG_RE.search(buffer)
             if m:
                 text_before = strip_thinking(buffer[:m.start()])
                 buffer = buffer[m.end():]

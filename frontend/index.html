@@ -118,19 +118,18 @@
 
     <div id="query-panel">
       <div id="query-row">
+        <div id="filter-row">
+          <select class="filter" id="filter-scope">
+            <option value="">all codes</option>
+          </select>
+          <select class="filter" id="filter-agency">
+            <option value="">all agencies</option>
+          </select>
+        </div>
         <textarea id="query-input" rows="1"
           placeholder="Ask a question..."></textarea>
-        <button id="submit-btn">QUERY</button>
       </div>
-      <div id="filter-row">
-        <span class="filter-label">Filter:</span>
-        <select class="filter" id="filter-scope">
-          <option value="">all codes</option>
-        </select>
-        <select class="filter" id="filter-agency">
-          <option value="">all agencies</option>
-        </select>
-      </div>
+      <button id="submit-btn">QUERY</button>
     </div>
 
     <!-- ══ LLM CHAT WINDOW ══ -->
@@ -141,8 +140,7 @@
     </div>
     <!-- ══ /LLM CHAT WINDOW ══ -->
 
-    <div id="disclaimer">This tool retrieves relevant code sections to assist with research. Always verify requirements against official current publications. Not a substitute for professional judgment. <br> 
-      No cookies, no tracking, no personal data collected. Usage statistics are recorded anonymously for performance monitoring.</div>
+    <div id="disclaimer">This tool retrieves relevant code sections to assist with research. Always verify requirements against official current publications. Not a substitute for professional judgment. <span class="privacy-tip" data-tooltip="No cookies, no tracking, no personal data collected. Usage statistics are recorded anonymously for performance monitoring.">ⓘ privacy</span></div>
 
   </div><!-- /main -->
 
@@ -183,6 +181,7 @@
 
 <!-- ══ TOOLTIP ══ -->
 <div id="tooltip"></div>
+<div id="sidebar-backdrop"></div>
 
 <script>
 'use strict';
@@ -194,6 +193,15 @@
 ══════════════════════════════════════════════════════════════ */
 (function() {
   const tip = document.getElementById('tooltip');
+  function positionTip(x, y) {
+    const pad = 14;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let lx = x + pad, ty = y - th - pad;
+    if (lx + tw > window.innerWidth  - pad) lx = x - tw - pad;
+    if (ty < pad)                           ty = y + pad;
+    tip.style.left = lx + 'px';
+    tip.style.top  = ty + 'px';
+  }
   document.addEventListener('mouseover', e => {
     const t = e.target.closest('[data-tooltip]');
     if (!t) return;
@@ -202,17 +210,26 @@
   });
   document.addEventListener('mousemove', e => {
     if (tip.style.display !== 'block') return;
-    const pad = 14;
-    const tw = tip.offsetWidth, th = tip.offsetHeight;
-    let lx = e.clientX + pad, ty = e.clientY - th - pad;
-    if (lx + tw > window.innerWidth  - pad) lx = e.clientX - tw - pad;
-    if (ty < pad)                           ty = e.clientY + pad;
-    tip.style.left = lx + 'px';
-    tip.style.top  = ty + 'px';
+    positionTip(e.clientX, e.clientY);
   });
   document.addEventListener('mouseout', e => {
     if (e.target.closest('[data-tooltip]')) tip.style.display = 'none';
   });
+  let _tipTarget = null;
+  document.addEventListener('touchend', e => {
+    const t = e.target.closest('[data-tooltip]');
+    if (t && t !== _tipTarget) {
+      const r = t.getBoundingClientRect();
+      tip.textContent = t.dataset.tooltip;
+      tip.style.display = 'block';
+      positionTip(r.left + r.width / 2, r.top);
+      _tipTarget = t;
+      e.preventDefault();
+    } else {
+      tip.style.display = 'none';
+      _tipTarget = null;
+    }
+  }, { passive: false });
 })();
 
 /* ══════════════════════════════════════════════════════════════
@@ -261,6 +278,7 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
 /* ══════════════════════════════════════════════════════════════
    ROTATING PLACEHOLDER — typewriter effect, 10s interval
 ══════════════════════════════════════════════════════════════ */
+let apiOffline = false;
 (function() {
   const examples = [
     "What is the minimum lane width for a rural arterial road?",
@@ -269,6 +287,11 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
     "What compressive strength is required for bridge deck concrete?",
     "How far from a stream must a retaining wall be set back?",
     "How far must a street tree be planted from a fire hydrant in Seattle?",
+    "What is the minimum clear width for a sidewalk per PROWAG?",
+    "What stopping sight distance is required at 30 mph design speed?",
+    "What slope is required for an accessible parking space?",
+    "What does MUTCD require for edge line markings on rural two-lane roads?",
+    "What is the maximum grade allowed for a shared use path?",
   ];
   const PREFIX = `Ask a question like \u201c`;
   const input = document.getElementById('query-input');
@@ -276,6 +299,7 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
   let charTimer = null;
 
   function typePhrase() {
+    if (apiOffline) return;
     const phrase = examples[phraseIdx];
     phraseIdx = (phraseIdx + 1) % examples.length;
     const full = `${PREFIX}${phrase}\u201d`;
@@ -283,6 +307,7 @@ document.getElementById('adv-toggle').addEventListener('click', () => {
     input.placeholder = full.slice(0, i);
     if (charTimer) clearInterval(charTimer);
     charTimer = setInterval(() => {
+      if (apiOffline) { clearInterval(charTimer); charTimer = null; return; }
       i++;
       input.placeholder = full.slice(0, i);
       if (i >= full.length) { clearInterval(charTimer); charTimer = null; }
@@ -420,12 +445,14 @@ async function checkApi() {
   try {
     const r = await fetch(API + '/filters');
     if (!r.ok) throw new Error(r.status);
+    apiOffline = false;
     apiStatus.className = 'ok';
     apiStatus.textContent = 'online';
     queryInput.disabled = false;
     submitBtn.disabled = false;
     populateFilters(await r.json());
   } catch {
+    apiOffline = true;
     apiStatus.className = 'err';
     apiStatus.textContent = 'offline';
     queryInput.disabled = true;
@@ -526,20 +553,17 @@ async function runQuery() {
   setLoading(true);
   clearChatWindow();
 
-  // Create the result card immediately; content streams into respBox as it arrives
   const card = document.createElement('div');
   card.className = 'result-card';
   const respLabel = document.createElement('div');
   respLabel.className = 'section-label';
   respLabel.textContent = 'Response';
   card.appendChild(respLabel);
-  const respBox = document.createElement('div');
-  respBox.className = 'response-text';
-  card.appendChild(respBox);
   chatWindow.appendChild(card);
 
   let sourceGroups = [];
   let tailBlock = null;
+  let tailSpan   = null;
 
   try {
     const scopeOpt = filterScope.selectedIndex > 0
@@ -583,37 +607,24 @@ async function runQuery() {
           }
 
         } else if (ev.type === 'source_block') {
-          tailBlock = null;
-          const block = document.createElement('div');
-          block.className = 'response-block';
-          if (ev.text) {
-            const sp = document.createElement('span');
-            sp.className = 'block-text';
-            sp.textContent = ev.text;
-            block.appendChild(sp);
+          if (!tailBlock) {
+            [tailBlock, tailSpan] = makeResponseBox(card);
           }
           const src = (ev.n != null && ev.n > 0 && ev.n <= sourceGroups.length) ? sourceGroups[ev.n - 1] : null;
-          if (src) block.appendChild(buildCitationLine(src));
-          respBox.appendChild(block);
+          if (src) {
+            tailBlock.appendChild(buildCitationLine(src));
+            tailBlock.parentElement.style.borderLeftColor = getSourceColor(src.source_file);
+          }
+          tailBlock = null; tailSpan = null;
 
         } else if (ev.type === 'text') {
           if (ev.text) {
-            if (!tailBlock) {
-              tailBlock = document.createElement('div');
-              tailBlock.className = 'response-block';
-              const sp = document.createElement('span');
-              sp.className = 'block-text';
-              tailBlock.appendChild(sp);
-              respBox.appendChild(tailBlock);
-            }
-            tailBlock.querySelector('.block-text').appendChild(document.createTextNode(ev.text));
+            if (!tailBlock) [tailBlock, tailSpan] = makeResponseBox(card);
+            tailSpan.appendChild(document.createTextNode(ev.text));
           }
 
         } else if (ev.type === 'fail') {
-          const el = document.createElement('p');
-          el.className = 'fail-msg';
-          if (ev.text) el.textContent = ev.text;
-          respBox.appendChild(el);
+          makeFailBox(card, ev.text);
           logAnalyticsEvent('fail_response');
 
         } else if (ev.type === 'done') {
@@ -651,6 +662,26 @@ function showError(msg) {
    Edit this section to change output display independently.
 ══════════════════════════════════════════════════════════════ */
 
+/** Creates a response-text box + response-block + block-text span, appends to card.
+ *  Returns [block, span] so callers can append content and cache the span. */
+function makeResponseBox(card) {
+  const box   = document.createElement('div');  box.className   = 'response-text';
+  const block = document.createElement('div');  block.className = 'response-block';
+  const sp    = document.createElement('span'); sp.className    = 'block-text';
+  block.appendChild(sp);
+  box.appendChild(block);
+  card.appendChild(box);
+  return [block, sp];
+}
+
+function makeFailBox(card, text) {
+  const box = document.createElement('div'); box.className = 'response-text';
+  const el  = document.createElement('p');   el.className  = 'fail-msg';
+  if (text) el.textContent = text;
+  box.appendChild(el);
+  card.appendChild(box);
+}
+
 function clearChatWindow() {
   errorEl.style.display = 'none';
   chatWindow.querySelectorAll('.result-card').forEach(el => el.remove());
@@ -669,11 +700,7 @@ function renderResult(data) {
   respLabel.textContent = 'Response';
   card.appendChild(respLabel);
 
-  const respBox = document.createElement('div');
-  respBox.className = 'response-text';
-  parseResponse(respBox, data.response || '', sourceGroups);
-  card.appendChild(respBox);
-
+  parseResponse(card, data.response || '', sourceGroups);
   chatWindow.appendChild(card);
 }
 
@@ -691,43 +718,29 @@ function renderTextWithBold(parent, text) {
 }
 
 /**
- * parseResponse — renders stored raw text into container,
- * converting [[SRC_N]] flags into inline citation rows.
+ * parseResponse — renders stored raw text into card as separate response-text boxes,
+ * one per [[SRC_N]] citation block.
  */
-function parseResponse(container, text, sourceGroups) {
+function parseResponse(card, text, sourceGroups) {
   const re = /\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]/g;
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
     if (m[1] != null) {
-      // [[SRC_N]] — wrap text + citation in a response-block
-      const block = document.createElement('div');
-      block.className = 'response-block';
-      if (m.index > last) {
-        const sp = document.createElement('span');
-        sp.className = 'block-text';
-        renderTextWithBold(sp, text.slice(last, m.index));
-        block.appendChild(sp);
-      }
+      const [block, sp] = makeResponseBox(card);
+      if (m.index > last) renderTextWithBold(sp, text.slice(last, m.index));
       const src = sourceGroups && sourceGroups[parseInt(m[1], 10) - 1];
-      if (src) block.appendChild(buildCitationLine(src));
-      container.appendChild(block);
+      if (src) {
+        block.appendChild(buildCitationLine(src));
+        block.parentElement.style.borderLeftColor = getSourceColor(src.source_file);
+      }
     } else {
-      // [[FAIL]] — wrap preceding text in fail-msg, skip flag itself
-      const el = document.createElement('p');
-      el.className = 'fail-msg';
-      if (m.index > last) el.textContent = text.slice(last, m.index);
-      container.appendChild(el);
+      makeFailBox(card, m.index > last ? text.slice(last, m.index) : '');
     }
     last = re.lastIndex;
   }
   if (last < text.length) {
-    const block = document.createElement('div');
-    block.className = 'response-block';
-    const sp = document.createElement('span');
-    sp.className = 'block-text';
+    const [, sp] = makeResponseBox(card);
     renderTextWithBold(sp, text.slice(last));
-    block.appendChild(sp);
-    container.appendChild(block);
   }
 }
 
@@ -753,12 +766,15 @@ function buildCitationLine(chunk) {
   row.className = 'citation-line ' + distClass;
   row.style.borderLeftColor = getSourceColor(chunk.source_file);
 
+  const pdfPage   = Math.max(1, parseInt(chunk.page, 10) || 1);
+  const pageSuffix = pdfPage > 1 ? ' · PDF page ' + pdfPage : '';
+
   const file = document.createElement('span');
   file.className = 'cit-file';
   if (chunk.file_link) {
     const a = document.createElement('a');
     const isPdf = chunk.file_link.toLowerCase().endsWith('.pdf');
-    a.href = isPdf ? chunk.file_link + '#page=' + Math.max(1, parseInt(chunk.page, 10) || 1) : chunk.file_link;
+    a.href = isPdf ? chunk.file_link + '#page=' + pdfPage : chunk.file_link;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.textContent = chunk.source_file + ' (SEE FILE)';
@@ -766,8 +782,7 @@ function buildCitationLine(chunk) {
   } else {
     file.textContent = chunk.source_file;
   }
-  const rawText = chunk.text || '';
-  file.dataset.tooltip = chunk.file_link ? 'Click to go to source' : 'Link not found';
+  file.dataset.tooltip = (chunk.file_link ? 'Click to go to source' : 'Link not found') + pageSuffix;
   row.appendChild(file);
 
   row.appendChild(makeSep());
@@ -1005,6 +1020,5 @@ document.getElementById('sidebar-request-btn').addEventListener('click', () => {
 });
 </script>
 
-<div id="sidebar-backdrop"></div>
 </body>
 </html>

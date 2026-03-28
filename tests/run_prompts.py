@@ -143,6 +143,11 @@ PROMPTS = {
     98: "What does ASCE 7 specify for wind pressure design on highway sign structures?",
     99: "What are the International Residential Code requirements for residential foundation frost depth?",
     100: "What does the ASTM standard specify for the tensile strength testing of structural bolts?",
+    101: "What is the minimum clear width for a sidewalk per PROWAG?",
+    102: "What stopping sight distance is required at 30 mph design speed?",
+    103: "What slope is required for an accessible parking space?",
+    104: "What does MUTCD require for edge line markings on rural two-lane roads?",
+    105: "What is the maximum grade allowed for a shared use path?",
 }
 
 # ── Expected outcomes ─────────────────────────────────────────────────────────
@@ -250,6 +255,11 @@ EXPECTED = {
     98: {"status": "OK",   "agencies": ["USACE", "WSDOT"]},
     99: {"status": "FAIL", "agencies": []},
     100:{"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    101:{"status": "OK",   "agencies": ["ADA"]},
+    102:{"status": "OK",   "agencies": ["WSDOT", "FHWA"]},
+    103:{"status": "OK",   "agencies": ["ADA"]},
+    104:{"status": "OK",   "agencies": ["FHWA"]},
+    105:{"status": "OK",   "agencies": ["ADA"]},
 }
 
 _SRC_RE = re.compile(r'\[\[SRC_\d+\]\]')
