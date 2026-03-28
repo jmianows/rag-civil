@@ -129,7 +129,7 @@ def _next_ollama_host() -> str:
     """Return the next Ollama host in round-robin order. Thread-safe."""
     with _host_lock:
         return next(_host_cycle)
-RERANK_POOL   = 20   # candidate pool fetched before cross-encoder re-ranking
+RERANK_POOL   = 15   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 3
 MAX_CHUNK_CHARS = 1000 
@@ -232,8 +232,11 @@ def retrieve_chunks(
     filter_state: str = None,
     filter_locality: str = None,
 ) -> list[RetrievedChunk]:
-
+    import time as _t
+    _tr0 = _t.monotonic()
     embedding = embed_query(query)
+    print(f"  [time]   embed_query: {_t.monotonic()-_tr0:.2f}s", flush=True)
+
     has_section, auto_agency = _detect_intent(query)
 
     # User-explicit filters always win; auto-detection only fires when no UI filter is set
@@ -255,6 +258,7 @@ def retrieve_chunks(
     # Fetch larger pools from each search before merging
     pool_size = n_results * 3
 
+    _tr1 = _t.monotonic()
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_vector  = ex.submit(_vector_search, table, embedding, pool_size, user_where)
         f_fts     = ex.submit(_fts_search,    table, query,     pool_size) if has_section    else None
@@ -263,6 +267,8 @@ def retrieve_chunks(
         vector_rows  = f_vector.result()
         fts_rows     = f_fts.result()     if f_fts     else []
         boosted_rows = f_boosted.result() if f_boosted else []
+
+    print(f"  [time]   vector+fts search: {_t.monotonic()-_tr1:.2f}s", flush=True)
 
     # Chunks appearing in multiple lists earn cumulative RRF score and rise to the top
     lists_to_merge = [l for l in [vector_rows, fts_rows, boosted_rows] if l]
@@ -374,18 +380,72 @@ def remove_overlap(text_a: str, text_b: str, min_overlap: int = 20) -> str:
 
     return text_a + " " + text_b
 
+
+def _expand_from_cache(chunk: RetrievedChunk, id_map: dict[str, str]) -> str:
+    """Build expanded context for a chunk using a pre-fetched id→text map."""
+    sf = _sf(chunk.source_file)
+    page = chunk.page
+    ci = chunk.chunk_index
+
+    neighbors = []
+    for offset in range(-1, 0):
+        nid = f"{sf}__p{page}__c{ci + offset}"
+        if nid in id_map:
+            neighbors.append((ci + offset, id_map[nid]))
+
+    neighbors.append((ci, chunk.text))
+
+    for offset in range(1, 3):
+        nid = f"{sf}__p{page}__c{ci + offset}"
+        if nid in id_map:
+            neighbors.append((ci + offset, id_map[nid]))
+            continue
+        if offset == 1:
+            next_id = f"{sf}__p{page + 1}__c0"
+            if next_id in id_map:
+                neighbors.append((ci + 1, id_map[next_id]))
+
+    neighbors.sort(key=lambda x: x[0])
+    texts = [t for _, t in neighbors]
+
+    if len(texts) == 1:
+        return texts[0]
+
+    combined = texts[0]
+    for i in range(1, len(texts)):
+        combined = remove_overlap(combined, texts[i])
+    return combined
+
+
 def group_chunks(
     chunks: list[RetrievedChunk],
     table: lancedb.table.LanceTable,
 ) -> list[dict]:
-    # expand each chunk with neighboring context
-    expanded = []
+    # Build all neighbor IDs upfront and fetch in ONE batch query instead of
+    # N*4 sequential full-table scans (each .where() on id scans all 44k rows).
+    needed: set[str] = set()
     for chunk in chunks:
-        text = expand_context(chunk, table)
-        expanded.append({
-            "chunk":    chunk,
-            "text":     text,
-        })
+        sf = _sf(chunk.source_file)
+        page = chunk.page
+        ci = chunk.chunk_index
+        for offset in range(-1, 3):  # window_before=1, window_after=2
+            needed.add(f"{sf}__p{page}__c{ci + offset}")
+        needed.add(f"{sf}__p{page + 1}__c0")  # cross-page fallback
+
+    id_list = "', '".join(needed)
+    try:
+        rows = (
+            table.search()
+            .where(f"id IN ('{id_list}')")
+            .limit(len(needed))
+            .to_list()
+        )
+    except Exception:
+        rows = []
+    id_map: dict[str, str] = {r["id"]: r["text"] for r in rows}
+
+    texts = [_expand_from_cache(chunk, id_map) for chunk in chunks]
+    expanded = [{"chunk": chunk, "text": text} for chunk, text in zip(chunks, texts)]
 
     # group chunks that are from the same source file and close in section
     groups = []
@@ -431,7 +491,7 @@ Your job is to read the retrieved sections and present their contents accurately
 
 Content rules:
 - Present ONLY information that appears in the retrieved sections. Never add outside knowledge.
-- Copy language verbatim. Do not paraphrase or reword. Truncate long passages with "..." only at natural sentence breaks.
+- Copy language verbatim. Do not paraphrase, reword, or truncate.
 - Preserve exact wording of shall, should, and may — these carry distinct legal meaning.
 - Present all relevant language: shall statements, should guidance, may provisions, and numeric values. Do not skip a source because it only contains guidance rather than hard requirements.
 - If the query names a specific regulation or section number (e.g., "OSHA 1926.502"), prioritize retrieved sections from that regulation over summaries of it in other documents.
@@ -554,8 +614,8 @@ def generate_response(query: str, context: str) -> str:
         "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {
             "temperature":    0.1,
-            "num_ctx":        4096,
-            "num_predict":    600,
+            "num_ctx":        8192,
+            "num_predict":    1500,
             "repeat_penalty": 1.3,
             "top_k":          20,
             "num_gpu":        999,
@@ -678,9 +738,14 @@ def query_prepare(
 ) -> dict:
     """Run retrieval + formatting pipeline without calling the LLM.
     Returns {context, source_groups, chunks} or {empty: True, ...} if no results."""
+    import time as _t
+    _t0 = _t.monotonic()
+
     print("  [1/4] Connecting to database...")
     table = get_db_table()
+    print(f"  [time] db connect: {_t.monotonic()-_t0:.2f}s", flush=True)
 
+    _t1 = _t.monotonic()
     print("  [2/4] Embedding query and retrieving chunks...")
     chunks = retrieve_chunks(
         query=user_query,
@@ -691,7 +756,11 @@ def query_prepare(
         filter_state=filter_state,
         filter_locality=filter_locality,
     )
+    print(f"  [time] embed+search: {_t.monotonic()-_t1:.2f}s", flush=True)
+
+    _t2 = _t.monotonic()
     chunks = rerank_chunks(user_query, chunks, top_k=N_RESULTS)
+    print(f"  [time] rerank: {_t.monotonic()-_t2:.2f}s", flush=True)
     print(f"  Retrieved {len(chunks)} chunks (re-ranked from {RERANK_POOL})")
 
     RERANK_FLOOR = 2.3
@@ -709,9 +778,12 @@ def query_prepare(
 
     print("  [3/4] Skipping live enrichment — use ingestion/enrich_file.py", flush=True)
 
+    _t3 = _t.monotonic()
     print("  [4/4] Building context...")
     groups = group_chunks(chunks, table)
     context, source_groups = format_context(groups)
+    print(f"  [time] context build: {_t.monotonic()-_t3:.2f}s", flush=True)
+    print(f"  [time] TOTAL pre-LLM: {_t.monotonic()-_t0:.2f}s", flush=True)
 
     return {
         "context":       context,
@@ -754,8 +826,8 @@ def generate_response_stream(user_query: str, context: str):
         "keep_alive": OLLAMA_KEEP_ALIVE,
         "options": {
             "temperature":    0.1,
-            "num_ctx":        4096,
-            "num_predict":    600,
+            "num_ctx":        8192,
+            "num_predict":    1500,
             "repeat_penalty": 1.3,
             "top_k":          20,
             "num_gpu":        999,
@@ -768,6 +840,9 @@ def generate_response_stream(user_query: str, context: str):
     has_src_block = False
     GUARD         = 12   # len("[[SRC_99]]") == 11
 
+    import time as _t
+    _llm_start = _t.monotonic()
+    _first_token_logged = False
     with _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload, stream=True) as resp:
         resp.raise_for_status()
         for line in resp.iter_lines():
@@ -775,6 +850,9 @@ def generate_response_stream(user_query: str, context: str):
                 continue
             data  = _json.loads(line)
             token = data.get("message", {}).get("content", "")
+            if token and not _first_token_logged:
+                print(f"  [time] LLM first token: {_t.monotonic()-_llm_start:.2f}s", flush=True)
+                _first_token_logged = True
             buffer    += token
             full_text += token
 
@@ -793,18 +871,25 @@ def generate_response_stream(user_query: str, context: str):
                     if not has_src_block:
                         yield {"type": "fail", "text": "My current knowledge base can't find this. Think I should? Request manuals to add using the button at top right!"}
             else:
-                # Flush only complete newline-terminated lines from the safe zone.
-                # GUARD chars are kept buffered to avoid splitting a [[SRC_N]] marker.
+                # Flush safe zone (everything except last GUARD chars) to avoid splitting [[SRC_N]].
+                # Prefer flushing at newlines; fall back to flushing in chunks for responsiveness.
                 safe_end = max(0, len(buffer) - GUARD)
                 while True:
                     nl = buffer.find('\n', 0, safe_end)
-                    if nl == -1:
+                    if nl != -1:
+                        line = strip_thinking(buffer[:nl+1])
+                        buffer = buffer[nl+1:]
+                        safe_end = max(0, len(buffer) - GUARD)
+                        if line.strip():
+                            yield {"type": "text", "text": line + '\n'}
+                    elif safe_end > 80:
+                        chunk = strip_thinking(buffer[:safe_end])
+                        buffer = buffer[safe_end:]
+                        if chunk.strip():
+                            yield {"type": "text", "text": chunk}
                         break
-                    line = strip_thinking(buffer[:nl+1])
-                    buffer = buffer[nl+1:]
-                    safe_end = max(0, len(buffer) - GUARD)
-                    if line.strip():
-                        yield {"type": "text", "text": line + '\n'}
+                    else:
+                        break
 
             if data.get("done"):
                 break
