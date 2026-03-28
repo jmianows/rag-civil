@@ -11,7 +11,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
-from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL, VECTORDB_DIR
+from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL, VECTORDB_DIR, RERANK_FLOOR
 
 _ollama_session = requests.Session()
 _ollama_session.headers.update({"Connection": "keep-alive"})
@@ -380,7 +380,8 @@ def group_chunks(
             .limit(len(needed))
             .to_list()
         )
-    except Exception:
+    except Exception as e:
+        print(f"  [warn] group_chunks: neighbor fetch failed: {e}", flush=True)
         rows = []
     id_map: dict[str, str] = {r["id"]: r["text"] for r in rows}
 
@@ -589,6 +590,10 @@ def correct_section(
     chunk_index: int,
     new_section: str,
 ) -> bool:
+    new_section = new_section.strip()
+    if not new_section or len(new_section) > 60 or not _SECTION_VAL_RE.match(new_section):
+        print(f"  [correct] rejected invalid section: {new_section!r}", flush=True)
+        return False
     from ingestion.retag import log_correction
     table = get_db_table()
     chunk_id = f"{_sf(source_file)}__p{page}__c{chunk_index}"
@@ -705,7 +710,6 @@ def query_prepare(
     print(f"  [time] rerank: {time.monotonic()-_t2:.2f}s", flush=True)
     print(f"  Retrieved {len(chunks)} chunks (re-ranked from {RERANK_POOL})")
 
-    RERANK_FLOOR = 2.3
     if not chunks or chunks[0].rerank_score < RERANK_FLOOR:
         top = round(chunks[0].rerank_score, 2) if chunks else None
         print(f"  [threshold] Top rerank score {top} below floor {RERANK_FLOOR} — declining")
@@ -748,10 +752,15 @@ def generate_response_stream(user_query: str, context: str):
     _first_token_logged = False
     with _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload, stream=True) as resp:
         resp.raise_for_status()
-        for line in resp.iter_lines():
+        try:
+          for line in resp.iter_lines():
             if not line:
                 continue
-            data  = json.loads(line)
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError as e:
+                print(f"  [warn] invalid JSON from Ollama mid-stream: {e}", flush=True)
+                continue
             token = data.get("message", {}).get("content", "")
             if token and not _first_token_logged:
                 print(f"  [time] LLM first token: {time.monotonic()-_llm_start:.2f}s", flush=True)
@@ -796,6 +805,10 @@ def generate_response_stream(user_query: str, context: str):
 
             if data.get("done"):
                 break
+        except Exception as e:
+            print(f"  [error] stream interrupted: {e}", flush=True)
+            yield {"type": "error", "message": "Stream interrupted. Please retry."}
+            return
 
     # Flush remaining buffer
     remainder = strip_thinking(buffer)

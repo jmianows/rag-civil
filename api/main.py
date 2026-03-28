@@ -52,8 +52,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_analytics_lock = threading.Lock()
-_rate_lock      = threading.Lock()
+_analytics_lock  = threading.Lock()
+_rate_lock       = threading.Lock()
+_filters_lock    = threading.Lock()
+_standards_lock  = threading.Lock()
 _daily_counts: dict[str, tuple[int, str]] = {}  # ip -> (count, date_str)
 
 import time as _time
@@ -253,64 +255,65 @@ def run_correct(req: CorrectRequest):
 @app.get("/filters")
 def get_filters():
     global _filters_cache, _filters_cache_ts
-    if _filters_cache and (_time.time() - _filters_cache_ts) < _FILTERS_TTL:
-        return _filters_cache
-    try:
-        db = lancedb.connect(str(VECTORDB_DIR))
-        table = db.open_table("civil_engineering_codes")
-        rows = table.search().limit(999999).to_list()
+    with _filters_lock:
+        if _filters_cache and (_time.time() - _filters_cache_ts) < _FILTERS_TTL:
+            return _filters_cache
+        try:
+            db = lancedb.connect(str(VECTORDB_DIR))
+            table = db.open_table("civil_engineering_codes")
+            rows = table.search().limit(999999).to_list()
 
-        # Agencies — include locality so frontend cascade can match LOCAL agencies
-        seen_agencies: dict[str, dict] = {}
-        for r in rows:
-            ag = r.get("agency", "")
-            if ag and ag not in seen_agencies:
-                seen_agencies[ag] = {
-                    "name":         ag,
-                    "jurisdiction": r.get("jurisdiction", ""),
-                    "state":        r.get("state", ""),
-                    "locality":     r.get("locality", ""),
-                }
-        agencies = sorted(seen_agencies.values(), key=lambda x: (x["jurisdiction"], x["name"]))
-
-        # Unique state codes (kept for backward compat)
-        states = sorted({r["state"] for r in rows if r.get("state")})
-
-        # Localities (kept for backward compat)
-        seen_local: dict[tuple, dict] = {}
-        for r in rows:
-            loc = r.get("locality", "")
-            st  = r.get("state", "")
-            if loc and st:
-                key = (st, loc)
-                if key not in seen_local:
-                    seen_local[key] = {
-                        "state":   st,
-                        "code":    loc,
-                        "display": r.get("agency", loc),
+            # Agencies — include locality so frontend cascade can match LOCAL agencies
+            seen_agencies: dict[str, dict] = {}
+            for r in rows:
+                ag = r.get("agency", "")
+                if ag and ag not in seen_agencies:
+                    seen_agencies[ag] = {
+                        "name":         ag,
+                        "jurisdiction": r.get("jurisdiction", ""),
+                        "state":        r.get("state", ""),
+                        "locality":     r.get("locality", ""),
                     }
-        localities = sorted(seen_local.values(), key=lambda x: (x["state"], x["display"]))
+            agencies = sorted(seen_agencies.values(), key=lambda x: (x["jurisdiction"], x["name"]))
 
-        # Scopes — unique (jurisdiction, state, locality) combos for the scope dropdown
-        seen_scopes: dict[tuple, dict] = {}
-        for r in rows:
-            key = (r.get("jurisdiction", ""), r.get("state", ""), r.get("locality", ""))
-            if key[0] and key not in seen_scopes:
-                seen_scopes[key] = {
-                    "jurisdiction": key[0],
-                    "state":        key[1],
-                    "locality":     key[2],
-                }
-        scopes = sorted(seen_scopes.values(),
-                        key=lambda x: (x["jurisdiction"], x["state"], x["locality"]))
+            # Unique state codes (kept for backward compat)
+            states = sorted({r["state"] for r in rows if r.get("state")})
 
-        result = {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
-        _filters_cache = result
-        _filters_cache_ts = _time.time()
-        return result
-    except Exception as e:
-        print(f"[error] /filters failed: {e}", flush=True)
-        raise HTTPException(status_code=500, detail="Failed to load filters.")
+            # Localities (kept for backward compat)
+            seen_local: dict[tuple, dict] = {}
+            for r in rows:
+                loc = r.get("locality", "")
+                st  = r.get("state", "")
+                if loc and st:
+                    key = (st, loc)
+                    if key not in seen_local:
+                        seen_local[key] = {
+                            "state":   st,
+                            "code":    loc,
+                            "display": r.get("agency", loc),
+                        }
+            localities = sorted(seen_local.values(), key=lambda x: (x["state"], x["display"]))
+
+            # Scopes — unique (jurisdiction, state, locality) combos for the scope dropdown
+            seen_scopes: dict[tuple, dict] = {}
+            for r in rows:
+                key = (r.get("jurisdiction", ""), r.get("state", ""), r.get("locality", ""))
+                if key[0] and key not in seen_scopes:
+                    seen_scopes[key] = {
+                        "jurisdiction": key[0],
+                        "state":        key[1],
+                        "locality":     key[2],
+                    }
+            scopes = sorted(seen_scopes.values(),
+                            key=lambda x: (x["jurisdiction"], x["state"], x["locality"]))
+
+            result = {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
+            _filters_cache = result
+            _filters_cache_ts = _time.time()
+            return result
+        except Exception as e:
+            print(f"[error] /filters failed: {e}", flush=True)
+            raise HTTPException(status_code=500, detail="Failed to load filters.")
 
 
 @app.post("/request")
@@ -343,32 +346,33 @@ def standards_page():
 def get_standards_list():
     """Return one entry per unique source file with agency/jurisdiction metadata."""
     global _standards_cache, _standards_cache_ts
-    if _standards_cache and (_time.time() - _standards_cache_ts) < _FILTERS_TTL:
-        return _standards_cache
-    try:
-        db = lancedb.connect(str(VECTORDB_DIR))
-        table = db.open_table("civil_engineering_codes")
-        cols = ['source_file', 'agency', 'jurisdiction', 'state', 'locality', 'file_link']
-        rows = table.search().select(cols).limit(999999).to_list()
-        seen = {}
-        for r in rows:
-            sf = r.get("source_file", "")
-            if sf and sf not in seen:
-                seen[sf] = {
-                    "source_file":  sf,
-                    "agency":       r.get("agency", ""),
-                    "jurisdiction": r.get("jurisdiction", ""),
-                    "state":        r.get("state", ""),
-                    "locality":     r.get("locality", ""),
-                    "file_link":    r.get("file_link", ""),
-                }
-        result = sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
-        _standards_cache = result
-        _standards_cache_ts = _time.time()
-        return result
-    except Exception as e:
-        print(f"[error] /standards/list failed: {e}", flush=True)
-        raise HTTPException(status_code=500, detail="Failed to load standards list.")
+    with _standards_lock:
+        if _standards_cache and (_time.time() - _standards_cache_ts) < _FILTERS_TTL:
+            return _standards_cache
+        try:
+            db = lancedb.connect(str(VECTORDB_DIR))
+            table = db.open_table("civil_engineering_codes")
+            cols = ['source_file', 'agency', 'jurisdiction', 'state', 'locality', 'file_link']
+            rows = table.search().select(cols).limit(999999).to_list()
+            seen = {}
+            for r in rows:
+                sf = r.get("source_file", "")
+                if sf and sf not in seen:
+                    seen[sf] = {
+                        "source_file":  sf,
+                        "agency":       r.get("agency", ""),
+                        "jurisdiction": r.get("jurisdiction", ""),
+                        "state":        r.get("state", ""),
+                        "locality":     r.get("locality", ""),
+                        "file_link":    r.get("file_link", ""),
+                    }
+            result = sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
+            _standards_cache = result
+            _standards_cache_ts = _time.time()
+            return result
+        except Exception as e:
+            print(f"[error] /standards/list failed: {e}", flush=True)
+            raise HTTPException(status_code=500, detail="Failed to load standards list.")
 
 
 @app.post("/analytics/event")
