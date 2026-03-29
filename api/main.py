@@ -31,12 +31,13 @@ FRONTEND_DIR   = _PROJECT_ROOT / "frontend"
 REQUEST_LOG    = _PROJECT_ROOT / "code_requests.log"
 ANALYTICS_FILE = _PROJECT_ROOT / "analytics.json"
 RATE_LIMIT_LOG = _PROJECT_ROOT / "rate_limit.log"
-DAILY_QUERY_LIMIT = 20
+import os as _os
+DAILY_QUERY_LIMIT  = int(_os.environ.get("CIVIL_DAILY_LIMIT", "20"))
 
 # Public API URL — set CIVIL_API_URL to override (e.g. the RunPod proxy URL).
 # If unset, the frontend falls back to same-origin requests (local/dev mode).
-import os as _os
-_PUBLIC_API_URL = _os.environ.get("CIVIL_API_URL", "")
+_PUBLIC_API_URL    = _os.environ.get("CIVIL_API_URL", "")
+_CORRECT_TOKEN     = _os.environ.get("CIVIL_CORRECT_TOKEN", "")  # if set, /correct requires this token
 
 app = FastAPI(title="Civil RAG API")
 
@@ -103,8 +104,8 @@ class QueryRequest(BaseModel):
 
 class CorrectRequest(BaseModel):
     source_file: str
-    page: int
-    chunk_index: int
+    page:        int = Field(ge=0, le=99999)
+    chunk_index: int = Field(ge=0, le=99999)
     new_section: str
 
 class CodeRequest(BaseModel):
@@ -160,11 +161,18 @@ _RATE_LIMIT_WHITELIST = {"127.0.0.1", "::1"}
 
 
 def _real_ip(request: Request) -> str:
-    """Return the real client IP, reading X-Forwarded-For when behind a proxy (RunPod, nginx)."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host
+    """Return the real client IP.
+
+    Only trusts X-Forwarded-For when the immediate connection comes from a known
+    trusted proxy (localhost / private RunPod proxy). Takes the rightmost IP added
+    by that proxy — not the leftmost, which is trivially forged by the client.
+    """
+    direct = request.client.host if request.client else "unknown"
+    if direct in _RATE_LIMIT_WHITELIST:
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[-1].strip()
+    return direct
 
 
 def _check_daily_limit(ip: str) -> None:
@@ -173,6 +181,10 @@ def _check_daily_limit(ip: str) -> None:
         return
     today = datetime.date.today().isoformat()
     with _rate_lock:
+        # Prune stale entries from previous days to prevent unbounded growth
+        stale = [k for k, (_, d) in _daily_counts.items() if d != today]
+        for k in stale:
+            del _daily_counts[k]
         count, date = _daily_counts.get(ip, (0, today))
         if date != today:
             count = 0
@@ -189,9 +201,22 @@ def _check_daily_limit(ip: str) -> None:
         _daily_counts[ip] = (count + 1, today)
 
 
+def _undo_daily_count(ip: str) -> None:
+    """Decrement the daily count for an IP — called when the backend itself failed
+    so a service outage doesn't silently burn through a user's daily quota."""
+    if ip in _RATE_LIMIT_WHITELIST:
+        return
+    today = datetime.date.today().isoformat()
+    with _rate_lock:
+        count, date = _daily_counts.get(ip, (0, today))
+        if date == today and count > 0:
+            _daily_counts[ip] = (count - 1, today)
+
+
 @app.post("/query")
 def run_query(req: QueryRequest, request: Request):
-    _check_daily_limit(_real_ip(request))
+    ip = _real_ip(request)
+    _check_daily_limit(ip)
     try:
         result = query(
             user_query=req.query,
@@ -202,6 +227,7 @@ def run_query(req: QueryRequest, request: Request):
         )
         return result
     except Exception as e:
+        _undo_daily_count(ip)
         print(f"[error] /query failed: {e}", flush=True)
         raise HTTPException(status_code=500, detail="Query failed. Please retry.")
 
@@ -209,7 +235,8 @@ def run_query(req: QueryRequest, request: Request):
 @app.post("/query/stream")
 def run_query_stream(req: QueryRequest, request: Request):
     """Server-sent events endpoint: yields source blocks one at a time as the LLM generates."""
-    _check_daily_limit(_real_ip(request))
+    ip = _real_ip(request)
+    _check_daily_limit(ip)
     try:
         prep = query_prepare(
             user_query=req.query,
@@ -219,6 +246,7 @@ def run_query_stream(req: QueryRequest, request: Request):
             filter_locality=req.filter_locality or None,
         )
     except Exception as e:
+        _undo_daily_count(ip)
         print(f"[error] /query/stream failed: {e}", flush=True)
         def _err():
             yield f'data: {_json.dumps({"type": "error", "message": "Query failed. Please retry."})}\n\n'
@@ -232,15 +260,22 @@ def run_query_stream(req: QueryRequest, request: Request):
         return StreamingResponse(_no_chunks(), media_type="text/event-stream")
 
     def _generate():
-        yield f'data: {_json.dumps({"type": "meta", "source_groups": prep["source_groups"], "chunks": prep["chunks"]})}\n\n'
-        for event in generate_response_stream(req.query, prep["context"]):
-            yield f'data: {_json.dumps(event)}\n\n'
+        try:
+            yield f'data: {_json.dumps({"type": "meta", "source_groups": prep["source_groups"], "chunks": prep["chunks"]})}\n\n'
+            for event in generate_response_stream(req.query, prep["context"]):
+                yield f'data: {_json.dumps(event)}\n\n'
+        except Exception as e:
+            _undo_daily_count(ip)
+            print(f"[error] _generate stream failed: {e}", flush=True)
+            yield f'data: {_json.dumps({"type": "error", "message": "Stream interrupted. Please retry."})}\n\n'
 
     return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 @app.post("/correct")
-def run_correct(req: CorrectRequest):
+def run_correct(req: CorrectRequest, request: Request):
+    if _CORRECT_TOKEN and request.headers.get("X-Correct-Token") != _CORRECT_TOKEN:
+        raise HTTPException(status_code=403, detail="Forbidden")
     ok = correct_section(
         source_file=req.source_file,
         page=req.page,
@@ -255,65 +290,70 @@ def run_correct(req: CorrectRequest):
 @app.get("/filters")
 def get_filters():
     global _filters_cache, _filters_cache_ts
+    # Fast path: return cached value without blocking on I/O
     with _filters_lock:
         if _filters_cache and (_time.time() - _filters_cache_ts) < _FILTERS_TTL:
             return _filters_cache
-        try:
-            db = lancedb.connect(str(VECTORDB_DIR))
-            table = db.open_table("civil_engineering_codes")
-            rows = table.search().limit(999999).to_list()
 
-            # Agencies — include locality so frontend cascade can match LOCAL agencies
-            seen_agencies: dict[str, dict] = {}
-            for r in rows:
-                ag = r.get("agency", "")
-                if ag and ag not in seen_agencies:
-                    seen_agencies[ag] = {
-                        "name":         ag,
-                        "jurisdiction": r.get("jurisdiction", ""),
-                        "state":        r.get("state", ""),
-                        "locality":     r.get("locality", ""),
+    # Slow path: build outside the lock so concurrent requests don't serialize
+    try:
+        db = lancedb.connect(str(VECTORDB_DIR))
+        table = db.open_table("civil_engineering_codes")
+        rows = table.search().limit(999999).to_list()
+
+        # Agencies — include locality so frontend cascade can match LOCAL agencies
+        seen_agencies: dict[str, dict] = {}
+        for r in rows:
+            ag = r.get("agency", "")
+            if ag and ag not in seen_agencies:
+                seen_agencies[ag] = {
+                    "name":         ag,
+                    "jurisdiction": r.get("jurisdiction", ""),
+                    "state":        r.get("state", ""),
+                    "locality":     r.get("locality", ""),
+                }
+        agencies = sorted(seen_agencies.values(), key=lambda x: (x["jurisdiction"], x["name"]))
+
+        # Unique state codes (kept for backward compat)
+        states = sorted({r["state"] for r in rows if r.get("state")})
+
+        # Localities (kept for backward compat)
+        seen_local: dict[tuple, dict] = {}
+        for r in rows:
+            loc = r.get("locality", "")
+            st  = r.get("state", "")
+            if loc and st:
+                key = (st, loc)
+                if key not in seen_local:
+                    seen_local[key] = {
+                        "state":   st,
+                        "code":    loc,
+                        "display": r.get("agency", loc),
                     }
-            agencies = sorted(seen_agencies.values(), key=lambda x: (x["jurisdiction"], x["name"]))
+        localities = sorted(seen_local.values(), key=lambda x: (x["state"], x["display"]))
 
-            # Unique state codes (kept for backward compat)
-            states = sorted({r["state"] for r in rows if r.get("state")})
+        # Scopes — unique (jurisdiction, state, locality) combos for the scope dropdown
+        seen_scopes: dict[tuple, dict] = {}
+        for r in rows:
+            key = (r.get("jurisdiction", ""), r.get("state", ""), r.get("locality", ""))
+            if key[0] and key not in seen_scopes:
+                seen_scopes[key] = {
+                    "jurisdiction": key[0],
+                    "state":        key[1],
+                    "locality":     key[2],
+                }
+        scopes = sorted(seen_scopes.values(),
+                        key=lambda x: (x["jurisdiction"], x["state"], x["locality"]))
 
-            # Localities (kept for backward compat)
-            seen_local: dict[tuple, dict] = {}
-            for r in rows:
-                loc = r.get("locality", "")
-                st  = r.get("state", "")
-                if loc and st:
-                    key = (st, loc)
-                    if key not in seen_local:
-                        seen_local[key] = {
-                            "state":   st,
-                            "code":    loc,
-                            "display": r.get("agency", loc),
-                        }
-            localities = sorted(seen_local.values(), key=lambda x: (x["state"], x["display"]))
-
-            # Scopes — unique (jurisdiction, state, locality) combos for the scope dropdown
-            seen_scopes: dict[tuple, dict] = {}
-            for r in rows:
-                key = (r.get("jurisdiction", ""), r.get("state", ""), r.get("locality", ""))
-                if key[0] and key not in seen_scopes:
-                    seen_scopes[key] = {
-                        "jurisdiction": key[0],
-                        "state":        key[1],
-                        "locality":     key[2],
-                    }
-            scopes = sorted(seen_scopes.values(),
-                            key=lambda x: (x["jurisdiction"], x["state"], x["locality"]))
-
-            result = {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
-            _filters_cache = result
-            _filters_cache_ts = _time.time()
-            return result
-        except Exception as e:
-            print(f"[error] /filters failed: {e}", flush=True)
-            raise HTTPException(status_code=500, detail="Failed to load filters.")
+        result = {"agencies": agencies, "states": states, "localities": localities, "scopes": scopes}
+        with _filters_lock:
+            if not _filters_cache or (_time.time() - _filters_cache_ts) >= _FILTERS_TTL:
+                _filters_cache = result
+                _filters_cache_ts = _time.time()
+        return result
+    except Exception as e:
+        print(f"[error] /filters failed: {e}", flush=True)
+        raise HTTPException(status_code=500, detail="Failed to load filters.")
 
 
 @app.post("/request")
@@ -349,40 +389,45 @@ def get_standards_list():
     with _standards_lock:
         if _standards_cache and (_time.time() - _standards_cache_ts) < _FILTERS_TTL:
             return _standards_cache
-        try:
-            db = lancedb.connect(str(VECTORDB_DIR))
-            table = db.open_table("civil_engineering_codes")
-            cols = ['source_file', 'agency', 'jurisdiction', 'state', 'locality', 'file_link']
-            rows = table.search().select(cols).limit(999999).to_list()
-            seen = {}
-            for r in rows:
-                sf = r.get("source_file", "")
-                if sf and sf not in seen:
-                    seen[sf] = {
-                        "source_file":  sf,
-                        "agency":       r.get("agency", ""),
-                        "jurisdiction": r.get("jurisdiction", ""),
-                        "state":        r.get("state", ""),
-                        "locality":     r.get("locality", ""),
-                        "file_link":    r.get("file_link", ""),
-                    }
-            result = sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
-            _standards_cache = result
-            _standards_cache_ts = _time.time()
-            return result
-        except Exception as e:
-            print(f"[error] /standards/list failed: {e}", flush=True)
-            raise HTTPException(status_code=500, detail="Failed to load standards list.")
+
+    try:
+        db = lancedb.connect(str(VECTORDB_DIR))
+        table = db.open_table("civil_engineering_codes")
+        cols = ['source_file', 'agency', 'jurisdiction', 'state', 'locality', 'file_link']
+        rows = table.search().select(cols).limit(999999).to_list()
+        seen = {}
+        for r in rows:
+            sf = r.get("source_file", "")
+            if sf and sf not in seen:
+                seen[sf] = {
+                    "source_file":  sf,
+                    "agency":       r.get("agency", ""),
+                    "jurisdiction": r.get("jurisdiction", ""),
+                    "state":        r.get("state", ""),
+                    "locality":     r.get("locality", ""),
+                    "file_link":    r.get("file_link", ""),
+                }
+        result = sorted(seen.values(), key=lambda x: (x["agency"], x["source_file"]))
+        with _standards_lock:
+            if not _standards_cache or (_time.time() - _standards_cache_ts) >= _FILTERS_TTL:
+                _standards_cache = result
+                _standards_cache_ts = _time.time()
+        return result
+    except Exception as e:
+        print(f"[error] /standards/list failed: {e}", flush=True)
+        raise HTTPException(status_code=500, detail="Failed to load standards list.")
 
 
 @app.post("/analytics/event")
 def log_analytics_event(ev: AnalyticsEvent):
     """Record an anonymous usage event. Thread-safe; persists to analytics.json."""
     with _analytics_lock:
+        data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
         if ANALYTICS_FILE.exists():
-            data = _json.loads(ANALYTICS_FILE.read_text())
-        else:
-            data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
+            try:
+                data = _json.loads(ANALYTICS_FILE.read_text())
+            except Exception:
+                pass  # corrupted file — start fresh
 
         if ev.event == "prompt_submitted":
             data["prompts_submitted"] = data.get("prompts_submitted", 0) + 1
@@ -392,16 +437,22 @@ def log_analytics_event(ev: AnalyticsEvent):
             pulls = data.setdefault("manual_pulls", {})
             pulls[ev.source_file] = pulls.get(ev.source_file, 0) + 1
 
-        ANALYTICS_FILE.write_text(_json.dumps(data, indent=2))
+        tmp = ANALYTICS_FILE.with_suffix(".tmp")
+        tmp.write_text(_json.dumps(data, indent=2))
+        tmp.replace(ANALYTICS_FILE)
     return {"ok": True}
 
 
 @app.get("/analytics")
 def get_analytics():
     """Return accumulated anonymous usage statistics."""
-    if not ANALYTICS_FILE.exists():
-        return {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
-    return _json.loads(ANALYTICS_FILE.read_text())
+    with _analytics_lock:
+        if not ANALYTICS_FILE.exists():
+            return {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
+        try:
+            return _json.loads(ANALYTICS_FILE.read_text())
+        except Exception:
+            return {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
 
 
 # ── serve frontend ─────────────────────────────────────────────────────────────

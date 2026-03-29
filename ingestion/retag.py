@@ -26,6 +26,11 @@ try:
 except ImportError:
     VECTORDB_DIR = Path(__file__).parent.parent / "vectordb"
 
+try:
+    from ingestion.common import _load_link
+except ImportError:
+    from common import _load_link
+
 
 def retag():
     db = lancedb.connect(str(VECTORDB_DIR))
@@ -41,38 +46,6 @@ def retag():
 
     # ── Metadata refresh from current docs tree ──────────────────────────────
     DOCS_ROOT = Path(__file__).parent.parent / "docs"
-    def _load_link(pdf_path: Path, root: Path) -> str:
-        import json as _json
-        for name in ("_links.json", "links.json"):
-            sidecar = pdf_path.parent / name
-            if sidecar.exists():
-                try:
-                    links = _json.loads(sidecar.read_text(encoding="utf-8"))
-                    url = links.get(pdf_path.name, "")
-                    if url:
-                        return url
-                except Exception:
-                    pass
-        for sidecar in pdf_path.parent.glob("*_links.json"):
-            try:
-                links = _json.loads(sidecar.read_text(encoding="utf-8"))
-                url = links.get(pdf_path.name, "")
-                if url:
-                    return url
-            except Exception:
-                pass
-        registry = root / "_registry.json"
-        if registry.exists():
-            try:
-                import json as _json2
-                reg = _json2.loads(registry.read_text(encoding="utf-8"))
-                url = reg.get(pdf_path.relative_to(root).as_posix(), "")
-                if url:
-                    return url
-            except Exception:
-                pass
-        return ""
-
     file_map = {p.name: p for p in DOCS_ROOT.rglob("*.pdf")}
     print(f"Found {len(file_map)} PDFs in docs tree for metadata refresh")
 
@@ -100,11 +73,18 @@ def retag():
         }
 
     refreshed = 0
+    stale_files: set[str] = set()
     for row in all_rows:
         if row["source_file"] in file_map:
             row.update(_derive_metadata(file_map[row["source_file"]]))
             refreshed += 1
+        else:
+            stale_files.add(row["source_file"])
     print(f"Refreshed metadata for {refreshed} rows")
+    if stale_files:
+        print(f"[warn] {len(stale_files)} source file(s) not found in docs tree — metadata kept as-is:")
+        for sf in sorted(stale_files):
+            print(f"  {sf}")
     # ─────────────────────────────────────────────────────────────────────────
 
     updated_rows = []
@@ -155,17 +135,45 @@ def retag():
         updated_rows.extend(rows)
         print(f"  Retagged {len(rows)} chunks from {filename}")
 
-    print("Writing updated chunks back to database...")
-    db.drop_table("civil_engineering_codes")
-    new_table = db.create_table("civil_engineering_codes", data=updated_rows)
-    print(f"Done — {new_table.count_rows()} chunks written")
+    # Ensure boolean columns exist so create_table schema is consistent
+    for row in updated_rows:
+        row.setdefault("llm_corrected_section", False)
+        row.setdefault("llm_corrected_doc_page", False)
 
-    print("\nApplying corrections...")
-    apply_corrections(new_table)
+    # Atomic swap: build into a tmp table, then rename over the live table so a
+    # crash between steps doesn't destroy the database.
+    _TMP = "civil_engineering_codes_retag_tmp"
+    if _TMP in db.table_names():
+        db.drop_table(_TMP)
 
-    print("\nBuilding FTS index...")
-    _ensure_fts_index(new_table)
+    print("Writing updated chunks to temporary table...")
+    tmp_table = db.create_table(_TMP, data=updated_rows)
+    print(f"  {tmp_table.count_rows()} chunks written")
+
+    print("\nApplying corrections to temporary table...")
+    apply_corrections(tmp_table)
+
+    print("\nBuilding FTS index on temporary table...")
+    _ensure_fts_index(tmp_table)
     print("FTS index ready.")
+
+    print("\nSwapping tables...")
+    db.drop_table("civil_engineering_codes")
+    try:
+        db.rename_table(_TMP, "civil_engineering_codes")
+    except Exception as e:
+        print(f"[CRITICAL] rename failed after drop: {e}", flush=True)
+        print(f"[CRITICAL] Attempting recovery: renaming '{_TMP}' → 'civil_engineering_codes'", flush=True)
+        try:
+            db.rename_table(_TMP, "civil_engineering_codes")
+            print("[CRITICAL] Recovery succeeded — service should be operational.", flush=True)
+            # Recovery worked; don't re-raise the original error
+        except Exception as e2:
+            print(f"[CRITICAL] Recovery also failed: {e2}", flush=True)
+            print(f"[CRITICAL] Manual fix: python -c \"import lancedb; db=lancedb.connect('vectordb'); db.rename_table('{_TMP}', 'civil_engineering_codes')\"", flush=True)
+            raise RuntimeError(f"Table swap failed and recovery failed. DB is down. Original: {e}; Recovery: {e2}") from e2
+    new_table = db.open_table("civil_engineering_codes")
+    print(f"Done — {new_table.count_rows()} chunks live.")
 
     try:
         from rag.query_engine import invalidate_db_table
@@ -235,7 +243,8 @@ def apply_corrections(table) -> int:
                 continue
 
             try:
-                table.update(where=f"id = '{chunk_id}'", values=values)
+                safe_id = chunk_id.replace("'", "''").replace("\\", "\\\\")
+                table.update(where=f"id = '{safe_id}'", values=values)
                 applied += 1
             except Exception as e:
                 print(f"  Failed to apply {field} correction {chunk_id}: {e}")

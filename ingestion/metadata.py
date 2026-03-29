@@ -72,7 +72,7 @@ def detect_doc_page(text: str, section: str) -> str:
                     raw_num = candidate.split('-')[-1]
                     if raw_num.isdigit() and int(raw_num) < 2000:
                         return candidate
-        break
+            break  # only break after examining a line that matched the regex
 
     fallback = re.search(r'(?<!\d)(\d{1,4}-\d{1,4})(?!\d)', text[:500])
     if fallback:

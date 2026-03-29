@@ -1,4 +1,8 @@
 from metadata import detect_section, detect_doc_page, propagate_metadata
+try:
+    from ingestion.common import _load_link
+except ImportError:
+    from common import _load_link
 import argparse
 import json
 import os
@@ -105,52 +109,52 @@ def is_scanned_pdf(doc, sample_size: int = 30, threshold: float = 0.9) -> bool:
 def extract_text_from_pdf(pdf_path: Path) -> list[dict]:
     pages = []
     doc = fitz.open(str(pdf_path))
+    try:
+        use_ocr = is_scanned_pdf(doc)
+        if use_ocr:
+            print(f"  [scanned document detected] using OCR for {pdf_path.name}, {len(doc)} pages long.")
 
-    use_ocr = is_scanned_pdf(doc)
-    if use_ocr:
-        print(f"  [scanned document detected] using OCR for {pdf_path.name}, {len(doc)} pages long.")
-    
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        text = page.get_text("text").strip()
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text("text").strip()
 
-        if len(text) < 50:
-            if use_ocr:
-                print(f"  [OCR] page {page_num + 1}")
-                try:
-                    text = ocr_pdf_page(page)
-                except Exception as e:
-                    print(f"  [OCR error] page {page_num + 1}: {e}")
+            if len(text) < 50:
+                if use_ocr:
+                    print(f"  [OCR] page {page_num + 1}")
+                    try:
+                        text = ocr_pdf_page(page)
+                    except Exception as e:
+                        print(f"  [OCR error] page {page_num + 1}: {e}")
+                        continue
+                else:
+                    print(f"  [low text] page {page_num + 1} — skipping")
                     continue
-            else:
-                print(f"  [low text] page {page_num + 1} — skipping")
+
+            if len(text.strip()) < 50:
                 continue
 
-        if len(text.strip()) < 50:
-            continue
+            is_toc, dot_ratio = is_table_of_contents(text)
+            if is_toc:
+                print(f"  [TOC] page {page_num + 1} in {pdf_path.name} — skipping")
+                import json
+                with open(FAILED_LOG, "a") as f:
+                    json.dump({
+                        "type":       "TOC_skipped",
+                        "file":       pdf_path.name,
+                        "page":       page_num + 1,
+                        "dot_ratio":  dot_ratio,
+                        "text":       text[:300],
+                    }, f)
+                    f.write("\n")
+                continue
 
-        is_toc, dot_ratio = is_table_of_contents(text)
-        if is_toc:
-            print(f"  [TOC] page {page_num + 1} in {pdf_path.name} — skipping")
-            import json
-            with open(FAILED_LOG, "a") as f:
-                json.dump({
-                    "type":       "TOC_skipped",
-                    "file":       pdf_path.name,
-                    "page":       page_num + 1,
-                    "dot_ratio":  dot_ratio,
-                    "text":       text[:300],
-                }, f)
-                f.write("\n")
-            continue
-
-        pages.append({
-            "text": text.strip(),
-            "page": page_num + 1,
-            "source_file": pdf_path.name,
-        })
-
-    doc.close()
+            pages.append({
+                "text": text.strip(),
+                "page": page_num + 1,
+                "source_file": pdf_path.name,
+            })
+    finally:
+        doc.close()
     print(f"  Extracted {len(pages)} text pages from {pdf_path.name}")
     return pages
 
@@ -226,40 +230,6 @@ def chunk_text(page_data: dict) -> list[dict]:
 ##  FEDERAL/{Country}/{Agency}/file.pdf  →  jurisdiction=FEDERAL, state=USA, agency=OSHA
 ##  STATE/{ST}/{Agency}/file.pdf         →  jurisdiction=STATE,   state=WA,  agency=WSDOT
 ##  LOCAL/{ST}/{Locality}/{Agency}/file  →  jurisdiction=LOCAL,   state=WA,  locality=Seattle, agency=SDOT
-
-def _load_link(pdf_path: Path, root: Path) -> str:
-    """Return the public URL for this PDF from a sidecar or root registry, or ''."""
-    # Option A: per-agency sidecar — check _links.json, links.json, and *_links.json glob
-    for name in ("_links.json", "links.json"):
-        sidecar = pdf_path.parent / name
-        if sidecar.exists():
-            try:
-                links = json.loads(sidecar.read_text(encoding="utf-8"))
-                url = links.get(pdf_path.name, "")
-                if url:
-                    return url
-            except Exception:
-                pass
-    for sidecar in pdf_path.parent.glob("*_links.json"):
-        try:
-            links = json.loads(sidecar.read_text(encoding="utf-8"))
-            url = links.get(pdf_path.name, "")
-            if url:
-                return url
-        except Exception:
-            pass
-    # Option B: root-level _registry.json keyed by relative path
-    registry = root / "_registry.json"
-    if registry.exists():
-        try:
-            reg = json.loads(registry.read_text(encoding="utf-8"))
-            rel = pdf_path.relative_to(root).as_posix()
-            url = reg.get(rel, "")
-            if url:
-                return url
-        except Exception:
-            pass
-    return ""
 
 
 def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
@@ -460,8 +430,9 @@ def store_chunks(table: lancedb.table.LanceTable, chunks: list[dict]) -> None:
         print(f"  Stored {len(rows)} chunks")
 #skip already added data if enabled
 def already_ingested(pdf_path: Path, table: lancedb.table.LanceTable) -> bool:
+    safe = pdf_path.name.replace("'", "''").replace("\\", "\\\\")
     results = table.search() \
-        .where(f"source_file = '{pdf_path.name}'") \
+        .where(f"source_file = '{safe}'") \
         .limit(1) \
         .to_list()
     return len(results) > 0
@@ -545,9 +516,14 @@ def strip_repeating_lines(text: str, header_set: set[str], footer_set: set[str])
 
 
 def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable, root: Path) -> None:
-    if not FORCE_RERUN and already_ingested(pdf_path, table):
-        print(f"  [skipped] already in database: {pdf_path.name}")
-        return
+    if already_ingested(pdf_path, table):
+        if not FORCE_RERUN:
+            print(f"  [skipped] already in database: {pdf_path.name}")
+            return
+        # Delete only this file's rows so other documents are unaffected
+        safe = pdf_path.name.replace("'", "''").replace("\\", "\\\\")
+        table.delete(f"source_file = '{safe}'")
+        print(f"  [force] deleted existing rows for {pdf_path.name}, re-ingesting")
 
     print(f"\nProcessing: {pdf_path.name}")
 
@@ -630,15 +606,13 @@ def main(docs_dir: Path, force: bool, only: str | None) -> None:
     VECTORDB_DIR.mkdir(parents=True, exist_ok=True)
 
     if FORCE_RERUN:
-        print("\n--force: delete and re-ingest affected files.")
+        print("\n--force: existing rows for each processed file will be deleted and re-ingested.")
         confirm = input("Type Y to confirm, anything else to cancel: ").strip()
         if confirm != "Y":
             print("Cancelled.")
             return
-        print("Confirmed — resetting database")
-        table = reset_db()
-    else:
-        table = init_db()
+        print("Confirmed.")
+    table = init_db()
 
     pdf_files = sorted(DOCS_DIR.rglob("*.pdf"))
 

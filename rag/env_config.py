@@ -27,7 +27,10 @@ def _is_aws_ec2() -> bool:
             "http://169.254.169.254/latest/meta-data/instance-id",
             timeout=0.3,
         ) as resp:
-            return resp.status == 200
+            if resp.status != 200:
+                return False
+            body = resp.read(32).decode("ascii", errors="replace").strip()
+            return body.startswith("i-")
     except Exception as e:
         print(f"[env] AWS detection failed ({type(e).__name__}) — defaulting to local", flush=True)
         return False

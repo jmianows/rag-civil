@@ -78,7 +78,8 @@ def batch_enrich(rows: list[dict], field: str) -> dict[str, str]:
         raw = strip_thinking(resp.json()["message"]["content"].strip())
         start, end = raw.find("{"), raw.rfind("}") + 1
         parsed = json.loads(raw[start:end]) if start >= 0 else {}
-        return {mapping[k]: v for k, v in parsed.items() if k in mapping}
+        return {mapping[k]: v for k, v in parsed.items()
+                if k in mapping and isinstance(v, str) and v}
     except Exception as e:
         print(f"  [batch warn] {e}")
         return {}
@@ -184,8 +185,9 @@ def enrich_one_file(
             src = "llm" if cid in llm_updates else ("bwd" if cid in new_bwd else "fwd")
             print(f"    [{src}] {cid}  {old_val!r} → {new_val!r}")
             if apply and row:
+                safe_cid = cid.replace("'", "''").replace("\\", "\\\\")
                 table.update(
-                    where=f"id = '{cid}'",
+                    where=f"id = '{safe_cid}'",
                     values={field: new_val, flag: True},
                 )
                 log_correction(
@@ -307,8 +309,9 @@ def main():
 
     # ── Single-file mode ───────────────────────────────────────────────────────
     if args.source_file:
+        safe_sf = args.source_file.replace("'", "''").replace("\\", "\\\\")
         rows = table.search().where(
-            f"source_file = '{args.source_file.replace(chr(39), '').replace(chr(92), '')}'"
+            f"source_file = '{safe_sf}'"
         ).limit(999999).to_list()
 
         if not rows:

@@ -15,6 +15,7 @@ from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL, VECTOR
 
 _ollama_session = requests.Session()
 _ollama_session.headers.update({"Connection": "keep-alive"})
+_ollama_session.timeout = (10, 120)  # (connect, read) seconds
 
 # ── Hybrid retrieval: detection patterns and agency term map ───────────────────
 
@@ -65,40 +66,42 @@ def _detect_intent(query: str) -> tuple[bool, str | None]:
 
 
 _reranker = None
+_reranker_lock = threading.Lock()
 
 def _get_reranker():
     global _reranker
     if _reranker is None:
-        from sentence_transformers import CrossEncoder
-        print("  [reranker] Loading cross-encoder model...", flush=True)
-        device = RERANKER_DEVICE
-        try:
-            import torch
-            if device == "cuda" and not torch.cuda.is_available():
-                print("  [reranker] CUDA requested but unavailable, falling back to CPU", flush=True)
-                device = "cpu"
-        except ImportError:
-            device = "cpu"
-        _reranker = CrossEncoder(
-            "cross-encoder/ms-marco-MiniLM-L-6-v2",
-            device=device,
-            max_length=512,
-        )
+        with _reranker_lock:
+            if _reranker is None:  # double-checked
+                from sentence_transformers import CrossEncoder
+                print("  [reranker] Loading cross-encoder model...", flush=True)
+                device = RERANKER_DEVICE
+                try:
+                    import torch
+                    if device == "cuda" and not torch.cuda.is_available():
+                        print("  [reranker] CUDA requested but unavailable, falling back to CPU", flush=True)
+                        device = "cpu"
+                except ImportError:
+                    device = "cpu"
+                _reranker = CrossEncoder(
+                    "cross-encoder/ms-marco-MiniLM-L-6-v2",
+                    device=device,
+                    max_length=512,
+                )
     return _reranker
 
 
 def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
     """Re-rank retrieved chunks by (query, chunk) relevance using a cross-encoder."""
-    if len(chunks) <= top_k:
-        return chunks
     reranker = _get_reranker()
     pairs = [(query, c.text) for c in chunks]
     scores = reranker.predict(pairs)
-    ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
-    top = ranked[:top_k]
-    for score, c in top:
+    for score, c in zip(scores, chunks):
         c.rerank_score = float(score)
-    return [c for _, c in top]
+    if len(chunks) <= top_k:
+        return chunks
+    ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
+    return [c for _, c in ranked[:top_k]]
 
 
 def _vector_search(table, embedding: list[float], n: int, where: str | None) -> list[dict]:
@@ -141,7 +144,7 @@ def _next_ollama_host() -> str:
         return next(_host_cycle)
 RERANK_POOL   = 15   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
-CONTEXT_WINDOW_AFTER  = 3
+CONTEXT_WINDOW_AFTER  = 2
 MAX_CHUNK_CHARS = 1000 
 #This sets up the configuration and a clean dataclass to carry retrieved chunk data through the pipeline.
 @dataclass
@@ -230,7 +233,7 @@ def embed_query(query: str) -> list[float]:
 
 def _sf(v: str) -> str:
     """Sanitize a string value for safe interpolation into a LanceDB WHERE clause."""
-    return v.replace("'", "").replace("\\", "") if v else v
+    return v.replace("'", "''").replace("\\", "\\\\") if v else v
 
 
 def retrieve_chunks(
@@ -296,16 +299,16 @@ def retrieve_chunks(
             doc_page=r.get("doc_page", "UNKNOWN"),
             page=r["page"],
             chunk_index=r["chunk_index"],
-            distance=r.get("_distance", r.get("_score", 0.0)),
+            distance=r.get("_distance", -1.0),  # -1.0 sentinel = FTS-only, no vector distance
             file_link=r.get("file_link", ""),
         ))
 
-    # Drop chunks with implausibly high distance — these are FTS results with no
-    # vector similarity (e.g. keyword match with dist=15-32 vs normal 0.3-0.7)
-    filtered = [c for c in chunks if c.distance <= 1.0]
+    # Drop vector results with implausibly high distance (> 1.0).
+    # FTS-only results carry sentinel distance=-1.0 and are always kept.
+    filtered = [c for c in chunks if c.distance < 0 or c.distance <= 1.0]
     dropped = len(chunks) - len(filtered)
     if dropped:
-        print(f"  [retrieve] dropped {dropped}/{len(chunks)} chunks (distance > 1.0)", flush=True)
+        print(f"  [retrieve] dropped {dropped}/{len(chunks)} chunks (vector distance > 1.0)", flush=True)
     chunks = filtered
 
     return chunks
@@ -324,19 +327,19 @@ def remove_overlap(text_a: str, text_b: str, min_overlap: int = 20) -> str:
 
 def _expand_from_cache(chunk: RetrievedChunk, id_map: dict[str, str]) -> str:
     """Build expanded context for a chunk using a pre-fetched id→text map."""
-    sf = _sf(chunk.source_file)
+    sf = chunk.source_file  # use raw value — id_map keys come from the DB unescaped
     page = chunk.page
     ci = chunk.chunk_index
 
     neighbors = []
-    for offset in range(-1, 0):
+    for offset in range(-CONTEXT_WINDOW_BEFORE, 0):
         nid = f"{sf}__p{page}__c{ci + offset}"
         if nid in id_map:
             neighbors.append((ci + offset, id_map[nid]))
 
     neighbors.append((ci, chunk.text))
 
-    for offset in range(1, 3):
+    for offset in range(1, CONTEXT_WINDOW_AFTER + 1):
         nid = f"{sf}__p{page}__c{ci + offset}"
         if nid in id_map:
             neighbors.append((ci + offset, id_map[nid]))
@@ -365,14 +368,15 @@ def group_chunks(
     # N*4 sequential full-table scans (each .where() on id scans all 44k rows).
     needed: set[str] = set()
     for chunk in chunks:
-        sf = _sf(chunk.source_file)
+        sf = chunk.source_file  # raw — must match stored IDs built at ingest time
         page = chunk.page
         ci = chunk.chunk_index
-        for offset in range(-1, 3):  # window_before=1, window_after=2
+        for offset in range(-CONTEXT_WINDOW_BEFORE, CONTEXT_WINDOW_AFTER + 1):
             needed.add(f"{sf}__p{page}__c{ci + offset}")
         needed.add(f"{sf}__p{page + 1}__c0")  # cross-page fallback
 
-    id_list = "', '".join(needed)
+    # Apply _sf() per-ID when interpolating into SQL (not when building lookup keys)
+    id_list = "', '".join(_sf(i) for i in needed)
     try:
         rows = (
             table.search()
@@ -591,16 +595,18 @@ def correct_section(
     new_section: str,
 ) -> bool:
     new_section = new_section.strip()
-    if not new_section or len(new_section) > 60 or not _SECTION_VAL_RE.match(new_section):
+    if not new_section or len(new_section) < 3 or len(new_section) > 60 or not _SECTION_VAL_RE.match(new_section):
         print(f"  [correct] rejected invalid section: {new_section!r}", flush=True)
         return False
     from ingestion.retag import log_correction
     table = get_db_table()
-    chunk_id = f"{_sf(source_file)}__p{page}__c{chunk_index}"
+    # Build ID from raw source_file to match stored IDs; _sf() only in SQL strings
+    chunk_id = f"{source_file}__p{page}__c{chunk_index}"
+    safe_id  = _sf(chunk_id)
 
     try:
         result = table.search() \
-            .where(f"id = '{chunk_id}'") \
+            .where(f"id = '{safe_id}'") \
             .limit(1) \
             .to_list()
         old_section = result[0]["section"] if result else "UNKNOWN"
@@ -609,7 +615,7 @@ def correct_section(
 
     try:
         table.update(
-            where=f"id = '{chunk_id}'",
+            where=f"id = '{safe_id}'",
             values={
                 "section":               new_section,
                 "llm_corrected_section": True,
@@ -631,12 +637,19 @@ def enrich_section(text: str, source_file: str) -> str:
         options={"temperature": 0, "num_predict": 20},
     )
 
-    response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
-    response.raise_for_status()
-
-    result = strip_thinking(response.json()["message"]["content"].strip())
-    if _SECTION_VAL_RE.match(result) and len(result) >= 3:
-        return result
+    for _attempt in range(3):
+        try:
+            response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
+            response.raise_for_status()
+            result = strip_thinking(response.json()["message"]["content"].strip())
+            if _SECTION_VAL_RE.match(result) and len(result) >= 3:
+                return result
+            return "UNKNOWN"
+        except Exception as _e:
+            if _attempt == 2:
+                print(f"  [enrich_section] all retries failed: {_e}", flush=True)
+                return "UNKNOWN"
+            time.sleep(2)
     return "UNKNOWN"
 
 def enrich_doc_page(text: str, source_file: str) -> str:
@@ -651,11 +664,19 @@ def enrich_doc_page(text: str, source_file: str) -> str:
         }],
         options={"temperature": 0, "num_predict": 10},
     )
-    response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
-    response.raise_for_status()
-    result = strip_thinking(response.json()["message"]["content"].strip())
-    if _DOCPAGE_VAL_RE.match(result) and len(result) >= 1:
-        return result
+    for _attempt in range(3):
+        try:
+            response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
+            response.raise_for_status()
+            result = strip_thinking(response.json()["message"]["content"].strip())
+            if _DOCPAGE_VAL_RE.match(result) and len(result) >= 1:
+                return result
+            return "UNKNOWN"
+        except Exception as _e:
+            if _attempt == 2:
+                print(f"  [enrich_doc_page] all retries failed: {_e}", flush=True)
+                return "UNKNOWN"
+            time.sleep(2)
     return "UNKNOWN"
 
 
@@ -789,11 +810,11 @@ def generate_response_stream(user_query: str, context: str):
                 while True:
                     nl = buffer.find('\n', 0, safe_end)
                     if nl != -1:
-                        line = strip_thinking(buffer[:nl+1])
+                        flushed = strip_thinking(buffer[:nl+1])
                         buffer = buffer[nl+1:]
                         safe_end = max(0, len(buffer) - GUARD)
-                        if line.strip():
-                            yield {"type": "text", "text": line + '\n'}
+                        if flushed.strip():
+                            yield {"type": "text", "text": flushed + '\n'}
                     elif safe_end > 80:
                         chunk = strip_thinking(buffer[:safe_end])
                         buffer = buffer[safe_end:]

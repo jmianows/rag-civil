@@ -201,12 +201,15 @@ def extract_section_candidate(line: str) -> Optional[list[dict]]:
     if first_val.startswith('0'):
         return None
 
-    # reject years — but allow OSHA-style CFR numbers like 1926.502
-    # a real year appears as just 2 segments with no parentheticals
+    # reject years — but allow OSHA-style CFR numbers like 1926.502 (dot segment >= 100)
+    # a real year appears as just 2 segments with no parentheticals and small dot value
     if re.match(r'^(19|20)\d{2}$', first_val):
         has_paren = any('PAREN' in s['type'] or 'BRACK' in s['type'] for s in segments)
         has_multiple_dot = sum(1 for s in segments if s['type'] == 'DOT_INT') > 1
-        if not has_paren and not has_multiple_dot:
+        has_large_dot = any(
+            s['type'] == 'DOT_INT' and s['int_val'] >= 100 for s in segments
+        )
+        if not has_paren and not has_multiple_dot and not has_large_dot:
             return None
 
     # reject first segment over 8000
