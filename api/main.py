@@ -217,6 +217,7 @@ def _undo_daily_count(ip: str) -> None:
 def run_query(req: QueryRequest, request: Request):
     ip = _real_ip(request)
     _check_daily_limit(ip)
+    _record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
     try:
         result = query(
             user_query=req.query,
@@ -237,6 +238,7 @@ def run_query_stream(req: QueryRequest, request: Request):
     """Server-sent events endpoint: yields source blocks one at a time as the LLM generates."""
     ip = _real_ip(request)
     _check_daily_limit(ip)
+    _record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
     try:
         prep = query_prepare(
             user_query=req.query,
@@ -284,6 +286,18 @@ def run_correct(req: CorrectRequest, request: Request):
     )
     if not ok:
         raise HTTPException(status_code=500, detail="Correction failed")
+    with _analytics_lock:
+        data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
+        if ANALYTICS_FILE.exists():
+            try:
+                data = _json.loads(ANALYTICS_FILE.read_text())
+            except Exception:
+                pass
+        corrections = data.setdefault("correction_count", {})
+        corrections[req.source_file] = corrections.get(req.source_file, 0) + 1
+        tmp = ANALYTICS_FILE.with_suffix(".tmp")
+        tmp.write_text(_json.dumps(data, indent=2))
+        tmp.replace(ANALYTICS_FILE)
     return {"ok": True}
 
 
@@ -416,6 +430,43 @@ def get_standards_list():
     except Exception as e:
         print(f"[error] /standards/list failed: {e}", flush=True)
         raise HTTPException(status_code=500, detail="Failed to load standards list.")
+
+
+def _record_query(
+    filter_agency: str | None,
+    filter_jurisdiction: str | None,
+    filter_state: str | None,
+    filter_locality: str | None,
+) -> None:
+    """Record per-query stats: hour bucket and which filters were active."""
+    hour = datetime.datetime.utcnow().strftime("%H")
+    with _analytics_lock:
+        data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
+        if ANALYTICS_FILE.exists():
+            try:
+                data = _json.loads(ANALYTICS_FILE.read_text())
+            except Exception:
+                pass
+
+        # queries_by_hour: {"00": N, "01": N, ...}
+        by_hour = data.setdefault("queries_by_hour", {})
+        by_hour[hour] = by_hour.get(hour, 0) + 1
+
+        # filter_usage: counts of each filter dimension being set
+        fu = data.setdefault("filter_usage", {
+            "agency": 0, "jurisdiction": 0, "state": 0, "locality": 0, "unfiltered": 0,
+        })
+        if any((filter_agency, filter_jurisdiction, filter_state, filter_locality)):
+            if filter_agency:        fu["agency"]       = fu.get("agency", 0)       + 1
+            if filter_jurisdiction:  fu["jurisdiction"] = fu.get("jurisdiction", 0) + 1
+            if filter_state:         fu["state"]        = fu.get("state", 0)        + 1
+            if filter_locality:      fu["locality"]     = fu.get("locality", 0)     + 1
+        else:
+            fu["unfiltered"] = fu.get("unfiltered", 0) + 1
+
+        tmp = ANALYTICS_FILE.with_suffix(".tmp")
+        tmp.write_text(_json.dumps(data, indent=2))
+        tmp.replace(ANALYTICS_FILE)
 
 
 @app.post("/analytics/event")
