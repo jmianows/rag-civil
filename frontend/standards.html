@@ -32,13 +32,10 @@ body { overflow: hidden; }
   overflow-y: auto;
 }
 @media (max-width: 600px) {
-  body { overflow: auto; }
-  #std-layout {
-    flex-direction: column;
-    overflow: visible;
-  }
-  #std-content { overflow-y: visible; }
-  #std-sidebar { overflow-y: visible; order: 1; }
+  body { height: auto; min-height: 100vh; overflow-y: auto; }
+  #std-layout { flex-direction: column; overflow: visible; height: auto; }
+  #std-content { overflow-y: visible; height: auto; }
+  #std-sidebar { overflow-y: visible; height: auto; }
 }
 </style>
 </head>
