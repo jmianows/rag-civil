@@ -5,22 +5,13 @@
 set -e
 
 REMOTE_DIR=/home/ubuntu/rag-civil
+DOMAIN="api.civilsmartdictionary.com"
+CERT_EMAIL="jmianows@umich.edu"
 cd "$REMOTE_DIR"
-
-# ── API URL ────────────────────────────────────────────────────────────────────
-# Set CIVIL_API_URL before running if you want to override.
-# Default: bare IP on port 8000. Update to domain once DNS/nginx are configured.
-if [ -z "${CIVIL_API_URL:-}" ]; then
-    PUBLIC_IP=$(curl -sf --connect-timeout 3 http://169.254.169.254/latest/meta-data/public-ipv4 || echo "")
-    if [ -n "$PUBLIC_IP" ]; then
-        export CIVIL_API_URL="http://${PUBLIC_IP}:8000"
-    fi
-fi
-echo "==> API URL: ${CIVIL_API_URL:-not set}"
 
 # ── System packages + NVIDIA drivers ──────────────────────────────────────────
 PKGS_NEEDED=""
-for pkg in rsync zstd pciutils lshw python3.12-venv nvidia-driver-570; do
+for pkg in rsync zstd pciutils lshw python3.12-venv nvidia-driver-570 nginx certbot python3-certbot-nginx; do
     dpkg -s "$pkg" &>/dev/null || PKGS_NEEDED="$PKGS_NEEDED $pkg"
 done
 if [ -n "$PKGS_NEEDED" ]; then
@@ -47,7 +38,6 @@ if ! command -v ollama &>/dev/null; then
     curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-# Always restart Ollama via systemd so it picks up the GPU
 echo "==> Starting Ollama (GPU-aware)..."
 sudo systemctl restart ollama
 for i in $(seq 1 30); do
@@ -76,26 +66,85 @@ else
         --force-reinstall --quiet
 fi
 
-# ── FastAPI ────────────────────────────────────────────────────────────────────
-echo "==> Starting FastAPI..."
-CIVIL_ENV=production CIVIL_API_URL="${CIVIL_API_URL:-}" .venv/bin/uvicorn api.main:app \
-    --host 0.0.0.0 --port 8000 --workers 1 &
-UVICORN_PID=$!
+# ── uvicorn systemd service ────────────────────────────────────────────────────
+# Kill any bare uvicorn process started by a previous run of this script
+pkill -f "uvicorn api.main:app" 2>/dev/null || true
+sleep 1
+
+sudo tee /etc/systemd/system/rag-civil.service > /dev/null <<EOF
+[Unit]
+Description=Civil RAG API (uvicorn)
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=${REMOTE_DIR}
+Environment="CIVIL_ENV=production"
+Environment="CIVIL_API_URL=https://${DOMAIN}"
+ExecStart=${REMOTE_DIR}/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable rag-civil
+sudo systemctl restart rag-civil
 
 echo "==> Waiting for API to be ready..."
 for i in $(seq 1 90); do
     curl -sf http://127.0.0.1:8000/health &>/dev/null && echo "==> API ready (${i}s)" && break
-    [ "$i" -eq 90 ] && echo "ERROR: API did not become ready within 90s" && kill "$UVICORN_PID" && exit 1
+    [ "$i" -eq 90 ] && echo "ERROR: API did not become ready within 90s" && sudo journalctl -u rag-civil -n 30 && exit 1
     sleep 1
 done
-echo "===== DEPLOYMENT COMPLETE — API IS LIVE ====="
 
-# Restart uvicorn automatically if it exits
-while true; do
-    wait "$UVICORN_PID" 2>/dev/null || true
-    echo "==> uvicorn exited, restarting in 3s..."
-    sleep 3
-    CIVIL_ENV=production CIVIL_API_URL="${CIVIL_API_URL:-}" .venv/bin/uvicorn api.main:app \
-        --host 0.0.0.0 --port 8000 --workers 1 &
-    UVICORN_PID=$!
-done
+# ── nginx reverse proxy ────────────────────────────────────────────────────────
+if [ ! -f "/etc/nginx/sites-available/${DOMAIN}" ]; then
+    echo "==> Configuring nginx for ${DOMAIN}..."
+    sudo tee /etc/nginx/sites-available/${DOMAIN} > /dev/null <<NGINXEOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    proxy_buffering off;
+    proxy_read_timeout 120s;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+    }
+}
+NGINXEOF
+    sudo ln -sf /etc/nginx/sites-available/${DOMAIN} /etc/nginx/sites-enabled/${DOMAIN}
+    sudo rm -f /etc/nginx/sites-enabled/default
+    sudo nginx -t && sudo systemctl reload nginx
+fi
+
+# ── SSL cert ───────────────────────────────────────────────────────────────────
+if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+    echo "==> Obtaining Let's Encrypt certificate for ${DOMAIN}..."
+    sudo certbot --nginx \
+        -d "${DOMAIN}" \
+        --non-interactive --agree-tos \
+        --email "${CERT_EMAIL}" \
+        --redirect
+fi
+
+sudo systemctl enable nginx
+sudo systemctl reload nginx
+
+echo ""
+echo "====================================================="
+echo " DEPLOYMENT COMPLETE"
+echo " API:    https://${DOMAIN}"
+echo " Health: https://${DOMAIN}/health"
+echo " Logs:   sudo journalctl -u rag-civil -f"
+echo "====================================================="

@@ -586,6 +586,16 @@ html[data-theme="evolve-light"] #error-msg { border-left: 4px solid var(--red); 
 /* result card */
 .result-card { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
 
+.query-echo {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.1rem;
+  word-break: break-word;
+}
+
 .section-label {
   color: var(--section-label-color);
   font-size: 13px;
