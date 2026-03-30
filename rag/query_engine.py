@@ -837,7 +837,7 @@ def generate_response_stream(user_query: str, context: str):
         yield {"type": "text", "text": remainder}
 
     print(f"\n── LLM RAW OUTPUT ──\n{full_text}\n── END ──\n", flush=True)
-    yield {"type": "done", "raw": full_text}
+    yield {"type": "done", "raw": strip_thinking(full_text)}
 
 
 def query(

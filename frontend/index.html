@@ -100,8 +100,8 @@
             <li data-n="1">Type a question in the box and press enter to search the database.</li>
             <li data-n="2">Filter by agency/jurisdiction using the dropdowns to narrow results.</li>
             <li data-n="3">Citations should include links to the document itself, along with the passage's location.</li>
-            <li data-n="5">Past queries are saved in the History tab — click any entry to view it again.</li>
-            <li data-n="6">Request standards using the top right. Report poor citations with the button in the citation boxes. A full list of included documents can be found at <a href="/standards">this link here!</a></li>
+            <li data-n="4">Past queries are saved in the History tab — click any entry to view it again.</li>
+            <li data-n="5">Request standards using the top right. Report poor citations with the button in the citation boxes. A full list of included documents can be found at <a href="/standards">this link here!</a></li>
           </ol>
         </div>
 
@@ -456,7 +456,7 @@ async function checkApi() {
     apiStatus.className = 'err';
     apiStatus.textContent = 'offline';
     queryInput.disabled = true;
-    queryInput.placeholder = 'The service is currently offline. Prompting will be active again at 6am PST.';
+    queryInput.placeholder = 'Service is offline. Will be restored soon!';
     submitBtn.disabled = true;
   }
 }
@@ -550,11 +550,17 @@ async function runQuery() {
   if (!q) return;
 
   logAnalyticsEvent('prompt_submitted');
+  queryInput.value = '';
+  queryInput.dispatchEvent(new Event('input'));
   setLoading(true);
   clearChatWindow();
 
   const card = document.createElement('div');
   card.className = 'result-card';
+  const queryEcho = document.createElement('div');
+  queryEcho.className = 'query-echo';
+  queryEcho.textContent = q;
+  card.appendChild(queryEcho);
   const respLabel = document.createElement('div');
   respLabel.className = 'section-label';
   respLabel.textContent = 'Response';
@@ -695,6 +701,11 @@ function renderResult(data) {
   const card = document.createElement('div');
   card.className = 'result-card';
 
+  const queryEcho = document.createElement('div');
+  queryEcho.className = 'query-echo';
+  queryEcho.textContent = data.query || '';
+  card.appendChild(queryEcho);
+
   const respLabel = document.createElement('div');
   respLabel.className = 'section-label';
   respLabel.textContent = 'Response';
@@ -722,25 +733,30 @@ function renderTextWithBold(parent, text) {
  * one per [[SRC_N]] citation block.
  */
 function parseResponse(card, text, sourceGroups) {
+  // Strip any <think>...</think> blocks the server may have left in the raw text
+  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '');
   const re = /\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]/g;
   let last = 0, m;
-  while ((m = re.exec(text)) !== null) {
+  while ((m = re.exec(cleaned)) !== null) {
     if (m[1] != null) {
+      const seg = cleaned.slice(last, m.index).trim();
       const [block, sp] = makeResponseBox(card);
-      if (m.index > last) renderTextWithBold(sp, text.slice(last, m.index));
+      if (seg) renderTextWithBold(sp, seg);
       const src = sourceGroups && sourceGroups[parseInt(m[1], 10) - 1];
       if (src) {
         block.appendChild(buildCitationLine(src));
         block.parentElement.style.borderLeftColor = getSourceColor(src.source_file);
       }
     } else {
-      makeFailBox(card, m.index > last ? text.slice(last, m.index) : '');
+      const seg = cleaned.slice(last, m.index).trim();
+      makeFailBox(card, seg);
     }
     last = re.lastIndex;
   }
-  if (last < text.length) {
+  const trailing = cleaned.slice(last).trim();
+  if (trailing) {
     const [, sp] = makeResponseBox(card);
-    renderTextWithBold(sp, text.slice(last));
+    renderTextWithBold(sp, trailing);
   }
 }
 
