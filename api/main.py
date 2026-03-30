@@ -213,6 +213,46 @@ def _undo_daily_count(ip: str) -> None:
             _daily_counts[ip] = (count - 1, today)
 
 
+def _undo_record_query(
+    filter_agency: str | None,
+    filter_jurisdiction: str | None,
+    filter_state: str | None,
+    filter_locality: str | None,
+) -> None:
+    """Reverse the analytics written by _record_query — called when the query fails
+    so a backend outage doesn't inflate hourly and filter-usage counts."""
+    hour = datetime.datetime.utcnow().strftime("%H")
+    with _analytics_lock:
+        if not ANALYTICS_FILE.exists():
+            return
+        try:
+            data = _json.loads(ANALYTICS_FILE.read_text())
+        except Exception:
+            return
+
+        by_hour = data.get("queries_by_hour", {})
+        if by_hour.get(hour, 0) > 0:
+            by_hour[hour] -= 1
+
+        fu = data.get("filter_usage", {})
+        if any((filter_agency, filter_jurisdiction, filter_state, filter_locality)):
+            if filter_agency and fu.get("agency", 0) > 0:
+                fu["agency"] -= 1
+            if filter_jurisdiction and fu.get("jurisdiction", 0) > 0:
+                fu["jurisdiction"] -= 1
+            if filter_state and fu.get("state", 0) > 0:
+                fu["state"] -= 1
+            if filter_locality and fu.get("locality", 0) > 0:
+                fu["locality"] -= 1
+        else:
+            if fu.get("unfiltered", 0) > 0:
+                fu["unfiltered"] -= 1
+
+        tmp = ANALYTICS_FILE.with_suffix(".tmp")
+        tmp.write_text(_json.dumps(data, indent=2))
+        tmp.replace(ANALYTICS_FILE)
+
+
 @app.post("/query")
 def run_query(req: QueryRequest, request: Request):
     ip = _real_ip(request)
@@ -229,6 +269,7 @@ def run_query(req: QueryRequest, request: Request):
         return result
     except Exception as e:
         _undo_daily_count(ip)
+        _undo_record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
         print(f"[error] /query failed: {e}", flush=True)
         raise HTTPException(status_code=500, detail="Query failed. Please retry.")
 
@@ -249,6 +290,7 @@ def run_query_stream(req: QueryRequest, request: Request):
         )
     except Exception as e:
         _undo_daily_count(ip)
+        _undo_record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
         print(f"[error] /query/stream failed: {e}", flush=True)
         def _err():
             yield f'data: {_json.dumps({"type": "error", "message": "Query failed. Please retry."})}\n\n'
@@ -268,6 +310,7 @@ def run_query_stream(req: QueryRequest, request: Request):
                 yield f'data: {_json.dumps(event)}\n\n'
         except Exception as e:
             _undo_daily_count(ip)
+            _undo_record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
             print(f"[error] _generate stream failed: {e}", flush=True)
             yield f'data: {_json.dumps({"type": "error", "message": "Stream interrupted. Please retry."})}\n\n'
 
