@@ -456,7 +456,13 @@ async function checkApi() {
     apiStatus.className = 'err';
     apiStatus.textContent = 'offline';
     queryInput.disabled = true;
-    queryInput.placeholder = 'Service is offline. Will be restored soon!';
+    const pstHour = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles', hour: 'numeric', hour12: false
+    });
+    const h = parseInt(pstHour, 10);
+    queryInput.placeholder = (h >= 6 && h < 20)
+      ? 'Service is restarting — please wait a few minutes and refresh.'
+      : 'Service is available weekdays 6am\u20138pm PST.';
     submitBtn.disabled = true;
   }
 }

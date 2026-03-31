@@ -104,15 +104,16 @@ for i in $(seq 1 90); do
 done
 
 # ── nginx reverse proxy ────────────────────────────────────────────────────────
-if [ ! -f "/etc/nginx/sites-available/${DOMAIN}" ]; then
-    echo "==> Configuring nginx for ${DOMAIN}..."
-    sudo tee /etc/nginx/sites-available/${DOMAIN} > /dev/null <<NGINXEOF
+# Always rewrite config so timeout changes take effect on AMI-based boots
+echo "==> Configuring nginx for ${DOMAIN}..."
+sudo tee /etc/nginx/sites-available/${DOMAIN} > /dev/null <<NGINXEOF
 server {
     listen 80;
     server_name ${DOMAIN};
 
     proxy_buffering off;
-    proxy_read_timeout 120s;
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 10s;
     proxy_set_header Host \$host;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -123,10 +124,9 @@ server {
     }
 }
 NGINXEOF
-    sudo ln -sf /etc/nginx/sites-available/${DOMAIN} /etc/nginx/sites-enabled/${DOMAIN}
-    sudo rm -f /etc/nginx/sites-enabled/default
-    sudo nginx -t && sudo systemctl reload nginx
-fi
+sudo ln -sf /etc/nginx/sites-available/${DOMAIN} /etc/nginx/sites-enabled/${DOMAIN}
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
 
 # ── SSL cert ───────────────────────────────────────────────────────────────────
 if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
