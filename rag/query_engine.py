@@ -92,16 +92,16 @@ def _get_reranker():
 
 
 def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
-    """Re-rank retrieved chunks by (query, chunk) relevance using a cross-encoder."""
+    """Re-rank retrieved chunks by (query, chunk) relevance using a cross-encoder.
+    Always scores all chunks, slices to top_k, then drops any below RERANK_FLOOR."""
     reranker = _get_reranker()
     pairs = [(query, c.text) for c in chunks]
     scores = reranker.predict(pairs)
     for score, c in zip(scores, chunks):
         c.rerank_score = float(score)
-    if len(chunks) <= top_k:
-        return chunks
     ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
-    return [c for _, c in ranked[:top_k]]
+    top = [c for _, c in ranked[:top_k]]
+    return [c for c in top if c.rerank_score >= RERANK_FLOOR]
 
 
 def _vector_search(table, embedding: list[float], n: int, where: str | None) -> list[dict]:
@@ -111,8 +111,11 @@ def _vector_search(table, embedding: list[float], n: int, where: str | None) -> 
     return s.limit(n).to_list()
 
 
-def _fts_search(table, query_text: str, n: int) -> list[dict]:
-    return table.search(query_text, query_type='fts').limit(n).to_list()
+def _fts_search(table, query_text: str, n: int, where: str | None = None) -> list[dict]:
+    s = table.search(query_text, query_type='fts')
+    if where:
+        s = s.where(where)
+    return s.limit(n).to_list()
 
 
 def _rrf_merge(lists: list[list[dict]], k: int = 60) -> list[dict]:
@@ -271,7 +274,7 @@ def retrieve_chunks(
     _tr1 = time.monotonic()
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_vector  = ex.submit(_vector_search, table, embedding, pool_size, user_where)
-        f_fts     = ex.submit(_fts_search,    table, query,     pool_size) if has_section    else None
+        f_fts     = ex.submit(_fts_search,    table, query,     pool_size, user_where) if has_section    else None
         f_boosted = ex.submit(_vector_search, table, embedding, pool_size, auto_where)       if auto_where else None
 
         vector_rows  = f_vector.result()
@@ -710,6 +713,7 @@ def query_prepare(
     Returns {context, source_groups, chunks} or {empty: True, ...} if no results."""
     _t0 = time.monotonic()
 
+    print(f"  [query] {user_query!r}", flush=True)
     print("  [1/4] Connecting to database...")
     table = get_db_table()
     print(f"  [time] db connect: {time.monotonic()-_t0:.2f}s", flush=True)
