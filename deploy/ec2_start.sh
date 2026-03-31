@@ -92,9 +92,25 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
+sudo tee /etc/systemd/system/spot-watcher.service > /dev/null <<EOF
+[Unit]
+Description=Spot termination watcher — archives logs to S3 on termination
+After=network.target
+
+[Service]
+ExecStart=/bin/bash ${REMOTE_DIR}/deploy/spot_watcher.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 sudo systemctl daemon-reload
-sudo systemctl enable rag-civil
-sudo systemctl restart rag-civil
+sudo systemctl enable rag-civil spot-watcher
+sudo systemctl restart rag-civil spot-watcher
 
 echo "==> Waiting for API to be ready..."
 for i in $(seq 1 90); do

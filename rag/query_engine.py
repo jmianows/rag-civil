@@ -4,6 +4,7 @@ import re
 import os
 import json
 import time
+import datetime as _dt
 import itertools
 import threading
 import requests
@@ -12,6 +13,22 @@ from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
 from rag.env_config import OLLAMA_KEEP_ALIVE, RERANKER_DEVICE, LLM_MODEL, VECTORDB_DIR, RERANK_FLOOR
+
+_QUERY_LOG      = Path(__file__).parent.parent / "query_log.jsonl"
+_query_log_lock = threading.Lock()
+
+def _log_query_response(query: str, raw: str) -> None:
+    entry = json.dumps({
+        "ts":       _dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "query":    query,
+        "response": raw,
+    }, ensure_ascii=False)
+    try:
+        with _query_log_lock:
+            with _QUERY_LOG.open("a", encoding="utf-8") as f:
+                f.write(entry + "\n")
+    except Exception as e:
+        print(f"  [warn] query log write failed: {e}", flush=True)
 
 _ollama_session = requests.Session()
 _ollama_session.headers.update({"Connection": "keep-alive"})
@@ -842,6 +859,7 @@ def generate_response_stream(user_query: str, context: str):
         yield {"type": "text", "text": remainder}
 
     print(f"\n── LLM RAW OUTPUT ──\n{full_text}\n── END ──\n", flush=True)
+    _log_query_response(user_query, strip_thinking(full_text))
     yield {"type": "done", "raw": strip_thinking(full_text)}
 
 
