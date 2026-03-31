@@ -443,7 +443,10 @@ const modalConfirm = document.getElementById('modal-confirm');
 ══════════════════════════════════════════════════════════════ */
 async function checkApi() {
   try {
-    const r = await fetch(API + '/filters');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const r = await fetch(API + '/filters', {signal: controller.signal});
+    clearTimeout(timeout);
     if (!r.ok) throw new Error(r.status);
     apiOffline = false;
     apiStatus.className = 'ok';
@@ -461,9 +464,11 @@ async function checkApi() {
     });
     const h = parseInt(pstHour, 10);
     queryInput.placeholder = (h >= 6 && h < 20)
-      ? 'Service is restarting — please wait a few minutes and refresh.'
+      ? 'Service is restarting \u2014 checking again shortly\u2026'
       : 'Service is available weekdays 6am\u20138pm PST.';
     submitBtn.disabled = true;
+    // Retry every 30s during business hours until back online
+    if (h >= 6 && h < 20) setTimeout(checkApi, 30000);
   }
 }
 
