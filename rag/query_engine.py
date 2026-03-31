@@ -542,7 +542,8 @@ _LLM_OPTIONS_FULL = {
     "temperature":    0.1,
     "num_ctx":        8192,
     "num_predict":    1500,
-    "repeat_penalty": 1.3,
+    "repeat_penalty": 1.5,
+    "repeat_last_n":  256,
     "top_k":          20,
     "num_gpu":        999,
 }

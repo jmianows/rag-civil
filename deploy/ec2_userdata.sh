@@ -66,6 +66,19 @@ fi
 # ── 5. Start services ─────────────────────────────────────────────────────────
 echo "[userdata] Starting services..."
 systemctl restart ollama
+
+# Wait for Ollama to be ready
+for i in $(seq 1 30); do
+    curl -sf http://127.0.0.1:11434/ &>/dev/null && break
+    sleep 2
+done
+
+# Warm up LLM — loads model into VRAM before first real query
+echo "[userdata] Warming up LLM (loading into VRAM)..."
+curl -s http://127.0.0.1:11434/api/chat \
+    -d '{"model":"qwen3:8b","messages":[{"role":"user","content":"hi"}],"stream":false}' \
+    --max-time 300 &>/dev/null && echo "[userdata] LLM warm" || echo "[userdata] WARNING: LLM warmup failed"
+
 systemctl restart rag-civil
 
 # Re-run certbot to wire SSL into nginx config (idempotent)
