@@ -806,7 +806,7 @@ def generate_response_stream(user_query: str, context: str):
                 continue
             token = data.get("message", {}).get("content", "")
             if token and not _first_token_logged:
-                print(f"  [time] LLM first token: {time.monotonic()-_llm_start:.2f}s", flush=True)
+                print(f"  [time] LLM first token: {time.monotonic()-_llm_start:.2f}s — streaming to client", flush=True)
                 _first_token_logged = True
             buffer    += token
             full_text += token
@@ -894,6 +894,35 @@ def query(
         "chunks":        prep["chunks"],
         "source_groups": prep["source_groups"],
     }
+
+
+# ── Ollama keepalive ping ──────────────────────────────────────────────────────
+_KEEPALIVE_INTERVAL = 3 * 60  # seconds between pings
+
+def _ollama_keepalive_loop() -> None:
+    """Background thread: ping Ollama every 3 minutes to keep LLM loaded in VRAM."""
+    import time as _time
+    _time.sleep(60)  # wait for startup to settle
+    while True:
+        try:
+            host = _next_ollama_host()
+            payload = {
+                "model":      LLM_MODEL,
+                "messages":   [{"role": "user", "content": "hi"}],
+                "stream":     False,
+                "think":      False,
+                "keep_alive": -1,
+                "options":    {"num_predict": 1},
+            }
+            r = _ollama_session.post(host + "/api/chat", json=payload, timeout=(10, 30))
+            r.raise_for_status()
+            print(f"  [keepalive] LLM warm ({host})", flush=True)
+        except Exception as e:
+            print(f"  [keepalive] ping failed: {e}", flush=True)
+        _time.sleep(_KEEPALIVE_INTERVAL)
+
+_keepalive_thread = threading.Thread(target=_ollama_keepalive_loop, daemon=True)
+_keepalive_thread.start()
 
 
 if __name__ == "__main__":
