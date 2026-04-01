@@ -33,7 +33,7 @@
   },
   {
     "source_file": "2022-cgp-permit-as-modified.pdf",
-    "agency": "ENVIRONMENTAL",
+    "agency": "ENVIROMENTAL",
     "jurisdiction": "FEDERAL",
     "state": "USA",
     "locality": "",
@@ -41,7 +41,7 @@
   },
   {
     "source_file": "Executive Order 11988 Floodplains.pdf",
-    "agency": "ENVIRONMENTAL",
+    "agency": "ENVIROMENTAL",
     "jurisdiction": "FEDERAL",
     "state": "USA",
     "locality": "",
@@ -326,6 +326,118 @@
     "state": "WA",
     "locality": "",
     "file_link": "https://www.wsdot.wa.gov/publications/manuals/fulltext/M46-04/MatsLab.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 21-01 - Pedestrian Accommodation in Alteration and Preservation Projects.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo21-01.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 21-03 - Professional Liability Insurance Risk Assessment.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo21-03.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 22-01 - Vertical Clearance for Water Crossing Bridges.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo22-01.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 22-02 - Risk Approval for Advertisement of Design-Build Projects.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo22-02.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 23-03 - Indirect Costs Within Reimbursable Agreements.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo23-03.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 23-04 - Dig Once Broadband.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo23-04.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 23-05 - Department Franchise Authority on Developer-Led Projects.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo23-05.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 23-06 - Pre-NCHRP 350 Guardrail Terminal Replacement.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo23-06.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 24-01 - Environmental Compliance Assurance Policy.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo24-01.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 25-01 - Project Risk Management and Risk-Based Estimating.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo25-01.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 25-02 - Roundabout First and Intersection Control Evaluation Policy.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo25-02.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 25-03 - Work Zone Safety and Mobility Updates.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo25-03.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 26-01 - NCHRP 350 Temporary Barrier Sunset Date.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo26-01.pdf"
+  },
+  {
+    "source_file": "WSDOT PDM 26-02 - Turnback Process.pdf",
+    "agency": "WSDOT",
+    "jurisdiction": "STATE",
+    "state": "WA",
+    "locality": "",
+    "file_link": "https://wsdot.wa.gov/publications/fulltext/ProjectDev/ProjectDeliveryMemos/Memo26-02.pdf"
   },
   {
     "source_file": "WSDOT Plans Preparation Manual.pdf",
