@@ -282,3 +282,119 @@ def extract_section_candidate(line: str) -> Optional[list[dict]]:
             return None
 
     return segments
+
+
+# ── Heading-path section extraction ───────────────────────────────────────────
+
+_CHAPTER_RE = re.compile(
+    r'^(?:Chapter|CHAPTER|Section|SECTION|Part|PART|Article|ARTICLE)\s+(\d+\w*)',
+    re.IGNORECASE
+)
+
+
+def _extract_section_numeric_relaxed(line: str) -> Optional[str]:
+    """
+    Attempt numeric section extraction with rules relaxed for confirmed heading blocks.
+
+    Keeps: year rejection, leading zeros, first int > 8000, any segment > 9999,
+           segment value 0, USACE document number pattern.
+    Removes: single-digit-lead 3-segment requirement, dot-second > 50 rejection,
+             2-digit lead + 2-digit dot rejection, MUTCD page number rejection,
+             lowercase remainder rejection.
+    """
+    line = line.strip()
+    if not line:
+        return None
+
+    segments = parse_section_number(line)
+    if not segments:
+        return None
+
+    # Must have at least 1 segment and start with LEAD_INT
+    if segments[0]['type'] != 'LEAD_INT':
+        return None
+
+    first_val = segments[0]['value']
+    first_int = segments[0]['int_val']
+
+    # Keep: reject leading zeros
+    if first_val.startswith('0'):
+        return None
+
+    # Keep: reject years (appear in doc titles and dates)
+    if re.match(r'^(19|20)\d{2}$', first_val):
+        has_paren = any('PAREN' in s['type'] or 'BRACK' in s['type'] for s in segments)
+        has_multiple_dot = sum(1 for s in segments if s['type'] == 'DOT_INT') > 1
+        has_large_dot = any(s['type'] == 'DOT_INT' and s['int_val'] >= 100 for s in segments)
+        if not has_paren and not has_multiple_dot and not has_large_dot:
+            return None
+
+    # Keep: reject first segment over 8000
+    if first_int > 8000:
+        return None
+
+    # Keep: reject any segment over 9999 (phone numbers in heading contact info)
+    for seg in segments:
+        if 'INT' in seg['type'] and seg['int_val'] > 9999:
+            return None
+
+    # Keep: reject segment value 0
+    for seg in segments:
+        if 'INT' in seg['type'] and seg['int_val'] == 0:
+            return None
+
+    # Keep: reject USACE document numbers (lead + hyphen + 4-digit hyphen)
+    if (len(segments) == 3
+            and segments[1]['type'] == 'HYPHEN_INT'
+            and segments[2]['type'] == 'HYPHEN_INT'
+            and len(segments[2]['value']) == 4):
+        return None
+
+    # Remainder check: only reject math operators and bare numbers —
+    # do NOT reject lowercase remainder (the title follows the section number)
+    consumed = segments_to_string(segments)
+    remainder = line[len(consumed):].strip()
+    if remainder:
+        if re.match(r'^[\+\=\<\>\/\*\%]', remainder):
+            return None
+        if re.match(r'^\d+\.?\d*$', remainder):
+            return None
+
+    return consumed
+
+
+def extract_section_from_heading(text: str) -> str:
+    """
+    Extract a section label from a confirmed heading block.
+
+    Three-stage approach:
+      1. Relaxed numeric extraction — accepts single-digit leads with 2 segments,
+         X-Y hyphen style, and other patterns rejected in body text
+      2. Chapter/Section/Part keyword pattern
+      3. Heading text itself (truncated) — always returns something useful
+
+    Never returns 'UNKNOWN'. Heading blocks are authoritative structural markers
+    so even a text label is more useful than no label.
+    """
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+    # Stage 1 — relaxed numeric on each line
+    for line in lines[:5]:
+        result = _extract_section_numeric_relaxed(line)
+        if result:
+            return result
+
+    # Stage 2 — Chapter/Section/Part keyword
+    for line in lines[:5]:
+        m = _CHAPTER_RE.match(line)
+        if m:
+            # Return the full matched prefix e.g. "Chapter 5"
+            return line[:m.end()].strip()
+
+    # Stage 3 — heading text fallback (strip trailing punctuation, cap at 50 chars)
+    if lines:
+        label = lines[0][:50].rstrip('.:;,- ')
+        if label:
+            return label
+
+    return "UNKNOWN"

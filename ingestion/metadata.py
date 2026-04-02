@@ -3,12 +3,14 @@ from pathlib import Path
 try:
     from ingestion.section_parser import (
         extract_section_candidate,
+        extract_section_from_heading,
         segments_to_string,
         is_valid_advance,
     )
 except ImportError:
     from section_parser import (
         extract_section_candidate,
+        extract_section_from_heading,
         segments_to_string,
         is_valid_advance,
     )

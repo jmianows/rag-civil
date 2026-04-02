@@ -1,5 +1,9 @@
 from metadata import detect_section, detect_doc_page, propagate_metadata, DocumentSectionTracker
 try:
+    from ingestion.section_parser import extract_section_from_heading
+except ImportError:
+    from section_parser import extract_section_from_heading
+try:
     from ingestion.common import _load_link
 except ImportError:
     from common import _load_link
@@ -80,7 +84,14 @@ class Block:
     section:   str    # section number inherited from last heading seen
     bold:      bool
     font_size: float
+    font_name: str    # dominant font name from PyMuPDF span data
     bbox:      tuple  # (x0, y0, x1, y1)
+
+# Leading list markers that disqualify a block from being a heading even if bold/large.
+# Matches bullet chars and en/em dash used as list markers (not ASCII hyphen in section numbers).
+_LIST_PREFIX_RE   = re.compile(r'^[•–—▪◦]\s')
+# Exhibit/Figure/Table labels are captions, not section headings.
+_CAPTION_PREFIX_RE = re.compile(r'^(?:Exhibit|Figure|Table|Fig\.?)\s+\d', re.IGNORECASE)
 
 
 def _extract_doc_page(text: str) -> str:
@@ -99,24 +110,27 @@ def _extract_doc_page(text: str) -> str:
     return ""
 
 
-def _block_text_and_style(fitz_block: dict) -> tuple[str, float, bool]:
-    """Extract joined text, median font size, and bold flag from a fitz dict block."""
-    texts  = []
-    sizes  = []
-    is_bold = False
+def _block_text_and_style(fitz_block: dict) -> tuple[str, float, bool, str]:
+    """Extract joined text, median font size, bold flag, and dominant font name."""
+    texts      = []
+    sizes      = []
+    font_names = []
+    is_bold    = False
     for line in fitz_block.get("lines", []):
         for span in line.get("spans", []):
             t = span.get("text", "").strip()
             if t:
                 texts.append(t)
+                font_names.append(span.get("font", ""))
             sz = span.get("size", 0.0)
             if sz > 0:
                 sizes.append(sz)
             if span.get("flags", 0) & 16:   # bit 4 = bold
                 is_bold = True
-    text      = " ".join(texts)
-    font_size = statistics.median(sizes) if sizes else 0.0
-    return text, font_size, is_bold
+    text         = " ".join(texts)
+    font_size    = statistics.median(sizes) if sizes else 0.0
+    dominant_font = max(set(font_names), key=font_names.count) if font_names else ""
+    return text, font_size, is_bold, dominant_font
 
 #for looking at pages with images
 def ocr_pdf_page(page) -> str:
@@ -242,13 +256,14 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
                 raw_blocks.append(Block(
                     text=text, kind="body", page=page_num + 1,
                     doc_page="UNKNOWN", section="UNKNOWN",
-                    bold=False, font_size=0.0, bbox=(0, 0, 0, 0),
+                    bold=False, font_size=0.0, font_name="", bbox=(0, 0, 0, 0),
                 ))
             return raw_blocks
 
         for page_num in range(len(doc)):
             page        = doc[page_num]
             page_height = page.rect.height
+            page_width  = page.rect.width
             header_y    = page_height * 0.08   # top 8%
             footer_y    = page_height * 0.92   # bottom 8%
 
@@ -269,20 +284,34 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
             heading_threshold = body_font * 1.15
 
             for fitz_block in text_blocks:
-                text, font_size, bold = _block_text_and_style(fitz_block)
+                text, font_size, bold, font_name = _block_text_and_style(fitz_block)
                 text = clean_page_text(text)
                 if len(text.strip()) < 10:
                     continue
 
                 bbox = fitz_block.get("bbox", (0, 0, 0, 0))
                 y0, y1 = bbox[1], bbox[3]
+                block_width = bbox[2] - bbox[0]
+
+                # Filter: multi-sentence text is body prose, not a heading.
+                multi_sentence = bool(re.search(r'\.\s+[A-Z]', text))
+                # Filter: leading bullet/en-dash/em-dash marks a list item, not a heading.
+                is_list_item = bool(_LIST_PREFIX_RE.match(text))
+                # Filter: Exhibit/Figure/Table captions are not section headings.
+                is_caption = bool(_CAPTION_PREFIX_RE.match(text))
 
                 # Classify by position first, then font
                 if y1 <= header_y:
                     kind = "header"
                 elif y0 >= footer_y:
                     kind = "footer"
-                elif font_size >= heading_threshold or (bold and len(text) < 200):
+                elif font_size >= heading_threshold and not multi_sentence and not is_list_item and not is_caption:
+                    kind = "heading"
+                elif (bold and len(text) < 200
+                      and not multi_sentence
+                      and not is_list_item
+                      and not is_caption
+                      and page_width > 0 and block_width / page_width >= 0.4):
                     kind = "heading"
                 else:
                     kind = "body"
@@ -290,7 +319,7 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
                 raw_blocks.append(Block(
                     text=text, kind=kind, page=page_num + 1,
                     doc_page="UNKNOWN", section="UNKNOWN",
-                    bold=bold, font_size=font_size, bbox=bbox,
+                    bold=bold, font_size=font_size, font_name=font_name, bbox=bbox,
                 ))
 
     finally:
@@ -298,6 +327,34 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
 
     if not raw_blocks:
         return []
+
+    # ── Pass 2: font consistency filter ───────────────────────────────────────
+    # Size-triggered headings are ground truth for what a heading font looks like.
+    # Bold-only headings whose font doesn't match are likely callouts/table rows.
+    size_heading_fonts = [
+        b.font_name for b in raw_blocks
+        if b.kind == "heading" and b.font_size >= (
+            # recompute per-block: if font_size was the trigger it was >= threshold
+            # we don't store the threshold, but size-triggered blocks have larger fonts
+            # than bold-only blocks, so use the median of heading font sizes as a proxy
+            statistics.median([
+                x.font_size for x in raw_blocks if x.kind == "heading"
+            ]) * 0.85  # slightly below median to capture all size-triggered ones
+        )
+        and b.font_name
+    ]
+    if size_heading_fonts:
+        # Top 2 most common font names among size-triggered headings
+        font_counter: dict[str, int] = {}
+        for fn in size_heading_fonts:
+            font_counter[fn] = font_counter.get(fn, 0) + 1
+        heading_fonts = {fn for fn, _ in sorted(font_counter.items(), key=lambda x: -x[1])[:2]}
+
+        for block in raw_blocks:
+            if (block.kind == "heading"
+                    and block.font_name
+                    and block.font_name not in heading_fonts):
+                block.kind = "body"
 
     # ── Forward-pass state machine ─────────────────────────────────────────────
     # Walk blocks in document order. Headers/footers are mined for doc_page then
@@ -318,9 +375,8 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
         block.doc_page = current_doc_page
 
         if block.kind == "heading":
-            new_section = tracker.process_chunk(block.text)
-            if new_section != "UNKNOWN":
-                current_section = new_section
+            # Heading path: relaxed rules + keyword + text fallback — always authoritative
+            current_section = extract_section_from_heading(block.text)
             block.section = current_section
             is_toc, _ = is_table_of_contents(block.text)
             if is_toc:
