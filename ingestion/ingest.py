@@ -92,6 +92,15 @@ class Block:
 _LIST_PREFIX_RE   = re.compile(r'^[•–—▪◦]\s')
 # Exhibit/Figure/Table labels are captions, not section headings.
 _CAPTION_PREFIX_RE = re.compile(r'^(?:Exhibit|Figure|Table|Fig\.?)\s+\d', re.IGNORECASE)
+# URL/domain patterns — reference list lines, not section headings.
+_URL_RE           = re.compile(r'(?:www\.|https?://|\.gov|\.org|\.com)', re.IGNORECASE)
+# Real section labels — numeric (1-2, 5-19.1, 1510.04) or keyword (Chapter 5, Section 3).
+# Used to guard against text-fallback prose labels overwriting a good numeric section.
+_REAL_SECTION_RE  = re.compile(r'^\d|^(?:Chapter|Section|Part|Article)\s+\d', re.IGNORECASE)
+
+
+def _looks_like_real_section(s: str) -> bool:
+    return bool(_REAL_SECTION_RE.match(s.strip()))
 
 
 def _extract_doc_page(text: str) -> str:
@@ -299,18 +308,23 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
                 is_list_item = bool(_LIST_PREFIX_RE.match(text))
                 # Filter: Exhibit/Figure/Table captions are not section headings.
                 is_caption = bool(_CAPTION_PREFIX_RE.match(text))
+                # Filter: URL/domain reference lines are not section headings.
+                is_url_block = bool(_URL_RE.search(text))
 
                 # Classify by position first, then font
                 if y1 <= header_y:
                     kind = "header"
                 elif y0 >= footer_y:
                     kind = "footer"
-                elif font_size >= heading_threshold and not multi_sentence and not is_list_item and not is_caption:
+                elif (font_size >= heading_threshold
+                      and not multi_sentence and not is_list_item
+                      and not is_caption and not is_url_block):
                     kind = "heading"
                 elif (bold and len(text) < 200
                       and not multi_sentence
                       and not is_list_item
                       and not is_caption
+                      and not is_url_block
                       and page_width > 0 and block_width / page_width >= 0.4):
                     kind = "heading"
                 else:
@@ -375,8 +389,15 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
         block.doc_page = current_doc_page
 
         if block.kind == "heading":
-            # Heading path: relaxed rules + keyword + text fallback — always authoritative
-            current_section = extract_section_from_heading(block.text)
+            # Skip boilerplate blank-page markers entirely.
+            if "intentionally left blank" in block.text.lower():
+                continue
+            candidate = extract_section_from_heading(block.text)
+            # Only accept a text-fallback (prose) label if we don't already have
+            # a real numeric/keyword section. Prevents verbose heading titles from
+            # overwriting good section numbers mid-document.
+            if _looks_like_real_section(candidate) or not _looks_like_real_section(current_section):
+                current_section = candidate
             block.section = current_section
             is_toc, _ = is_table_of_contents(block.text)
             if is_toc:
@@ -417,7 +438,7 @@ def chunk_blocks(blocks: list[Block]) -> list[dict]:
 
     def _flush_remainder() -> None:
         nonlocal chunk_index
-        if len(acc_words) < 10:
+        if len(acc_words) < 30:
             return
         results.append({
             "text":        " ".join(acc_words),
