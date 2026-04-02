@@ -345,28 +345,34 @@ def remove_overlap(text_a: str, text_b: str, min_overlap: int = 20) -> str:
     return text_a + " " + text_b
 
 
-def _expand_from_cache(chunk: RetrievedChunk, id_map: dict[str, str]) -> str:
-    """Build expanded context for a chunk using a pre-fetched id→text map."""
-    sf = chunk.source_file  # use raw value — id_map keys come from the DB unescaped
-    page = chunk.page
-    ci = chunk.chunk_index
+def _expand_from_cache(
+    chunk: RetrievedChunk,
+    # keyed by (source_file, chunk_index) → (text, section)
+    ci_map: dict[tuple[str, int], tuple[str, str]],
+) -> str:
+    """Build expanded context for a chunk using a pre-fetched (sf, ci) → (text, section) map.
+
+    New chunker uses a global chunk_index across the whole document, so neighbors
+    are found by chunk_index offset alone — page is irrelevant for adjacency.
+    Neighbors are only included if they share the same section as the retrieved chunk,
+    so expansion never bleeds across section boundaries.
+    """
+    sf      = chunk.source_file
+    ci      = chunk.chunk_index
+    section = chunk.section
 
     neighbors = []
     for offset in range(-CONTEXT_WINDOW_BEFORE, 0):
-        nid = f"{sf}__p{page}__c{ci + offset}"
-        if nid in id_map:
-            neighbors.append((ci + offset, id_map[nid]))
+        entry = ci_map.get((sf, ci + offset))
+        if entry and entry[1] == section:
+            neighbors.append((ci + offset, entry[0]))
 
     neighbors.append((ci, chunk.text))
 
     for offset in range(1, CONTEXT_WINDOW_AFTER + 1):
-        nid = f"{sf}__p{page}__c{ci + offset}"
-        if nid in id_map:
-            neighbors.append((ci + offset, id_map[nid]))
-        elif offset == 1:
-            next_id = f"{sf}__p{page + 1}__c0"
-            if next_id in id_map:
-                neighbors.append((ci + 1, id_map[next_id]))
+        entry = ci_map.get((sf, ci + offset))
+        if entry and entry[1] == section:
+            neighbors.append((ci + offset, entry[0]))
 
     neighbors.sort(key=lambda x: x[0])
     texts = [t for _, t in neighbors]
@@ -384,35 +390,46 @@ def group_chunks(
     chunks: list[RetrievedChunk],
     table: lancedb.table.LanceTable,
 ) -> list[dict]:
-    # Build all neighbor IDs upfront and fetch in ONE batch query instead of
-    # N*4 sequential full-table scans (each .where() on id scans all 44k rows).
-    needed: set[str] = set()
+    # Fetch neighbors by source_file + chunk_index range — no page needed.
+    # The new chunker uses a global chunk_index so adjacent indices are always
+    # adjacent chunks regardless of which physical page they land on.
+    # One query per distinct source_file keeps the number of DB round-trips small.
+    from collections import defaultdict
+    by_file: dict[str, tuple[int, int]] = {}  # sf → (min_ci, max_ci)
     for chunk in chunks:
-        sf = chunk.source_file  # raw — must match stored IDs built at ingest time
-        page = chunk.page
+        sf = chunk.source_file
         ci = chunk.chunk_index
-        for offset in range(-CONTEXT_WINDOW_BEFORE, CONTEXT_WINDOW_AFTER + 1):
-            needed.add(f"{sf}__p{page}__c{ci + offset}")
-        needed.add(f"{sf}__p{page + 1}__c0")  # cross-page fallback
+        lo = ci - CONTEXT_WINDOW_BEFORE
+        hi = ci + CONTEXT_WINDOW_AFTER
+        if sf in by_file:
+            prev_lo, prev_hi = by_file[sf]
+            by_file[sf] = (min(prev_lo, lo), max(prev_hi, hi))
+        else:
+            by_file[sf] = (lo, hi)
 
-    # Apply _sf() per-ID when interpolating into SQL (not when building lookup keys)
-    id_list = "', '".join(_sf(i) for i in needed)
-    try:
-        rows = (
-            table.search()
-            .where(f"id IN ('{id_list}')")
-            .limit(len(needed))
-            .to_list()
-        )
-    except Exception as e:
-        print(f"  [warn] group_chunks: neighbor fetch failed: {e}", flush=True)
-        rows = []
-    id_map: dict[str, str] = {r["id"]: r["text"] for r in rows}
+    ci_map: dict[tuple[str, int], tuple[str, str]] = {}
+    for sf, (lo, hi) in by_file.items():
+        try:
+            rows = (
+                table.search()
+                .where(
+                    f"source_file = '{_sf(sf)}'"
+                    f" AND chunk_index >= {lo}"
+                    f" AND chunk_index <= {hi}"
+                )
+                .limit(hi - lo + 1)
+                .to_list()
+            )
+            for r in rows:
+                ci_map[(sf, r["chunk_index"])] = (r["text"], r.get("section", "UNKNOWN"))
+        except Exception as e:
+            print(f"  [warn] group_chunks: neighbor fetch failed for {sf}: {e}", flush=True)
 
-    texts = [_expand_from_cache(chunk, id_map) for chunk in chunks]
+    texts = [_expand_from_cache(chunk, ci_map) for chunk in chunks]
     expanded = [{"chunk": chunk, "text": text} for chunk, text in zip(chunks, texts)]
 
-    # group chunks that are from the same source file and close in section
+    # Group chunks from the same file and same section together so they appear
+    # as one combined source block in the LLM context.
     groups = []
     used = set()
 
@@ -432,7 +449,7 @@ def group_chunks(
             )
             same_section = (
                 item["chunk"].section == other["chunk"].section
-                and item["chunk"].section != "UNKNOWN"
+                and item["chunk"].section not in ("UNKNOWN", "")
             )
 
             if same_file and same_section:
