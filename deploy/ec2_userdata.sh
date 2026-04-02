@@ -81,6 +81,30 @@ curl -s http://127.0.0.1:11434/api/chat \
 
 systemctl restart rag-civil
 
+# Install and start spot-watcher service
+tee /etc/systemd/system/spot-watcher.service > /dev/null <<'SVCEOF'
+[Unit]
+Description=Spot termination watcher — archives logs to S3 on termination
+After=network.target
+
+[Service]
+ExecStart=/bin/bash /home/ubuntu/rag-civil/deploy/spot_watcher.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+systemctl daemon-reload
+systemctl enable spot-watcher
+systemctl start spot-watcher
+
+# Hourly analytics sync to S3
+echo "0 * * * * root aws s3 cp /home/ubuntu/rag-civil/analytics.json s3://$S3_BUCKET/analytics/analytics_latest.json --region $REGION 2>/dev/null" > /etc/cron.d/analytics-sync
+echo "0 * * * * root aws s3 cp /home/ubuntu/rag-civil/query_log.jsonl s3://$S3_BUCKET/analytics/query_log_latest.jsonl --region $REGION 2>/dev/null" >> /etc/cron.d/analytics-sync
+
 # Re-run certbot to wire SSL into nginx config (idempotent)
 certbot --nginx -d api.civilsmartdictionary.com --non-interactive --agree-tos \
     --email jmianows@umich.edu --redirect 2>/dev/null || true

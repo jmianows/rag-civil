@@ -1,4 +1,4 @@
-from metadata import detect_section, detect_doc_page, propagate_metadata
+from metadata import detect_section, detect_doc_page, propagate_metadata, DocumentSectionTracker
 try:
     from ingestion.common import _load_link
 except ImportError:
@@ -7,9 +7,11 @@ import argparse
 import json
 import os
 import re
+import statistics
 import fitz
 import lancedb
 import ollama
+from dataclasses import dataclass
 from pathlib import Path
 import pyarrow as pa
 #DIRECTORY STRUCTURE FOR PROPER INGESTION!!!!!!!    _links.json pass document links onto the parser.
@@ -62,8 +64,59 @@ MAX_CHARS     = 900   # characters — roughly 180 words, hard safety ceiling
 FAILED_LOG = Path(__file__).parent / "failed_chunks.jsonl"
 
 # Runtime-set by CLI args in __main__
-DOCS_DIR: Path = _PROJECT_ROOT / "docs"
+DOCS_DIR: Path    = _PROJECT_ROOT / "docs"
 FORCE_RERUN: bool = False
+DRY_RUN: bool     = False
+
+
+# ── Structured extraction data model ──────────────────────────────────────────
+
+@dataclass
+class Block:
+    text:      str
+    kind:      str    # "heading" | "body" | "header" | "footer"
+    page:      int    # physical PDF page number (1-indexed)
+    doc_page:  str    # printed page number captured from header/footer, e.g. "1510-23"
+    section:   str    # section number inherited from last heading seen
+    bold:      bool
+    font_size: float
+    bbox:      tuple  # (x0, y0, x1, y1)
+
+
+def _extract_doc_page(text: str) -> str:
+    """Try to extract a printed page number from a header or footer line."""
+    text = text.strip()
+    # Prefer dash-format page numbers e.g. "1510-23"
+    dash = re.search(r'\b(\d{1,4}-\d{1,4})\b', text)
+    if dash:
+        parts = dash.group(1).split('-')
+        if all(p.isdigit() and int(p) < 5000 for p in parts):
+            return dash.group(1)
+    # "Page N" or "PAGE N"
+    page_kw = re.search(r'(?:Page|PAGE)\s+(\d{1,4})', text)
+    if page_kw:
+        return page_kw.group(1)
+    return ""
+
+
+def _block_text_and_style(fitz_block: dict) -> tuple[str, float, bool]:
+    """Extract joined text, median font size, and bold flag from a fitz dict block."""
+    texts  = []
+    sizes  = []
+    is_bold = False
+    for line in fitz_block.get("lines", []):
+        for span in line.get("spans", []):
+            t = span.get("text", "").strip()
+            if t:
+                texts.append(t)
+            sz = span.get("size", 0.0)
+            if sz > 0:
+                sizes.append(sz)
+            if span.get("flags", 0) & 16:   # bit 4 = bold
+                is_bold = True
+    text      = " ".join(texts)
+    font_size = statistics.median(sizes) if sizes else 0.0
+    return text, font_size, is_bold
 
 #for looking at pages with images
 def ocr_pdf_page(page) -> str:
@@ -157,6 +210,214 @@ def extract_text_from_pdf(pdf_path: Path) -> list[dict]:
         doc.close()
     print(f"  Extracted {len(pages)} text pages from {pdf_path.name}")
     return pages
+
+def extract_blocks(pdf_path: Path) -> list[Block]:
+    """
+    Structured extraction using PyMuPDF dict-mode.
+
+    Classifies each text block as header/footer/heading/body using page position
+    and font characteristics, then runs a forward-pass state machine to assign
+    authoritative section and doc_page metadata to every body/heading block
+    BEFORE any text is discarded.
+
+    Falls back to flat OCR text for scanned documents (section/doc_page = UNKNOWN).
+    """
+    doc = fitz.open(str(pdf_path))
+    raw_blocks: list[Block] = []
+
+    try:
+        use_ocr = is_scanned_pdf(doc)
+        if use_ocr:
+            print(f"  [scanned] using OCR fallback for {pdf_path.name}")
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                try:
+                    text = ocr_pdf_page(page)
+                except Exception as e:
+                    print(f"  [OCR error] page {page_num + 1}: {e}")
+                    continue
+                text = clean_page_text(text)
+                if len(text.strip()) < 50:
+                    continue
+                raw_blocks.append(Block(
+                    text=text, kind="body", page=page_num + 1,
+                    doc_page="UNKNOWN", section="UNKNOWN",
+                    bold=False, font_size=0.0, bbox=(0, 0, 0, 0),
+                ))
+            return raw_blocks
+
+        for page_num in range(len(doc)):
+            page        = doc[page_num]
+            page_height = page.rect.height
+            header_y    = page_height * 0.08   # top 8%
+            footer_y    = page_height * 0.92   # bottom 8%
+
+            page_dict   = page.get_text("dict")
+            text_blocks = [b for b in page_dict.get("blocks", []) if b.get("type") == 0]
+            if not text_blocks:
+                continue
+
+            # Median font size across all spans on this page — used to detect headings
+            all_sizes = [
+                span.get("size", 0.0)
+                for b in text_blocks
+                for line in b.get("lines", [])
+                for span in line.get("spans", [])
+                if span.get("size", 0.0) > 0
+            ]
+            body_font = statistics.median(all_sizes) if all_sizes else 12.0
+            heading_threshold = body_font * 1.15
+
+            for fitz_block in text_blocks:
+                text, font_size, bold = _block_text_and_style(fitz_block)
+                text = clean_page_text(text)
+                if len(text.strip()) < 10:
+                    continue
+
+                bbox = fitz_block.get("bbox", (0, 0, 0, 0))
+                y0, y1 = bbox[1], bbox[3]
+
+                # Classify by position first, then font
+                if y1 <= header_y:
+                    kind = "header"
+                elif y0 >= footer_y:
+                    kind = "footer"
+                elif font_size >= heading_threshold or (bold and len(text) < 200):
+                    kind = "heading"
+                else:
+                    kind = "body"
+
+                raw_blocks.append(Block(
+                    text=text, kind=kind, page=page_num + 1,
+                    doc_page="UNKNOWN", section="UNKNOWN",
+                    bold=bold, font_size=font_size, bbox=bbox,
+                ))
+
+    finally:
+        doc.close()
+
+    if not raw_blocks:
+        return []
+
+    # ── Forward-pass state machine ─────────────────────────────────────────────
+    # Walk blocks in document order. Headers/footers are mined for doc_page then
+    # discarded. Headings update current_section. All body/heading blocks receive
+    # the current state values before being added to output.
+    tracker          = DocumentSectionTracker()
+    current_section  = "UNKNOWN"
+    current_doc_page = "UNKNOWN"
+    output: list[Block] = []
+
+    for block in raw_blocks:
+        if block.kind in ("header", "footer"):
+            candidate = _extract_doc_page(block.text)
+            if candidate:
+                current_doc_page = candidate
+            continue   # strip from output
+
+        block.doc_page = current_doc_page
+
+        if block.kind == "heading":
+            new_section = tracker.process_chunk(block.text)
+            if new_section != "UNKNOWN":
+                current_section = new_section
+            block.section = current_section
+            is_toc, _ = is_table_of_contents(block.text)
+            if is_toc:
+                continue
+            output.append(block)
+
+        else:  # body
+            is_toc, _ = is_table_of_contents(block.text)
+            if is_toc:
+                continue
+            block.section = current_section
+            output.append(block)
+
+    n_stripped = len(raw_blocks) - len(output)
+    print(f"  Extracted {len(output)} blocks from {pdf_path.name} "
+          f"({n_stripped} header/footer/TOC blocks stripped)")
+    return output
+
+
+def chunk_blocks(blocks: list[Block]) -> list[dict]:
+    """
+    Section-aware chunker operating on Block objects.
+
+    Flushes the accumulator at every heading boundary so no chunk ever spans
+    two sections. The heading text is prepended to the first chunk of its section
+    to give the embedder richer context. doc_page and section come directly from
+    the Block — never re-detected from text.
+    """
+    if not blocks:
+        return []
+
+    results:     list[dict] = []
+    chunk_index: int        = 0
+    acc_words:   list[str]  = []
+    acc_section:  str = "UNKNOWN"
+    acc_doc_page: str = "UNKNOWN"
+    acc_page:     int = 0
+
+    def _flush_remainder() -> None:
+        nonlocal chunk_index
+        if len(acc_words) < 10:
+            return
+        results.append({
+            "text":        " ".join(acc_words),
+            "page":        acc_page,
+            "doc_page":    acc_doc_page,
+            "section":     acc_section,
+            "chunk_index": chunk_index,
+        })
+        chunk_index += 1
+
+    def _flush_sliding() -> None:
+        """Emit a full CHUNK_SIZE chunk and keep CHUNK_OVERLAP words for next."""
+        nonlocal acc_words, chunk_index
+        chunk_str = " ".join(acc_words[:CHUNK_SIZE])
+        if len(chunk_str.strip()) > 50:
+            results.append({
+                "text":        chunk_str,
+                "page":        acc_page,
+                "doc_page":    acc_doc_page,
+                "section":     acc_section,
+                "chunk_index": chunk_index,
+            })
+            chunk_index += 1
+        acc_words[:] = acc_words[CHUNK_SIZE - CHUNK_OVERLAP:]
+
+    for block in blocks:
+        words = block.text.split()
+        if not words:
+            continue
+
+        if block.kind == "heading":
+            _flush_remainder()
+            acc_words    = words          # heading text starts the new chunk
+            acc_section  = block.section
+            acc_doc_page = block.doc_page
+            acc_page     = block.page
+
+        else:  # body
+            # Safety flush if section changes mid-stream without a heading block
+            if (block.section != acc_section
+                    and acc_section  != "UNKNOWN"
+                    and block.section != "UNKNOWN"):
+                _flush_remainder()
+                acc_words = []
+
+            acc_section  = block.section
+            acc_doc_page = block.doc_page
+            acc_page     = block.page
+            acc_words.extend(words)
+
+            while len(acc_words) >= CHUNK_SIZE:
+                _flush_sliding()
+
+    _flush_remainder()
+    return results
+
 
 ##a bunch of periods break things
 def is_table_of_contents(text: str) -> tuple[bool, float]:
@@ -265,18 +526,8 @@ def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
 
     file_link = _load_link(pdf_path, root)
 
-    section  = detect_section(chunk["text"])
-    doc_page = "UNKNOWN"
-
-    doc_page_match = re.search(
-        r'(?<!\d)(\d{1,4}-\d{1,4})(?!\d)',
-        chunk["text"][:300]
-    )
-    if doc_page_match:
-        candidate = doc_page_match.group(1)
-        if candidate != section:
-            doc_page = candidate
-
+    # section and doc_page are set authoritatively by extract_blocks() / chunk_blocks().
+    # Do NOT re-detect from text — that would overwrite the structural metadata.
     return {
         **chunk,
         "jurisdiction": jurisdiction,
@@ -285,8 +536,8 @@ def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
         "locality":     locality,
         "source_file":  pdf_path.name,
         "file_link":    file_link,
-        "section":      section,
-        "doc_page":     doc_page,
+        "section":      chunk.get("section", "UNKNOWN"),
+        "doc_page":     chunk.get("doc_page", "UNKNOWN"),
         "page":         chunk.get("page", 0),
         "chunk_index":  chunk.get("chunk_index", 0),
     }
@@ -516,42 +767,35 @@ def strip_repeating_lines(text: str, header_set: set[str], footer_set: set[str])
 
 
 def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable, root: Path) -> None:
-    if already_ingested(pdf_path, table):
+    if not DRY_RUN and already_ingested(pdf_path, table):
         if not FORCE_RERUN:
             print(f"  [skipped] already in database: {pdf_path.name}")
             return
-        # Delete only this file's rows so other documents are unaffected
         safe = pdf_path.name.replace("'", "''").replace("\\", "\\\\")
         table.delete(f"source_file = '{safe}'")
         print(f"  [force] deleted existing rows for {pdf_path.name}, re-ingesting")
 
     print(f"\nProcessing: {pdf_path.name}")
 
-    pages = extract_text_from_pdf(pdf_path)
-    if not pages:
-        print(f"  [skipped] no usable text found in {pdf_path.name}")
+    # ── Structured extraction: blocks with authoritative section + doc_page ───
+    blocks = extract_blocks(pdf_path)
+    if not blocks:
+        print(f"  [skipped] no usable blocks found in {pdf_path.name}")
         return
 
-    # Light whitespace cleanup on every page
-    for p in pages:
-        p["text"] = clean_page_text(p["text"])
+    # ── Dry-run diagnostic: print sample of blocks and stop ──────────────────
+    if DRY_RUN:
+        print(f"  [dry-run] first 15 blocks:")
+        for b in blocks[:15]:
+            print(f"    [{b.kind:7s}] p{b.page:>3}  sec={b.section:<15}  "
+                  f"doc_page={b.doc_page:<10}  {b.text[:80]!r}")
+        return
 
-    # Detect and strip repeating page headers/footers
-    if len(pages) >= 3:
-        header_set = detect_repeating_lines(pages, zone='header', zone_size=4)
-        footer_set = detect_repeating_lines(pages, zone='footer', zone_size=3)
-        if header_set or footer_set:
-            print(f"  [clean] {len(header_set)} repeating header line(s), "
-                  f"{len(footer_set)} footer line(s) — removing")
-            for p in pages:
-                p["text"] = strip_repeating_lines(p["text"], header_set, footer_set)
+    # ── Chunk using block metadata — no re-detection needed ──────────────────
+    raw_chunks = chunk_blocks(blocks)
+    all_chunks = [tag_metadata(c, pdf_path, root) for c in raw_chunks]
 
-    all_chunks = []
-    for page_data in pages:
-        chunks = chunk_text(page_data)
-        tagged = [tag_metadata(chunk, pdf_path, root) for chunk in chunks]
-        all_chunks.extend(tagged)
-
+    # Safety net: propagate any remaining UNKNOWN values forward
     all_chunks = propagate_missing_metadata(all_chunks)
 
     print(f"  Generated {len(all_chunks)} chunks")
@@ -589,14 +833,17 @@ def reset_db() -> lancedb.table.LanceTable:
     print("  New table created")
     return table
 
-def main(docs_dir: Path, force: bool, only: str | None) -> None:
-    global DOCS_DIR, FORCE_RERUN
+def main(docs_dir: Path, force: bool, only: str | None, dry_run: bool = False) -> None:
+    global DOCS_DIR, FORCE_RERUN, DRY_RUN
     DOCS_DIR    = docs_dir
     FORCE_RERUN = force
+    DRY_RUN     = dry_run
 
     print("=" * 60)
     print("Civil Engineering RAG — Ingestion Pipeline")
     print(f"Root : {DOCS_DIR}")
+    if DRY_RUN:
+        print("Mode : DRY RUN — no database writes, block diagnostics only")
     print("=" * 60)
 
     if not DOCS_DIR.exists():
@@ -605,18 +852,18 @@ def main(docs_dir: Path, force: bool, only: str | None) -> None:
 
     VECTORDB_DIR.mkdir(parents=True, exist_ok=True)
 
-    if FORCE_RERUN:
+    if FORCE_RERUN and not DRY_RUN:
         print("\n--force: existing rows for each processed file will be deleted and re-ingested.")
         confirm = input("Type Y to confirm, anything else to cancel: ").strip()
         if confirm != "Y":
             print("Cancelled.")
             return
         print("Confirmed.")
+
     table = init_db()
 
     pdf_files = sorted(DOCS_DIR.rglob("*.pdf"))
 
-    # Filter to subtree if --only specified
     if only:
         only_root = DOCS_DIR / only
         pdf_files = [p for p in pdf_files if p.is_relative_to(only_root)]
@@ -643,6 +890,12 @@ def main(docs_dir: Path, force: bool, only: str | None) -> None:
         except Exception as e:
             print(f"  [error] {pdf_path.name}: {e}")
             failed.append(pdf_path.name)
+
+    if DRY_RUN:
+        print("\n" + "=" * 60)
+        print("Dry run complete — no data written.")
+        print("=" * 60)
+        return
 
     print("\n" + "=" * 60)
     print("Ingestion complete")
@@ -691,5 +944,10 @@ PDF links (optional, no code changes needed):
         default=None,
         help="Only ingest this relative subtree, e.g. FEDERAL/USA/OSHA",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print block diagnostics without writing to the database",
+    )
     args = parser.parse_args()
-    main(Path(args.root), args.force, args.only)
+    main(Path(args.root), args.force, args.only, dry_run=args.dry_run)
