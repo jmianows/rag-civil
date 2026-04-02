@@ -634,7 +634,7 @@ html[data-theme="evolve-light"] .response-text { border-left-width: 4px; padding
   margin: 0.25rem 0;
 }
 
-/* single-line citation rows — rendered inline at [[SRC_N]] positions */
+/* single-line citation rows — rendered inline at ^^^N^^^ positions */
 .citation-line {
   display: flex;
   align-items: center;

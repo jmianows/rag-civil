@@ -45,11 +45,11 @@ _SECTION_RE = re.compile(
 
 # Pre-compiled regexes used in text processing functions
 _THINK_RE         = re.compile(r'<think>.*?</think>', re.DOTALL)
-_SPURIOUS_FAIL_RE = re.compile(r'\n*The provided standards do not address[^\n]*\n?.*?\[\[FAIL\]\]', re.DOTALL)
-_SRC_TAG_RE       = re.compile(r'\[\[SRC_\d+\]\]')
+_SPURIOUS_FAIL_RE = re.compile(r'\n*The provided standards do not address[^\n]*\n?.*?\^\^\^FAIL\^\^\^', re.DOTALL)
+_SRC_TAG_RE       = re.compile(r'\^\^\^\d+\^\^\^')
 _SECTION_VAL_RE   = re.compile(r'^[\d][\d\.\-\(\)\[\]a-zA-Z]*$')
 _DOCPAGE_VAL_RE   = re.compile(r'^\d[\d\-]*$')
-_FLAG_RE          = re.compile(r'\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]')
+_FLAG_RE          = re.compile(r'\^\^\^(\d+)\^\^\^|\^\^\^FAIL\^\^\^')
 
 # Uppercase key → agency value as stored in DB metadata
 _AGENCY_TERMS: dict[str, str] = {
@@ -487,11 +487,11 @@ Source rules:
 
 Output format — follow this exactly:
 1. Write all relevant bullets from SOURCE N as a bullet list.
-2. On a new line by itself, write [[SRC_N]] — where N matches the source number from "--- SOURCE N ---" in the context.
+2. On a new line by itself, write ^^^N^^^ — where N matches the source number from "--- SOURCE N ---" in the context.
 3. Leave one blank line, then repeat for the next source.
-- [[SRC_N]] must appear on its own line, never inline or mid-sentence.
-- [[SRC_N]] must appear AFTER the last bullet for that source, never before.
-- Only emit [[SRC_N]] if you have written at least one bullet for that source. A tag with no bullets is forbidden.
+- ^^^N^^^ must appear on its own line, never inline or mid-sentence.
+- ^^^N^^^ must appear AFTER the last bullet for that source, never before.
+- Only emit ^^^N^^^ if you have written at least one bullet for that source. A tag with no bullets is forbidden.
 - No preamble, summaries, or conclusions. Do not restate the question.
 
 Bold rule:
@@ -501,10 +501,10 @@ Bold rule:
 - Do not bold section numbers, code references, or headings (e.g. 10.8.1.B, §1926.502).
 
 FAIL rule — read carefully:
-- If you have written ANY bullet points above, you are done. Do NOT emit [[FAIL]] under any circumstances.
-- Only emit [[FAIL]] if every single retrieved section is entirely unrelated to the query topic — the documents do not address it at all. If any section touches on the subject, even without an exact value, answer with what is there.
+- If you have written ANY bullet points above, you are done. Do NOT emit ^^^FAIL^^^ under any circumstances.
+- Only emit ^^^FAIL^^^ if every single retrieved section is entirely unrelated to the query topic — the documents do not address it at all. If any section touches on the subject, even without an exact value, answer with what is there.
 - Output EXACTLY this and nothing else:
-[[FAIL]]"""
+^^^FAIL^^^"""
 
 def deduplicate_lines(text: str) -> str:
     """Remove exact-duplicate lines from text (preserves first occurrence)."""
@@ -569,10 +569,10 @@ def strip_thinking(text: str) -> str:
 
 
 def strip_spurious_fail(text: str) -> str:
-    """Remove [[FAIL]] block if any [[SRC_N]] citation is already present (format violation guard)."""
-    if _SRC_TAG_RE.search(text) and "[[FAIL]]" in text:
+    """Remove ^^^FAIL^^^ block if any ^^^N^^^ citation is already present (format violation guard)."""
+    if _SRC_TAG_RE.search(text) and "^^^FAIL^^^" in text:
         text = _SPURIOUS_FAIL_RE.sub('', text).strip()
-        text = text.replace("[[FAIL]]", "").strip()
+        text = text.replace("^^^FAIL^^^", "").strip()
     return text
 
 _LLM_OPTIONS_FULL = {
@@ -793,7 +793,7 @@ def query_prepare(
 
 def generate_response_stream(user_query: str, context: str):
     """Generator: streams LLM response, yields source_block events + final done event.
-    Detects [[SRC_N]] flags and yields a source_block when each one completes."""
+    Detects ^^^N^^^ flags and yields a source_block when each one completes."""
     payload = _make_ollama_payload(
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -806,7 +806,7 @@ def generate_response_stream(user_query: str, context: str):
     buffer        = ""
     full_text     = ""
     has_src_block = False
-    GUARD         = 12   # len("[[SRC_99]]") == 11
+    GUARD         = 11   # len("^^^FAIL^^^") == 10
 
     _llm_start = time.monotonic()
     _first_token_logged = False
@@ -833,17 +833,17 @@ def generate_response_stream(user_query: str, context: str):
                 text_before = strip_thinking(buffer[:m.start()])
                 buffer = buffer[m.end():]
                 if m.group(1) is not None:
-                    # [[SRC_N]] — yield preceding text, then emit citation inline
+                    # ^^^N^^^ — yield preceding text, then emit citation inline
                     if text_before:
                         yield {"type": "text", "text": text_before}
                     yield {"type": "source_block", "n": int(m.group(1))}
                     has_src_block = True
                 else:
-                    # [[FAIL]] — package message text into the fail event; suppress if citations seen
+                    # ^^^FAIL^^^ — package message text into the fail event; suppress if citations seen
                     if not has_src_block:
                         yield {"type": "fail", "text": "My current knowledge base can't find this. Think I should? Request manuals to add using the button at top right!"}
             else:
-                # Flush safe zone (everything except last GUARD chars) to avoid splitting [[SRC_N]].
+                # Flush safe zone (everything except last GUARD chars) to avoid splitting ^^^N^^^.
                 # Prefer flushing at newlines; fall back to flushing in chunks for responsiveness.
                 safe_end = max(0, len(buffer) - GUARD)
                 while True:

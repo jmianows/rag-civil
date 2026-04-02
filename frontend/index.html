@@ -741,12 +741,12 @@ function renderTextWithBold(parent, text) {
 
 /**
  * parseResponse — renders stored raw text into card as separate response-text boxes,
- * one per [[SRC_N]] citation block.
+ * one per ^^^N^^^ citation block.
  */
 function parseResponse(card, text, sourceGroups) {
   // Strip any <think>...</think> blocks the server may have left in the raw text
   const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '');
-  const re = /\[\[SRC_(\d+)\]\]|\[\[FAIL\]\]/g;
+  const re = /\^\^\^(\d+)\^\^\^|\^\^\^FAIL\^\^\^/g;
   let last = 0, m;
   while ((m = re.exec(cleaned)) !== null) {
     if (m[1] != null) {

@@ -20,7 +20,7 @@ JSON schema per prompt:
       "n": int,
       "prompt": str,
       "status": "OK" | "FAIL",
-      "spurious_fail": bool,   # FAIL emitted despite [[SRC_N]] citations
+      "spurious_fail": bool,   # FAIL emitted despite ^^^N^^^ citations
       "time_s": float,         # total wall time including retrieval + generation
       "ttfl_s": float | null,  # time to first line: seconds from submit to first bullet (null for FAIL)
       "llm_model": str,            # e.g. "qwen3:4b-instruct"
@@ -262,7 +262,7 @@ EXPECTED = {
     105:{"status": "OK",   "agencies": ["ADA"]},
 }
 
-_SRC_RE = re.compile(r'\[\[SRC_\d+\]\]')
+_SRC_RE = re.compile(r'\^\^\^\d+\^\^\^')
 
 
 def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: str = None):
@@ -293,7 +293,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             t_first_line = None
 
             if prepared.get("empty"):
-                parts.append("[[FAIL]]")
+                parts.append("^^^FAIL^^^")
                 chunks_data = prepared.get("chunks", [])
             else:
                 chunks_data = prepared["chunks"]
@@ -304,17 +304,17 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
                             t_first_line = time.time()
                         parts.append(event["text"])
                     elif etype == "fail":
-                        parts.append("[[FAIL]]")
+                        parts.append("^^^FAIL^^^")
                     elif etype == "source_block":
                         has_src = True
-                        parts.append(f"[[SRC_{event['n']}]]")
+                        parts.append(f"^^^{event['n']}^^^")
 
             elapsed = round(time.time() - t0, 1)
             ttfl    = round(t_first_line - t0, 2) if t_first_line else None
             times[n] = elapsed
 
             resp     = "".join(parts)
-            has_fail = "[[FAIL]]" in resp
+            has_fail = "^^^FAIL^^^" in resp
             spurious = has_fail and has_src
             status   = "FAIL" if has_fail else "OK"
 
