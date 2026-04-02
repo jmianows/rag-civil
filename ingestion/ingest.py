@@ -104,18 +104,41 @@ def _looks_like_real_section(s: str) -> bool:
 
 
 def _extract_doc_page(text: str) -> str:
-    """Try to extract a printed page number from a header or footer line."""
+    """Try to extract a printed page number from a header or footer line.
+
+    Priority order:
+      1. 'Page N' / 'Page xv' keyword — unambiguous, handles roman numerals and
+         dash-suffixed numbers (Page 1510-23). Checked first so document version
+         numbers like 'M 22-01.23' don't get captured by the dash pattern.
+      2. Dash-format 'NNNN-NN' — chapter-page style (1510-23, 5-17) for docs
+         without a 'Page' keyword in their headers/footers.
+      3. Bare integer — entire block is a standalone page number (ADA-style).
+         Rejected if it looks like a year (1900-2099).
+    """
     text = text.strip()
-    # Prefer dash-format page numbers e.g. "1510-23"
+
+    # Priority 1: "Page N", "Page xv", "Page 1510-23", "Page 1 of 4"
+    page_kw = re.search(
+        r'(?:Page|PAGE)\s+([ivxlcdm]+|\d{1,4}(?:-\d{1,4})?)',
+        text, re.IGNORECASE,
+    )
+    if page_kw:
+        return page_kw.group(1)
+
+    # Priority 2: dash-format page numbers e.g. "1510-23", "5-17"
     dash = re.search(r'\b(\d{1,4}-\d{1,4})\b', text)
     if dash:
         parts = dash.group(1).split('-')
         if all(p.isdigit() and int(p) < 5000 for p in parts):
             return dash.group(1)
-    # "Page N" or "PAGE N"
-    page_kw = re.search(r'(?:Page|PAGE)\s+(\d{1,4})', text)
-    if page_kw:
-        return page_kw.group(1)
+
+    # Priority 3: entire block is a bare integer page number (e.g. ADA CFR footers)
+    bare = re.fullmatch(r'\d{1,4}', text)
+    if bare:
+        n = int(text)
+        if not (1900 <= n <= 2099):
+            return text
+
     return ""
 
 
