@@ -581,6 +581,7 @@ async function runQuery() {
   let sourceGroups = [];
   let tailBlock = null;
   let tailSpan   = null;
+  let lastBlock  = null;  // last response box, for consecutive citation stacking
 
   try {
     const scopeOpt = filterScope.selectedIndex > 0
@@ -624,19 +625,23 @@ async function runQuery() {
           }
 
         } else if (ev.type === 'source_block') {
-          if (!tailBlock) {
+          // Attach to tailBlock if open, else stack onto lastBlock (consecutive citations)
+          const target = tailBlock || lastBlock;
+          if (!target) {
             [tailBlock, tailSpan] = makeResponseBox(card);
+            lastBlock = tailBlock;
           }
+          const box = tailBlock || lastBlock;
           const src = (ev.n != null && ev.n > 0 && ev.n <= sourceGroups.length) ? sourceGroups[ev.n - 1] : null;
           if (src) {
-            tailBlock.appendChild(buildCitationLine(src));
-            tailBlock.parentElement.style.borderLeftColor = getSourceColor(src.source_file);
+            box.appendChild(buildCitationLine(src));
+            box.parentElement.style.borderLeftColor = getSourceColor(src.source_file);
           }
           tailBlock = null; tailSpan = null;
 
         } else if (ev.type === 'text') {
           if (ev.text) {
-            if (!tailBlock) [tailBlock, tailSpan] = makeResponseBox(card);
+            if (!tailBlock) { [tailBlock, tailSpan] = makeResponseBox(card); lastBlock = tailBlock; }
             tailSpan.appendChild(document.createTextNode(ev.text));
           }
 
@@ -747,12 +752,24 @@ function parseResponse(card, text, sourceGroups) {
   // Strip any <think>...</think> blocks the server may have left in the raw text
   const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '');
   const re = /\^\^\^(\d+)\^\^\^|\^\^\^FAIL\^\^\^/g;
-  let last = 0, m;
+  let last = 0, m, lastBlock = null;
   while ((m = re.exec(cleaned)) !== null) {
     if (m[1] != null) {
       const seg = cleaned.slice(last, m.index).trim();
-      const [block, sp] = makeResponseBox(card);
-      if (seg) renderTextWithBold(sp, seg);
+      let block, sp;
+      if (seg) {
+        // New text segment → new box
+        [block, sp] = makeResponseBox(card);
+        renderTextWithBold(sp, seg);
+        lastBlock = block;
+      } else if (lastBlock) {
+        // Consecutive citation — stack onto the previous box
+        block = lastBlock;
+      } else {
+        // First citation with no preceding text
+        [block, sp] = makeResponseBox(card);
+        lastBlock = block;
+      }
       const src = sourceGroups && sourceGroups[parseInt(m[1], 10) - 1];
       if (src) {
         block.appendChild(buildCitationLine(src));

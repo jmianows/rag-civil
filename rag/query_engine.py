@@ -487,12 +487,24 @@ Source rules:
 
 Output format — follow this exactly:
 1. Write all relevant bullets from SOURCE N as a bullet list.
-2. On a new line by itself, write ^^^N^^^ — where N matches the source number from "--- SOURCE N ---" in the context.
-3. Leave one blank line, then repeat for the next source.
-- ^^^N^^^ must appear on its own line, never inline or mid-sentence.
-- ^^^N^^^ must appear AFTER the last bullet for that source, never before.
-- Only emit ^^^N^^^ if you have written at least one bullet for that source. A tag with no bullets is forbidden.
+2. Immediately after the last bullet for that source, start a NEW LINE and write ^^^N^^^ — alone, nothing else on that line.
+3. Leave one blank line, then move to the next source and repeat.
+
+Critical constraints:
+- Each ^^^N^^^ closes exactly ONE source block. NEVER collect multiple citations together at the end.
+- ^^^N^^^ must be alone on its own line — not appended to a bullet, not grouped with other tags.
+- ^^^N^^^ must appear AFTER all bullets for that source, never before.
+- Only emit ^^^N^^^ if you wrote at least one bullet for that source. A tag with no bullets is forbidden.
 - No preamble, summaries, or conclusions. Do not restate the question.
+
+Example output (SOURCE 2 and SOURCE 5 are relevant, SOURCE 4 is off-topic and skipped):
+- Minimum lane width shall be 12 feet on arterials.
+- Shoulder width shall not be less than 4 feet.
+^^^2^^^
+
+- Curb ramp slopes shall not exceed 1:12.
+- Cross slope shall not exceed **1:50**.
+^^^5^^^
 
 Bold rule:
 - You may bold the single most important numeric value — the direct answer to the query — using standard Markdown: **value**. Example: cross slope shall not exceed **1:50**.
