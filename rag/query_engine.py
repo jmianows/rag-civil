@@ -135,14 +135,16 @@ def _fts_search(table, query_text: str, n: int, where: str | None = None) -> lis
     return s.limit(n).to_list()
 
 
-def _rrf_merge(lists: list[list[dict]], k: int = 60) -> list[dict]:
-    """Reciprocal Rank Fusion: score each chunk by 1/(rank+k) summed across all lists."""
+def _rrf_merge(lists: list[list[dict]], k: int = 60, weights: list[float] | None = None) -> list[dict]:
+    """Reciprocal Rank Fusion: score each chunk by w/(rank+k) summed across all lists.
+    weights[i] scales list i's contribution; defaults to 1.0 for each list."""
     scores: dict[str, float] = {}
     rows:   dict[str, dict]  = {}
-    for result_list in lists:
+    for i, result_list in enumerate(lists):
+        w = weights[i] if weights and i < len(weights) else 1.0
         for rank, row in enumerate(result_list):
             cid = row['id']
-            scores[cid] = scores.get(cid, 0.0) + 1.0 / (rank + k)
+            scores[cid] = scores.get(cid, 0.0) + w / (rank + k)
             rows[cid] = row
     return [rows[cid] for cid in sorted(scores, key=lambda c: -scores[c])]
 
@@ -162,7 +164,7 @@ def _next_ollama_host() -> str:
     """Return the next Ollama host in round-robin order. Thread-safe."""
     with _host_lock:
         return next(_host_cycle)
-RERANK_POOL   = 40   # candidate pool fetched before cross-encoder re-ranking
+RERANK_POOL   = 20   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 2
 MAX_CHUNK_CHARS = 1000 
@@ -300,9 +302,13 @@ def retrieve_chunks(
 
     print(f"  [time]   vector+fts search: {time.monotonic()-_tr1:.2f}s", flush=True)
 
-    # Chunks appearing in multiple lists earn cumulative RRF score and rise to the top
+    # Chunks appearing in multiple lists earn cumulative RRF score and rise to the top.
+    # Boosted list (agency-filtered) gets 0.5x weight — nudges without overwhelming main results.
     lists_to_merge = [l for l in [vector_rows, fts_rows, boosted_rows] if l]
-    merged = _rrf_merge(lists_to_merge)[:n_results]
+    weights = [1.0] * len(lists_to_merge)
+    if boosted_rows:
+        weights[-1] = 0.5
+    merged = _rrf_merge(lists_to_merge, weights=weights)[:n_results]
 
     chunks = []
     for r in merged:
