@@ -112,7 +112,7 @@ def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
     """Re-rank retrieved chunks by (query, chunk) relevance using a cross-encoder.
     Always scores all chunks, slices to top_k, then drops any below RERANK_FLOOR."""
     reranker = _get_reranker()
-    pairs = [(query, c.text) for c in chunks]
+    pairs = [(query, c.text[:300]) for c in chunks]
     scores = reranker.predict(pairs)
     for score, c in zip(scores, chunks):
         c.rerank_score = float(score)
