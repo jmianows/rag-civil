@@ -177,6 +177,61 @@ def is_valid_advance(
     return False
 
 
+def _validate_segments_common(segments: list[dict], line: str) -> bool:
+    """Shared validation for both strict and relaxed section number paths.
+
+    Checks applied by both extract_section_candidate and _extract_section_numeric_relaxed:
+      - no leading zeros on first segment
+      - year rejection (unless CFR-style with parentheticals/multiple dots/large dot)
+      - first segment > 8000
+      - any integer segment > 9999 (phone numbers)
+      - any integer segment == 0 (not a real subsection)
+      - USACE document number pattern (lead + hyphen + 4-digit hyphen)
+      - remainder is not a math operator or bare number
+
+    Returns True if segments pass all common checks, False if they should be rejected.
+    """
+    first_val = segments[0]['value']
+    first_int = segments[0]['int_val']
+
+    if first_val.startswith('0'):
+        return False
+
+    if re.match(r'^(19|20)\d{2}$', first_val):
+        has_paren = any('PAREN' in s['type'] or 'BRACK' in s['type'] for s in segments)
+        has_multiple_dot = sum(1 for s in segments if s['type'] == 'DOT_INT') > 1
+        has_large_dot = any(s['type'] == 'DOT_INT' and s['int_val'] >= 100 for s in segments)
+        if not has_paren and not has_multiple_dot and not has_large_dot:
+            return False
+
+    if first_int > 8000:
+        return False
+
+    for seg in segments:
+        if 'INT' in seg['type'] and seg['int_val'] > 9999:
+            return False
+
+    for seg in segments:
+        if 'INT' in seg['type'] and seg['int_val'] == 0:
+            return False
+
+    if (len(segments) == 3
+            and segments[1]['type'] == 'HYPHEN_INT'
+            and segments[2]['type'] == 'HYPHEN_INT'
+            and len(segments[2]['value']) == 4):
+        return False
+
+    consumed = segments_to_string(segments)
+    remainder = line[len(consumed):].strip()
+    if remainder:
+        if re.match(r'^[\+\=\<\>\/\*\%]', remainder):
+            return False
+        if re.match(r'^\d+\.?\d*$', remainder):
+            return False
+
+    return True
+
+
 def extract_section_candidate(line: str) -> Optional[list[dict]]:
     line = line.strip()
     if not line:
@@ -194,51 +249,17 @@ def extract_section_candidate(line: str) -> Optional[list[dict]]:
     if segments[0]['type'] != 'LEAD_INT':
         return None
 
+    if not _validate_segments_common(segments, line):
+        return None
+
     first_val = segments[0]['value']
     first_int = segments[0]['int_val']
-
-    # reject leading zeros
-    if first_val.startswith('0'):
-        return None
-
-    # reject years — but allow OSHA-style CFR numbers like 1926.502 (dot segment >= 100)
-    # a real year appears as just 2 segments with no parentheticals and small dot value
-    if re.match(r'^(19|20)\d{2}$', first_val):
-        has_paren = any('PAREN' in s['type'] or 'BRACK' in s['type'] for s in segments)
-        has_multiple_dot = sum(1 for s in segments if s['type'] == 'DOT_INT') > 1
-        has_large_dot = any(
-            s['type'] == 'DOT_INT' and s['int_val'] >= 100 for s in segments
-        )
-        if not has_paren and not has_multiple_dot and not has_large_dot:
-            return None
-
-    # reject first segment over 8000
-    if first_int > 8000:
-        return None
-
-    # reject any integer segment over 9999 (phone numbers etc)
-    for seg in segments:
-        if 'INT' in seg['type'] and seg['int_val'] > 9999:
-            return None
-
-    # reject any segment with value of 0 (not a real subsection)
-    for seg in segments:
-        if 'INT' in seg['type'] and seg['int_val'] == 0:
-            return None
 
     # reject MUTCD-style page numbers: XX.XXX (2-digit lead, 3-digit dot second)
     if (len(segments) == 2
             and segments[1]['type'] == 'DOT_INT'
             and len(first_val) == 2
             and len(segments[1]['value']) == 3):
-        return None
-
-    # reject USACE manual numbers: XXXX-X-XXXX (lead + hyphen + hyphen)
-    # where last hyphen segment is 4 digits
-    if (len(segments) == 3
-            and segments[1]['type'] == 'HYPHEN_INT'
-            and segments[2]['type'] == 'HYPHEN_INT'
-            and len(segments[2]['value']) == 4):
         return None
 
     # single digit lead requires 3+ segments (e.g. 4.3.1)
@@ -272,14 +293,8 @@ def extract_section_candidate(line: str) -> Optional[list[dict]]:
 
     consumed = segments_to_string(segments)
     remainder = line[len(consumed):].strip()
-
-    if remainder:
-        if remainder[0].islower():
-            return None
-        if re.match(r'^[\+\=\<\>\/\*\%]', remainder):
-            return None
-        if re.match(r'^\d+\.?\d*$', remainder):
-            return None
+    if remainder and remainder[0].islower():
+        return None
 
     return segments
 
@@ -296,11 +311,12 @@ def _extract_section_numeric_relaxed(line: str) -> Optional[str]:
     """
     Attempt numeric section extraction with rules relaxed for confirmed heading blocks.
 
-    Keeps: year rejection, leading zeros, first int > 8000, any segment > 9999,
-           segment value 0, USACE document number pattern.
-    Removes: single-digit-lead 3-segment requirement, dot-second > 50 rejection,
-             2-digit lead + 2-digit dot rejection, MUTCD page number rejection,
-             lowercase remainder rejection.
+    Applies all common checks (see _validate_segments_common) but removes:
+      - single-digit-lead 3-segment requirement
+      - dot-second > 50 rejection
+      - 2-digit lead + 2-digit dot rejection
+      - MUTCD page number rejection
+      - lowercase remainder rejection (title follows the section number)
     """
     line = line.strip()
     if not line:
@@ -310,57 +326,45 @@ def _extract_section_numeric_relaxed(line: str) -> Optional[str]:
     if not segments:
         return None
 
-    # Must have at least 1 segment and start with LEAD_INT
     if segments[0]['type'] != 'LEAD_INT':
         return None
 
-    first_val = segments[0]['value']
-    first_int = segments[0]['int_val']
-
-    # Keep: reject leading zeros
-    if first_val.startswith('0'):
+    if not _validate_segments_common(segments, line):
         return None
 
-    # Keep: reject years (appear in doc titles and dates)
-    if re.match(r'^(19|20)\d{2}$', first_val):
-        has_paren = any('PAREN' in s['type'] or 'BRACK' in s['type'] for s in segments)
-        has_multiple_dot = sum(1 for s in segments if s['type'] == 'DOT_INT') > 1
-        has_large_dot = any(s['type'] == 'DOT_INT' and s['int_val'] >= 100 for s in segments)
-        if not has_paren and not has_multiple_dot and not has_large_dot:
-            return None
+    return segments_to_string(segments)
 
-    # Keep: reject first segment over 8000
-    if first_int > 8000:
-        return None
 
-    # Keep: reject any segment over 9999 (phone numbers in heading contact info)
-    for seg in segments:
-        if 'INT' in seg['type'] and seg['int_val'] > 9999:
-            return None
+class DocumentSectionTracker:
+    """Stateful section number tracker — advances through a document in order."""
 
-    # Keep: reject segment value 0
-    for seg in segments:
-        if 'INT' in seg['type'] and seg['int_val'] == 0:
-            return None
+    def __init__(self):
+        self.current_segments = None
+        self.current_string   = "UNKNOWN"
 
-    # Keep: reject USACE document numbers (lead + hyphen + 4-digit hyphen)
-    if (len(segments) == 3
-            and segments[1]['type'] == 'HYPHEN_INT'
-            and segments[2]['type'] == 'HYPHEN_INT'
-            and len(segments[2]['value']) == 4):
-        return None
+    def process_chunk(self, text: str) -> str:
+        lines = text.strip().splitlines()
 
-    # Remainder check: only reject math operators and bare numbers —
-    # do NOT reject lowercase remainder (the title follows the section number)
-    consumed = segments_to_string(segments)
-    remainder = line[len(consumed):].strip()
-    if remainder:
-        if re.match(r'^[\+\=\<\>\/\*\%]', remainder):
-            return None
-        if re.match(r'^\d+\.?\d*$', remainder):
-            return None
+        for line_num, line in enumerate(lines[:10]):
+            candidate = extract_section_candidate(line)
+            if candidate is None:
+                continue
 
-    return consumed
+            candidate_str = segments_to_string(candidate)
+
+            if is_valid_advance(self.current_segments, candidate):
+                self.current_segments = candidate
+                self.current_string   = candidate_str
+                return candidate_str
+
+            # if no valid advance found from context
+            # accept if it appears in first 2 lines (strong signal)
+            if line_num < 2:
+                self.current_segments = candidate
+                self.current_string   = candidate_str
+                return candidate_str
+
+        return self.current_string
 
 
 def extract_section_from_heading(text: str) -> str:

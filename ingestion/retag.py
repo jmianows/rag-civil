@@ -3,19 +3,11 @@ import lancedb
 from pathlib import Path
 from collections import defaultdict
 try:
-    from ingestion.metadata import detect_doc_page, propagate_metadata
-    from ingestion.section_parser import (
-        extract_section_candidate,
-        segments_to_string,
-        is_valid_advance,
-    )
+    from ingestion.metadata import detect_doc_page
+    from ingestion.section_parser import DocumentSectionTracker
 except ImportError:
-    from metadata import detect_doc_page, propagate_metadata
-    from section_parser import (
-        extract_section_candidate,
-        segments_to_string,
-        is_valid_advance,
-    )
+    from metadata import detect_doc_page
+    from section_parser import DocumentSectionTracker, segments_to_string
 try:
     from rag.query_engine import _ensure_fts_index
 except ImportError:
@@ -103,33 +95,10 @@ def retag():
             page_numbers[page_num] = detect_doc_page(full_page_text, "")
 
         # section detection using state machine per document
-        current_segments = None
+        tracker = DocumentSectionTracker()
 
         for row in rows:
-            lines = row["text"].strip().splitlines()
-            detected = None
-
-            for line_num, line in enumerate(lines[:10]):
-                candidate = extract_section_candidate(line)
-                if candidate is None:
-                    continue
-
-                candidate_str = segments_to_string(candidate)
-
-                if is_valid_advance(current_segments, candidate):
-                    current_segments = candidate
-                    detected = candidate_str
-                    break
-
-                if line_num < 2:
-                    current_segments = candidate
-                    detected = candidate_str
-                    break
-
-            row["section"]  = detected if detected else (
-                segments_to_string(current_segments)
-                if current_segments else "UNKNOWN"
-            )
+            row["section"]  = tracker.process_chunk(row["text"])
             row["doc_page"] = page_numbers.get(row["page"], "UNKNOWN")
 
         updated_rows.extend(rows)

@@ -1,8 +1,11 @@
-from metadata import detect_section, detect_doc_page, propagate_metadata, DocumentSectionTracker
 try:
-    from ingestion.section_parser import extract_section_from_heading
+    from ingestion.section_parser import (
+        extract_section_from_heading, _CHAPTER_RE, DocumentSectionTracker,
+    )
 except ImportError:
-    from section_parser import extract_section_from_heading
+    from section_parser import (
+        extract_section_from_heading, _CHAPTER_RE, DocumentSectionTracker,
+    )
 try:
     from ingestion.common import _load_link
 except ImportError:
@@ -62,7 +65,7 @@ except ImportError:
     VECTORDB_DIR = _PROJECT_ROOT / "vectordb"
 EMBED_MODEL = "mxbai-embed-large"
 CHUNK_SIZE    = 220   # words — at 1.3 tokens/word ≈ 286 tokens, safe headroom
-CHUNK_OVERLAP = 20    # words
+CHUNK_OVERLAP = 50    # words
 MAX_CHARS     = 900   # characters — roughly 180 words, hard safety ceiling
 
 FAILED_LOG = Path(__file__).parent / "failed_chunks.jsonl"
@@ -94,13 +97,10 @@ _LIST_PREFIX_RE   = re.compile(r'^[•–—▪◦]\s')
 _CAPTION_PREFIX_RE = re.compile(r'^(?:Exhibit|Figure|Table|Fig\.?)\s+\d', re.IGNORECASE)
 # URL/domain patterns — reference list lines, not section headings.
 _URL_RE           = re.compile(r'(?:www\.|https?://|\.gov|\.org|\.com)', re.IGNORECASE)
-# Real section labels — numeric (1-2, 5-19.1, 1510.04) or keyword (Chapter 5, Section 3).
-# Used to guard against text-fallback prose labels overwriting a good numeric section.
-_REAL_SECTION_RE  = re.compile(r'^\d|^(?:Chapter|Section|Part|Article)\s+\d', re.IGNORECASE)
-
-
 def _looks_like_real_section(s: str) -> bool:
-    return bool(_REAL_SECTION_RE.match(s.strip()))
+    """True if s starts with a digit or a Chapter/Section/Part/Article keyword."""
+    s = s.strip()
+    return bool(s and (s[0].isdigit() or _CHAPTER_RE.match(s)))
 
 
 def _extract_doc_page(text: str) -> str:
@@ -119,7 +119,7 @@ def _extract_doc_page(text: str) -> str:
 
     # Priority 1: "Page N", "Page xv", "Page 1510-23", "Page 1 of 4"
     page_kw = re.search(
-        r'(?:Page|PAGE)\s+([ivxlcdm]+|\d{1,4}(?:-\d{1,4})?)',
+        r'page\s+([ivxlcdm]+|\d{1,4}(?:-\d{1,4})?)',
         text, re.IGNORECASE,
     )
     if page_kw:
@@ -493,7 +493,18 @@ def chunk_blocks(blocks: list[Block]) -> list[dict]:
             continue
 
         if block.kind == "heading":
-            _flush_remainder()
+            # Flush accumulated content unconditionally at heading boundaries —
+            # even if under 30w. Headings are hard section breaks; never let
+            # content from two sections bleed into one chunk.
+            if len(acc_words) >= 10:
+                results.append({
+                    "text":        " ".join(acc_words),
+                    "page":        acc_page,
+                    "doc_page":    acc_doc_page,
+                    "section":     acc_section,
+                    "chunk_index": chunk_index,
+                })
+                chunk_index += 1
             acc_words    = words          # heading text starts the new chunk
             acc_section  = block.section
             acc_doc_page = block.doc_page

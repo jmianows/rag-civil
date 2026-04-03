@@ -162,7 +162,7 @@ def _next_ollama_host() -> str:
     """Return the next Ollama host in round-robin order. Thread-safe."""
     with _host_lock:
         return next(_host_cycle)
-RERANK_POOL   = 15   # candidate pool fetched before cross-encoder re-ranking
+RERANK_POOL   = 25   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 2
 MAX_CHUNK_CHARS = 1000 
