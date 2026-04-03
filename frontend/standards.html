@@ -30,6 +30,8 @@ body { overflow: hidden; }
 #std-sidebar {
   flex-shrink: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 @media (max-width: 600px) {
   body { height: auto; min-height: 100vh; overflow-y: auto; }
@@ -81,6 +83,15 @@ body { overflow: hidden; }
       In his spare time he enjoys rock climbing, reading, and just doing things (like this!).
       <br><br>contact: jmianows@umich.edu
       <br><br><a href="https://www.linkedin.com/in/jmianows">LinkedIn</a>
+    </div>
+
+    <div class="patch-notes">
+      <div class="about-section-label">Updates</div>
+      <div class="patch-notes-body">Thanks for all the great prompts last week!<br>
+        Completely redid document pre-processing. Responses should have more relevant information, and citations should return far less UNKNOWN or incorrect values.
+        Citations should be placed more consistently.
+        History now remembers between sessions.
+      </div>
     </div>
 
   </div>
