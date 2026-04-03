@@ -616,6 +616,7 @@ async function runQuery() {
 
         if (ev.type === 'meta') {
           sourceGroups = ev.source_groups || [];
+          progressText.textContent = 'citations found, processing...';
           const seen = new Set();
           for (const src of sourceGroups) {
             if (src && src.source_file && !seen.has(src.source_file)) {
@@ -911,8 +912,29 @@ function pushHistory(q, data) {
     query: q, data,
     ts: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
   });
+  if (queryHistory.length > 5) queryHistory.length = 5;
   currentIndex = 0;
   renderHistory();
+  saveHistory();
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem('civil_history', JSON.stringify(queryHistory.slice(0, 3)));
+  } catch (_) {}
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem('civil_history');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        queryHistory = parsed.slice(0, 3);
+        renderHistory();
+      }
+    }
+  } catch (_) {}
 }
 
 function renderHistory() {
@@ -1003,6 +1025,8 @@ async function applyCorrection() {
     closeModal();
   }
 }
+
+loadHistory();
 
 /* ══════════════════════════════════════════════════════════════
    EVENT LISTENERS
