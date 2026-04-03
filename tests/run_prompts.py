@@ -169,7 +169,7 @@ EXPECTED = {
     12: {"status": "OK",   "agencies": ["WSDOT"]},
     13: {"status": "OK",   "agencies": ["WSDOT"]},
     14: {"status": "OK",   "agencies": ["WSDOT", "SEATTLE", "FHWA"]},
-    15: {"status": "FAIL", "agencies": []},
+    15: {"status": "OK",   "agencies": ["ADA", "WSDOT", "FHWA"]},
     16: {"status": "OK",   "agencies": ["WSDOT", "FHWA", "SEATTLE"]},
     17: {"status": "OK",   "agencies": ["WSDOT"]},
     18: {"status": "OK",   "agencies": ["FHWA"]},

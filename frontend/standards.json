@@ -16,6 +16,14 @@
     "file_link": "https://www.ada.gov/assets/pdfs/2010-design-standards.pdf"
   },
   {
+    "source_file": "PROWAG.pdf",
+    "agency": "ADA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.access-board.gov/files/prowag/2023-16149.pdf"
+  },
+  {
     "source_file": "guidance-2010-standards.pdf",
     "agency": "ADA",
     "jurisdiction": "FEDERAL",
@@ -32,6 +40,14 @@
     "file_link": "https://www.epa.gov/system/files/documents/2022-01/2022-cgp-final-permit.pdf"
   },
   {
+    "source_file": "Executive Order 11988 Floodplains.pdf",
+    "agency": "ENVIROMENTAL",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.archives.gov/federal-register/codification/executive-order/11988.html"
+  },
+  {
     "source_file": "Manual on Uniform Traffic Control Devices 11th Ed..pdf",
     "agency": "FHWA",
     "jurisdiction": "FEDERAL",
@@ -46,6 +62,14 @@
     "state": "USA",
     "locality": "",
     "file_link": "https://highways.fhwa.dot.gov/federal-lands/specs/fp-24.pdf"
+  },
+  {
+    "source_file": "40 CFR Part 122.pdf",
+    "agency": "OSHA",
+    "jurisdiction": "FEDERAL",
+    "state": "USA",
+    "locality": "",
+    "file_link": "https://www.ecfr.gov/current/title-40/chapter-I/subchapter-D/part-122"
   },
   {
     "source_file": "40 CFR Part 1500-1508.pdf",
@@ -86,6 +110,14 @@
     "state": "WA",
     "locality": "Seattle",
     "file_link": "https://www.seattle.gov/documents/Departments/SPU/Construction-Resources/standards-guidelines/specifications-plans/2026-Standard-Specifications.pdf"
+  },
+  {
+    "source_file": "Seattle Streets Illustrated ROWIM.pdf",
+    "agency": "SEATTLE",
+    "jurisdiction": "LOCAL",
+    "state": "WA",
+    "locality": "Seattle",
+    "file_link": "https://streetsillustrated.seattle.gov"
   },
   {
     "source_file": "EM_1110-2-1603.pdf",
