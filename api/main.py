@@ -55,6 +55,54 @@ app.add_middleware(
 
 _analytics_lock  = threading.Lock()
 _rate_lock       = threading.Lock()
+
+# ── S3 analytics persistence ───────────────────────────────────────────────────
+_S3_BUCKET = "civil-smart-dictionary-data"
+_S3_KEY    = "analytics.json"
+
+
+def _s3_load() -> dict | None:
+    """Pull analytics.json from S3. Returns parsed dict or None on any failure."""
+    try:
+        import boto3
+        s3 = boto3.client("s3")
+        obj = s3.get_object(Bucket=_S3_BUCKET, Key=_S3_KEY)
+        return _json.loads(obj["Body"].read())
+    except Exception as e:
+        print(f"[analytics] S3 load skipped: {e}", flush=True)
+        return None
+
+
+def _s3_save(data: dict) -> None:
+    """Push analytics.json to S3 in a background thread (fire-and-forget)."""
+    def _push():
+        try:
+            import boto3
+            s3 = boto3.client("s3")
+            s3.put_object(Bucket=_S3_BUCKET, Key=_S3_KEY,
+                          Body=_json.dumps(data, indent=2),
+                          ContentType="application/json")
+        except Exception as e:
+            print(f"[analytics] S3 save failed: {e}", flush=True)
+    threading.Thread(target=_push, daemon=True).start()
+
+
+def _merge_analytics(a: dict, b: dict) -> dict:
+    """Merge two analytics dicts — keeps higher counts, unions nested dicts."""
+    result = dict(b)
+    for k, v in a.items():
+        if k not in result:
+            result[k] = v
+        elif isinstance(v, int) and isinstance(result[k], int):
+            result[k] = max(v, result[k])
+        elif isinstance(v, dict) and isinstance(result[k], dict):
+            merged_sub = dict(result[k])
+            for sk, sv in v.items():
+                merged_sub[sk] = max(sv, merged_sub.get(sk, 0)) if isinstance(sv, int) else sv
+            result[k] = merged_sub
+    return result
+
+
 _filters_lock    = threading.Lock()
 _standards_lock  = threading.Lock()
 _daily_counts: dict[str, tuple[int, str]] = {}  # ip -> (count, date_str)
@@ -91,6 +139,21 @@ def _startup_warmup():
 async def startup_tasks():
     print(f"[startup] Environment: {ENVIRONMENT}", flush=True)
     threading.Thread(target=_startup_warmup, daemon=True, name="startup-warmup").start()
+    # Restore analytics from S3 so counts survive instance resets
+    remote = _s3_load()
+    if remote is not None:
+        with _analytics_lock:
+            local = {}
+            if ANALYTICS_FILE.exists():
+                try:
+                    local = _json.loads(ANALYTICS_FILE.read_text())
+                except Exception:
+                    pass
+            merged = _merge_analytics(local, remote)
+            tmp = ANALYTICS_FILE.with_suffix(".tmp")
+            tmp.write_text(_json.dumps(merged, indent=2))
+            tmp.replace(ANALYTICS_FILE)
+        print("[startup] Analytics restored from S3", flush=True)
 
 
 # ── request / response models ──────────────────────────────────────────────────
@@ -214,6 +277,7 @@ def _undo_daily_count(ip: str) -> None:
 
 
 def _undo_record_query(
+    ip: str,
     filter_agency: str | None,
     filter_jurisdiction: str | None,
     filter_state: str | None,
@@ -221,7 +285,10 @@ def _undo_record_query(
 ) -> None:
     """Reverse the analytics written by _record_query — called when the query fails
     so a backend outage doesn't inflate hourly and filter-usage counts."""
-    hour = datetime.datetime.utcnow().strftime("%H")
+    if ip in _RATE_LIMIT_WHITELIST:
+        return
+    today = datetime.date.today().isoformat()
+    hour  = datetime.datetime.utcnow().strftime("%H")
     with _analytics_lock:
         if not ANALYTICS_FILE.exists():
             return
@@ -229,6 +296,10 @@ def _undo_record_query(
             data = _json.loads(ANALYTICS_FILE.read_text())
         except Exception:
             return
+
+        by_day = data.get("queries_by_day", {})
+        if by_day.get(today, 0) > 0:
+            by_day[today] -= 1
 
         by_hour = data.get("queries_by_hour", {})
         if by_hour.get(hour, 0) > 0:
@@ -251,13 +322,14 @@ def _undo_record_query(
         tmp = ANALYTICS_FILE.with_suffix(".tmp")
         tmp.write_text(_json.dumps(data, indent=2))
         tmp.replace(ANALYTICS_FILE)
+        _s3_save(data)
 
 
 @app.post("/query")
 def run_query(req: QueryRequest, request: Request):
     ip = _real_ip(request)
     _check_daily_limit(ip)
-    _record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
+    _record_query(ip, req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
     try:
         result = query(
             user_query=req.query,
@@ -269,7 +341,7 @@ def run_query(req: QueryRequest, request: Request):
         return result
     except Exception as e:
         _undo_daily_count(ip)
-        _undo_record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
+        _undo_record_query(ip, req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
         print(f"[error] /query failed: {e}", flush=True)
         raise HTTPException(status_code=500, detail="Query failed. Please retry.")
 
@@ -279,7 +351,7 @@ def run_query_stream(req: QueryRequest, request: Request):
     """Server-sent events endpoint: yields source blocks one at a time as the LLM generates."""
     ip = _real_ip(request)
     _check_daily_limit(ip)
-    _record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
+    _record_query(ip, req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
     try:
         prep = query_prepare(
             user_query=req.query,
@@ -290,7 +362,7 @@ def run_query_stream(req: QueryRequest, request: Request):
         )
     except Exception as e:
         _undo_daily_count(ip)
-        _undo_record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
+        _undo_record_query(ip, req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
         print(f"[error] /query/stream failed: {e}", flush=True)
         def _err():
             yield f'data: {_json.dumps({"type": "error", "message": "Query failed. Please retry."})}\n\n'
@@ -310,7 +382,7 @@ def run_query_stream(req: QueryRequest, request: Request):
                 yield f'data: {_json.dumps(event)}\n\n'
         except Exception as e:
             _undo_daily_count(ip)
-            _undo_record_query(req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
+            _undo_record_query(ip, req.filter_agency, req.filter_jurisdiction, req.filter_state, req.filter_locality)
             print(f"[error] _generate stream failed: {e}", flush=True)
             yield f'data: {_json.dumps({"type": "error", "message": "Stream interrupted. Please retry."})}\n\n'
 
@@ -476,13 +548,18 @@ def get_standards_list():
 
 
 def _record_query(
+    ip: str,
     filter_agency: str | None,
     filter_jurisdiction: str | None,
     filter_state: str | None,
     filter_locality: str | None,
 ) -> None:
-    """Record per-query stats: hour bucket and which filters were active."""
-    hour = datetime.datetime.utcnow().strftime("%H")
+    """Record per-query stats: day/hour bucket and which filters were active.
+    Skips recording for whitelisted IPs (localhost / test runners)."""
+    if ip in _RATE_LIMIT_WHITELIST:
+        return
+    today = datetime.date.today().isoformat()
+    hour  = datetime.datetime.utcnow().strftime("%H")
     with _analytics_lock:
         data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
         if ANALYTICS_FILE.exists():
@@ -490,6 +567,10 @@ def _record_query(
                 data = _json.loads(ANALYTICS_FILE.read_text())
             except Exception:
                 pass
+
+        # queries_by_day: {"2026-04-07": N, ...}
+        by_day = data.setdefault("queries_by_day", {})
+        by_day[today] = by_day.get(today, 0) + 1
 
         # queries_by_hour: {"00": N, "01": N, ...}
         by_hour = data.setdefault("queries_by_hour", {})
@@ -510,6 +591,7 @@ def _record_query(
         tmp = ANALYTICS_FILE.with_suffix(".tmp")
         tmp.write_text(_json.dumps(data, indent=2))
         tmp.replace(ANALYTICS_FILE)
+        _s3_save(data)
 
 
 @app.post("/analytics/event")
@@ -538,15 +620,73 @@ def log_analytics_event(ev: AnalyticsEvent):
 
 
 @app.get("/analytics")
-def get_analytics():
-    """Return accumulated anonymous usage statistics."""
+def get_analytics(request: Request):
+    """Return analytics dashboard (HTML for browsers, JSON for API clients)."""
     with _analytics_lock:
         if not ANALYTICS_FILE.exists():
-            return {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
-        try:
-            return _json.loads(ANALYTICS_FILE.read_text())
-        except Exception:
-            return {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
+            data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}, "queries_by_day": {}}
+        else:
+            try:
+                data = _json.loads(ANALYTICS_FILE.read_text())
+            except Exception:
+                data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}, "queries_by_day": {}}
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(_build_dashboard_html(data))
+    return data
+
+
+def _build_dashboard_html(data: dict) -> str:
+    """Generate a dark-themed bar chart dashboard for query analytics."""
+    by_day = data.get("queries_by_day", {})
+    today = datetime.date.today()
+    days   = [(today - datetime.timedelta(days=i)).isoformat() for i in range(29, -1, -1)]
+    counts = [by_day.get(d, 0) for d in days]
+    labels = _json.dumps(days)
+    values = _json.dumps(counts)
+    total  = sum(by_day.values()) if by_day else 0
+    week_keys = {(today - datetime.timedelta(days=i)).isoformat() for i in range(7)}
+    week_total = sum(v for k, v in by_day.items() if k in week_keys)
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Civil Smart Dictionary \u2014 Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ background: #1a1a1a; color: #ccc; font-family: monospace; padding: 2rem; }}
+  h1   {{ color: #fff; font-size: 1.1rem; margin-bottom: 1.2rem; }}
+  .stats {{ display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap; }}
+  .stat  {{ background: #252525; padding: 1rem 1.5rem; border-radius: 6px; min-width: 120px; }}
+  .stat .n {{ font-size: 2rem; color: #fff; line-height: 1; }}
+  .stat .l {{ font-size: 0.72rem; color: #888; margin-top: 0.3rem; }}
+  .chart-wrap {{ max-width: 900px; }}
+</style></head>
+<body>
+<h1>civilsmartdictionary.com \u2014 queries</h1>
+<div class="stats">
+  <div class="stat"><div class="n">{week_total}</div><div class="l">last 7 days</div></div>
+  <div class="stat"><div class="n">{total}</div><div class="l">all time</div></div>
+</div>
+<div class="chart-wrap"><canvas id="chart"></canvas></div>
+<script>
+new Chart(document.getElementById('chart'), {{
+  type: 'bar',
+  data: {{
+    labels: {labels},
+    datasets: [{{ label: 'queries', data: {values},
+      backgroundColor: '#4a7c59', borderRadius: 3 }}]
+  }},
+  options: {{
+    plugins: {{ legend: {{ display: false }} }},
+    scales: {{
+      x: {{ ticks: {{ color: '#888', maxRotation: 45, font: {{ size: 10 }} }}, grid: {{ color: '#2a2a2a' }} }},
+      y: {{ ticks: {{ color: '#888' }}, grid: {{ color: '#2a2a2a' }}, beginAtZero: true }}
+    }}
+  }}
+}});
+</script>
+</body></html>"""
 
 
 # ── serve frontend ─────────────────────────────────────────────────────────────
