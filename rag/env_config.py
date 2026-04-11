@@ -59,7 +59,7 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 OLLAMA_KEEP_ALIVE = -1 if IS_PRODUCTION else 300
 
 # Cross-encoder reranker device: GPU on production, CPU locally
-RERANKER_DEVICE = "cuda" if IS_PRODUCTION else "cpu"
+RERANKER_DEVICE = os.environ.get("CIVIL_RERANKER_DEVICE", "cuda" if IS_PRODUCTION else "cpu")
 
 # LLM model: 8b on production GPU (T4 16GB), 4b locally
 LLM_MODEL = "qwen3:8b" if IS_PRODUCTION else "qwen3:4b-instruct"

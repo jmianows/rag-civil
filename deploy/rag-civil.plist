@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.civilsmartdictionary.rag</string>
+
+  <key>WorkingDirectory</key>
+  <string>REPO_DIR</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>REPO_DIR/.venv/bin/uvicorn</string>
+    <string>api.main:app</string>
+    <string>--host</string><string>127.0.0.1</string>
+    <string>--port</string><string>8000</string>
+    <string>--workers</string><string>1</string>
+    <string>--timeout-graceful-shutdown</string><string>60</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>CIVIL_ENV</key>             <string>production</string>
+    <key>CIVIL_RERANKER_DEVICE</key> <string>mps</string>
+    <key>OLLAMA_HOSTS</key>          <string>http://localhost:11434</string>
+    <key>PATH</key>                  <string>REPO_DIR/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>RunAtLoad</key>    <true/>
+  <key>KeepAlive</key>    <true/>
+  <key>ThrottleInterval</key> <integer>10</integer>
+
+  <key>StandardOutPath</key>   <string>HOME_DIR/Library/Logs/rag-civil.log</string>
+  <key>StandardErrorPath</key> <string>HOME_DIR/Library/Logs/rag-civil-err.log</string>
+</dict>
+</plist>
