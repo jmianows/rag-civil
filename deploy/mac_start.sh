@@ -1,12 +1,18 @@
 #!/bin/bash
 # deploy/mac_start.sh — First-time setup on Mac Mini.
-# Assumes: Python 3.11, nginx, tesseract, poppler, Ollama + qwen3:8b already installed.
+# Assumes: Python 3.11, nginx, tesseract, poppler, Ollama already installed.
 set -e
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.civilsmartdictionary.rag.plist"
 
 echo "=== Civil RAG — Mac Mini Setup ==="
+
+# Ollama models
+echo "Pulling Ollama models..."
+ollama pull qwen3:8b
+ollama pull mxbai-embed-large
+echo "Models ready."
 
 # Python venv + dependencies
 python3.11 -m venv "$REPO_DIR/.venv"
@@ -27,6 +33,11 @@ NGINX_CONF="$(brew --prefix)/etc/nginx/servers/rag-civil.conf"
 sed "s|REPO_DIR|$REPO_DIR|g" "$REPO_DIR/deploy/mac_nginx.conf" > "$NGINX_CONF"
 brew services restart nginx
 echo "nginx configured: $NGINX_CONF"
+
+# Allow nginx through macOS firewall
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add "$(brew --prefix)/bin/nginx"
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp "$(brew --prefix)/bin/nginx"
+echo "Firewall rule added for nginx."
 
 echo "Waiting for API..."
 sleep 6
