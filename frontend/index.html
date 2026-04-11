@@ -287,7 +287,7 @@ let apiOffline = false;
     "What are the ADA design standards for pedestrian ramps?",
     "What compressive strength is required for bridge deck concrete?",
     "What stormwater controls are required under the EPA Construction General Permit?",
-    "How far must a street tree be planted from a fire hydrant in Seattle?",
+    "What are the minimum clearance requirements for street trees in Seattle right-of-way?",
     "What is the minimum clear width for a sidewalk per PROWAG?",
     "What stopping sight distance is required at 30 mph design speed?",
     "What slope is required for an accessible parking space?",
@@ -838,7 +838,7 @@ function buildCitationLine(chunk) {
   sec.textContent = '§';
   const secSpan = document.createElement('span');
   secSpan.className = 'cit-section';
-  secSpan.textContent = chunk.section || '??';
+  secSpan.textContent = (!chunk.section || chunk.section === 'UNKNOWN') ? '?' : chunk.section;
   sec.appendChild(secSpan);
   sec.dataset.tooltip = 'section number';
   row.appendChild(sec);
@@ -849,7 +849,7 @@ function buildCitationLine(chunk) {
   pg.className = 'cit-meta';
   pg.textContent = 'pg ';
   const pgSpan = document.createElement('span');
-  pgSpan.textContent = chunk.doc_page || '?';
+  pgSpan.textContent = (!chunk.doc_page || chunk.doc_page === 'UNKNOWN') ? '?' : chunk.doc_page;
   pg.appendChild(pgSpan);
   pg.dataset.tooltip = 'document page';
   row.appendChild(pg);
@@ -968,7 +968,7 @@ function openCorrectModal(chunk) {
   modalInfo.textContent = '';
   [
     ['File: ', chunk.source_file],
-    ['Current section: ', chunk.section || 'UNKNOWN'],
+    ['Current section: ', (!chunk.section || chunk.section === 'UNKNOWN') ? '?' : chunk.section],
     ['Page: ', chunk.page],
   ].forEach(([label, value]) => {
     modalInfo.appendChild(document.createTextNode(label));
