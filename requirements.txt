@@ -14,4 +14,3 @@ pyarrow
 requests
 python-multipart
 numpy
-boto3

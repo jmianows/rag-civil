@@ -56,52 +56,6 @@ app.add_middleware(
 _analytics_lock  = threading.Lock()
 _rate_lock       = threading.Lock()
 
-# ── S3 analytics persistence ───────────────────────────────────────────────────
-_S3_BUCKET = "civil-smart-dictionary-data"
-_S3_KEY    = "analytics.json"
-
-
-def _s3_load() -> dict | None:
-    """Pull analytics.json from S3. Returns parsed dict or None on any failure."""
-    try:
-        import boto3
-        s3 = boto3.client("s3")
-        obj = s3.get_object(Bucket=_S3_BUCKET, Key=_S3_KEY)
-        return _json.loads(obj["Body"].read())
-    except Exception as e:
-        print(f"[analytics] S3 load skipped: {e}", flush=True)
-        return None
-
-
-def _s3_save(data: dict) -> None:
-    """Push analytics.json to S3 in a background thread (fire-and-forget)."""
-    def _push():
-        try:
-            import boto3
-            s3 = boto3.client("s3")
-            s3.put_object(Bucket=_S3_BUCKET, Key=_S3_KEY,
-                          Body=_json.dumps(data, indent=2),
-                          ContentType="application/json")
-        except Exception as e:
-            print(f"[analytics] S3 save failed: {e}", flush=True)
-    threading.Thread(target=_push, daemon=True).start()
-
-
-def _merge_analytics(a: dict, b: dict) -> dict:
-    """Merge two analytics dicts — keeps higher counts, unions nested dicts."""
-    result = dict(b)
-    for k, v in a.items():
-        if k not in result:
-            result[k] = v
-        elif isinstance(v, int) and isinstance(result[k], int):
-            result[k] = max(v, result[k])
-        elif isinstance(v, dict) and isinstance(result[k], dict):
-            merged_sub = dict(result[k])
-            for sk, sv in v.items():
-                merged_sub[sk] = max(sv, merged_sub.get(sk, 0)) if isinstance(sv, int) else sv
-            result[k] = merged_sub
-    return result
-
 
 _filters_lock    = threading.Lock()
 _standards_lock  = threading.Lock()
@@ -139,21 +93,6 @@ def _startup_warmup():
 async def startup_tasks():
     print(f"[startup] Environment: {ENVIRONMENT}", flush=True)
     threading.Thread(target=_startup_warmup, daemon=True, name="startup-warmup").start()
-    # Restore analytics from S3 so counts survive instance resets
-    remote = _s3_load()
-    if remote is not None:
-        with _analytics_lock:
-            local = {}
-            if ANALYTICS_FILE.exists():
-                try:
-                    local = _json.loads(ANALYTICS_FILE.read_text())
-                except Exception:
-                    pass
-            merged = _merge_analytics(local, remote)
-            tmp = ANALYTICS_FILE.with_suffix(".tmp")
-            tmp.write_text(_json.dumps(merged, indent=2))
-            tmp.replace(ANALYTICS_FILE)
-        print("[startup] Analytics restored from S3", flush=True)
 
 
 # ── request / response models ──────────────────────────────────────────────────
@@ -322,7 +261,6 @@ def _undo_record_query(
         tmp = ANALYTICS_FILE.with_suffix(".tmp")
         tmp.write_text(_json.dumps(data, indent=2))
         tmp.replace(ANALYTICS_FILE)
-        _s3_save(data)
 
 
 @app.post("/query")
@@ -591,7 +529,6 @@ def _record_query(
         tmp = ANALYTICS_FILE.with_suffix(".tmp")
         tmp.write_text(_json.dumps(data, indent=2))
         tmp.replace(ANALYTICS_FILE)
-        _s3_save(data)
 
 
 @app.post("/analytics/event")
