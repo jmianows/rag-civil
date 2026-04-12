@@ -294,11 +294,11 @@ def retrieve_chunks(
     _tr1 = time.monotonic()
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_vector  = ex.submit(_vector_search, table, embedding, pool_size, user_where)
-        f_fts     = ex.submit(_fts_search,    table, query,     pool_size, user_where) if has_section    else None
-        f_boosted = ex.submit(_vector_search, table, embedding, pool_size, auto_where)       if auto_where else None
+        f_fts     = ex.submit(_fts_search,    table, query,     pool_size, user_where)
+        f_boosted = ex.submit(_vector_search, table, embedding, pool_size, auto_where) if auto_where else None
 
         vector_rows  = f_vector.result()
-        fts_rows     = f_fts.result()     if f_fts     else []
+        fts_rows     = f_fts.result()
         boosted_rows = f_boosted.result() if f_boosted else []
 
     print(f"  [time]   vector+fts search: {time.monotonic()-_tr1:.2f}s", flush=True)
