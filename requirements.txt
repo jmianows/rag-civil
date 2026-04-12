@@ -6,7 +6,7 @@ pymupdf
 pytesseract
 pdf2image
 pillow
-sentence-transformers
+sentence-transformers==5.3.0
 rank-bm25
 langchain
 langchain-community
