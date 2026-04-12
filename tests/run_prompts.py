@@ -1,44 +1,48 @@
 """
 Prompt regression test suite for rag-civil.
 
+Hits the live /query/stream HTTP endpoint — no direct module imports,
+no database permissions required. Run from any user on the same machine.
+
 Usage:
-    # Full 100-prompt run, output to default paths
-    .venv/bin/python tests/run_prompts.py
+    # Full 105-prompt run against localhost
+    python tests/run_prompts.py
+
+    # Against a remote host
+    python tests/run_prompts.py --host https://api.civilsmartdictionary.com
 
     # Run specific prompts by number
-    .venv/bin/python tests/run_prompts.py --only 3 14 22 39
+    python tests/run_prompts.py --only 3 14 22 39
 
     # Custom output prefix
-    .venv/bin/python tests/run_prompts.py --out /tmp/run9
+    python tests/run_prompts.py --out /tmp/run9
+
+    # Compare against a prior run
+    python tests/run_prompts.py --compare tests/rag_run_apr3f.json
 
 Outputs:
     <prefix>.log  — full human-readable transcript
-    <prefix>.json — structured summary (read this for quick analysis)
+    <prefix>.json — structured summary
 
 JSON schema per prompt:
     {
       "n": int,
       "prompt": str,
       "status": "OK" | "FAIL",
-      "spurious_fail": bool,   # FAIL emitted despite ^^^N^^^ citations
-      "time_s": float,         # total wall time including retrieval + generation
-      "ttfl_s": float | null,  # time to first line: seconds from submit to first bullet (null for FAIL)
-      "llm_model": str,            # e.g. "qwen3:4b-instruct"
+      "spurious_fail": bool,
+      "time_s": float,
+      "ttfl_s": float | null,
+      "llm_model": str,
       "sources": [{"source_file", "agency", "section", "page", "rerank_score", "distance"}, ...],
-      "response_preview": str  # first 300 chars of response
+      "response_preview": str
     }
 """
 
-import os, sys, time, json, re, argparse, datetime
+import sys, time, json, re, argparse, datetime
+import urllib.request
 from pathlib import Path
 
-# Default to production so the test uses the deployed model/config when run
-# on RunPod without an explicit CIVIL_ENV.  A local override still wins.
-os.environ.setdefault("CIVIL_ENV", "production")
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from rag.query_engine import query_prepare, generate_response_stream
-from rag.env_config import LLM_MODEL
+DEFAULT_HOST = "http://127.0.0.1:8000"
 
 # ── Prompt definitions ────────────────────────────────────────────────────────
 
@@ -151,8 +155,6 @@ PROMPTS = {
 }
 
 # ── Expected outcomes ─────────────────────────────────────────────────────────
-# expected_status: "OK" if DB should answer, "FAIL" if topic not in DB
-# expected_agencies: for OK prompts, at least one must appear in retrieved sources
 
 EXPECTED = {
     1:  {"status": "OK",   "agencies": ["WSDOT"]},
@@ -265,10 +267,57 @@ EXPECTED = {
 _SRC_RE = re.compile(r'\^\^\^\d+\^\^\^')
 
 
-def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: str = None):
+def _stream_query(host: str, prompt: str) -> tuple[str, list[dict], float | None]:
+    """POST to /query/stream, consume SSE, return (raw_response, chunks, ttfl_s)."""
+    url = host.rstrip("/") + "/query/stream"
+    body = json.dumps({"query": prompt}).encode()
+    req  = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+
+    parts: list[str] = []
+    chunks: list[dict] = []
+    t_first_line: float | None = None
+    t0 = time.time()
+
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        for raw_line in resp:
+            line = raw_line.decode().strip()
+            if not line.startswith("data:"):
+                continue
+            event = json.loads(line[5:].strip())
+            etype = event.get("type")
+            if etype == "meta":
+                chunks = event.get("chunks", [])
+            elif etype == "text":
+                if t_first_line is None:
+                    t_first_line = time.time()
+                parts.append(event["text"])
+            elif etype == "fail":
+                parts.append("^^^FAIL^^^")
+            elif etype == "source_block":
+                parts.append(f"^^^{event['n']}^^^")
+            elif etype == "error":
+                parts.append("^^^FAIL^^^")
+
+    ttfl = round(t_first_line - t0, 2) if t_first_line else None
+    return "".join(parts), chunks, ttfl
+
+
+def _get_llm_model(host: str) -> str:
+    try:
+        url = host.rstrip("/") + "/config"
+        with urllib.request.urlopen(url, timeout=10) as r:
+            return json.loads(r.read()).get("llm_model", "unknown")
+    except Exception:
+        return "unknown"
+
+
+def run(prompt_nums: list[int], log_path: Path, json_path: Path,
+        host: str = DEFAULT_HOST, compare_path: str | None = None):
     sep = "=" * 70
     results = []
     times = {}
+
+    llm_model = _get_llm_model(host)
 
     with log_path.open("w") as log:
         def emit(line=""):
@@ -276,45 +325,29 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             log.write(line + "\n")
 
         run_meta = {
-            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
-            "llm_model": LLM_MODEL,
+            "timestamp":   datetime.datetime.now().isoformat(timespec="seconds"),
+            "llm_model":   llm_model,
+            "host":        host,
             "prompts_run": prompt_nums,
         }
-        emit(f"Run started: {run_meta['timestamp']}  |  model={LLM_MODEL}  |  {len(prompt_nums)} prompts")
+        emit(f"Run started: {run_meta['timestamp']}  |  model={llm_model}  |  host={host}  |  {len(prompt_nums)} prompts")
 
         for n in prompt_nums:
             p = PROMPTS[n]
             emit(f"\n{sep}\nPROMPT {n}: {p}\n{sep}")
             t0 = time.time()
-            prepared = query_prepare(p, None, None, None, None)
 
-            parts      = []
-            has_src    = False
-            t_first_line = None
+            try:
+                resp, chunks_data, ttfl = _stream_query(host, p)
+            except Exception as e:
+                emit(f"  [error] request failed: {e}")
+                resp, chunks_data, ttfl = "^^^FAIL^^^", [], None
 
-            if prepared.get("empty"):
-                parts.append("^^^FAIL^^^")
-                chunks_data = prepared.get("chunks", [])
-            else:
-                chunks_data = prepared["chunks"]
-                for event in generate_response_stream(p, prepared["context"]):
-                    etype = event.get("type")
-                    if etype == "text":
-                        if t_first_line is None:
-                            t_first_line = time.time()
-                        parts.append(event["text"])
-                    elif etype == "fail":
-                        parts.append("^^^FAIL^^^")
-                    elif etype == "source_block":
-                        has_src = True
-                        parts.append(f"^^^{event['n']}^^^")
-
-            elapsed = round(time.time() - t0, 1)
-            ttfl    = round(t_first_line - t0, 2) if t_first_line else None
+            elapsed  = round(time.time() - t0, 1)
             times[n] = elapsed
 
-            resp     = "".join(parts)
             has_fail = "^^^FAIL^^^" in resp
+            has_src  = bool(_SRC_RE.search(resp))
             spurious = has_fail and has_src
             status   = "FAIL" if has_fail else "OK"
 
@@ -334,45 +367,46 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
                     "rerank_score": round(rscore, 4),
                     "distance":     round(dist, 4),
                 })
-            exp            = EXPECTED.get(n, {})
-            exp_status     = exp.get("status", "OK")
-            exp_agencies   = set(exp.get("agencies", []))
-            got_agencies   = {s["agency"] for s in sources}
-            status_ok      = (status == exp_status)
-            agency_ok      = (exp_status == "FAIL") or bool(exp_agencies & got_agencies)
-            correct        = status_ok and agency_ok
+
+            exp          = EXPECTED.get(n, {})
+            exp_status   = exp.get("status", "OK")
+            exp_agencies = set(exp.get("agencies", []))
+            got_agencies = {s["agency"] for s in sources}
+            status_ok    = (status == exp_status)
+            agency_ok    = (exp_status == "FAIL") or bool(exp_agencies & got_agencies)
+            correct      = status_ok and agency_ok
 
             ttfl_str = f" | ttfl={ttfl}s" if ttfl is not None else ""
             emit(f"\n{status}{'(spurious)' if spurious else ''} | {elapsed}s{ttfl_str}"
                  f" | Expected:{exp_status} Status:{'✓' if status_ok else '✗'} Agency:{'✓' if agency_ok else '✗'}")
 
             results.append({
-                "n":                n,
-                "prompt":           p,
-                "llm_model":        LLM_MODEL,
-                "status":           status,
-                "spurious_fail":    spurious,
-                "time_s":           elapsed,
-                "ttfl_s":           ttfl,
-                "sources":          sources,
-                "response_preview": resp[:300].replace("\n", " "),
-                "expected_status":  exp_status,
-                "expected_agencies":sorted(exp_agencies),
-                "status_correct":   status_ok,
-                "agency_correct":   agency_ok,
-                "correct":          correct,
+                "n":                 n,
+                "prompt":            p,
+                "llm_model":         llm_model,
+                "status":            status,
+                "spurious_fail":     spurious,
+                "time_s":            elapsed,
+                "ttfl_s":            ttfl,
+                "sources":           sources,
+                "response_preview":  resp[:300].replace("\n", " "),
+                "expected_status":   exp_status,
+                "expected_agencies": sorted(exp_agencies),
+                "status_correct":    status_ok,
+                "agency_correct":    agency_ok,
+                "correct":           correct,
             })
 
         # ── Summary ──────────────────────────────────────────────────────────
-        mean_t    = round(sum(times.values()) / len(times), 1)
-        fails     = [r for r in results if r["status"] == "FAIL"]
-        spurious  = [r for r in results if r["spurious_fail"]]
-        slowest   = sorted(results, key=lambda x: x["time_s"], reverse=True)[:5]
+        mean_t   = round(sum(times.values()) / len(times), 1)
+        fails    = [r for r in results if r["status"] == "FAIL"]
+        spurious = [r for r in results if r["spurious_fail"]]
+        slowest  = sorted(results, key=lambda x: x["time_s"], reverse=True)[:5]
 
-        correct_list  = [r for r in results if r.get("correct")]
-        status_ok_list= [r for r in results if r.get("status_correct")]
-        agency_wrong  = [r for r in results if r.get("status_correct") and not r.get("agency_correct")]
-        wrong_list    = [r for r in results if not r.get("correct")]
+        correct_list   = [r for r in results if r.get("correct")]
+        status_ok_list = [r for r in results if r.get("status_correct")]
+        agency_wrong   = [r for r in results if r.get("status_correct") and not r.get("agency_correct")]
+        wrong_list     = [r for r in results if not r.get("correct")]
         pct = lambda n, d: f"{100*n//d}%" if d else "n/a"
 
         emit("\n\n=== CORRECTNESS SUMMARY ===")
@@ -381,8 +415,8 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
         emit(f"  Wrong agency (right status):  {[r['n'] for r in agency_wrong]}")
         emit(f"  Incorrect prompts:            {[r['n'] for r in wrong_list]}")
 
-        ttfl_vals  = [r["ttfl_s"] for r in results if r.get("ttfl_s") is not None]
-        mean_ttfl  = round(sum(ttfl_vals) / len(ttfl_vals), 2) if ttfl_vals else None
+        ttfl_vals    = [r["ttfl_s"] for r in results if r.get("ttfl_s") is not None]
+        mean_ttfl    = round(sum(ttfl_vals) / len(ttfl_vals), 2) if ttfl_vals else None
         slowest_ttfl = sorted(
             [r for r in results if r.get("ttfl_s") is not None],
             key=lambda x: x["ttfl_s"], reverse=True
@@ -404,10 +438,10 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
 
         if compare_path:
             try:
-                prev_results = {r["n"]: r for r in json.loads(Path(compare_path).read_text())["results"]}
-                cur_results  = {r["n"]: r for r in results}
-                improved  = [n for n in cur_results if not prev_results.get(n, {}).get("correct") and cur_results[n].get("correct")]
-                regressed = [n for n in cur_results if prev_results.get(n, {}).get("correct") and not cur_results[n].get("correct")]
+                prev = {r["n"]: r for r in json.loads(Path(compare_path).read_text())["results"]}
+                cur  = {r["n"]: r for r in results}
+                improved  = [n for n in cur if not prev.get(n, {}).get("correct") and cur[n].get("correct")]
+                regressed = [n for n in cur if prev.get(n, {}).get("correct") and not cur[n].get("correct")]
                 emit(f"\n=== DIFF vs {compare_path} ===")
                 emit(f"  Improved ({len(improved)}):  {improved}")
                 emit(f"  Regressed ({len(regressed)}): {regressed}")
@@ -421,7 +455,7 @@ def run(prompt_nums: list[int], log_path: Path, json_path: Path, compare_path: s
             "total_time_s":  round(sum(times.values()), 1),
             "fail_count":    len(fails),
             "fail_prompts":  [r["n"] for r in fails],
-            "spurious_fails":[r["n"] for r in spurious],
+            "spurious_fails": [r["n"] for r in spurious],
             "slowest_5":     [(r["n"], r["time_s"]) for r in slowest],
             "results":       results,
         }
@@ -436,10 +470,13 @@ if __name__ == "__main__":
                         help="Run only these prompt numbers")
     parser.add_argument("--out", default="/tmp/rag_run",
                         help="Output path prefix (default: /tmp/rag_run)")
+    parser.add_argument("--host", default=DEFAULT_HOST,
+                        help=f"API base URL (default: {DEFAULT_HOST})")
     parser.add_argument("--compare", default=None,
                         help="Path to prior run JSON to diff against")
     args = parser.parse_args()
 
-    nums = sorted(args.only if args.only else PROMPTS.keys())
+    nums   = sorted(args.only if args.only else PROMPTS.keys())
     prefix = Path(args.out)
-    run(nums, prefix.with_suffix(".log"), prefix.with_suffix(".json"), compare_path=args.compare)
+    run(nums, prefix.with_suffix(".log"), prefix.with_suffix(".json"),
+        host=args.host, compare_path=args.compare)

@@ -48,7 +48,6 @@ _THINK_RE         = re.compile(r'<think>.*?</think>', re.DOTALL)
 _SPURIOUS_FAIL_RE = re.compile(r'\n*The provided standards do not address[^\n]*\n?.*?\^\^\^FAIL\^\^\^', re.DOTALL)
 _SRC_TAG_RE       = re.compile(r'\^\^\^\d+\^\^\^')
 _SECTION_VAL_RE   = re.compile(r'^[\d][\d\.\-\(\)\[\]a-zA-Z]*$')
-_DOCPAGE_VAL_RE   = re.compile(r'^\d[\d\-]*$')
 _FLAG_RE          = re.compile(r'\^\^\^(\d+)\^\^\^|\^\^\^FAIL\^\^\^')
 
 # Uppercase key → agency value as stored in DB metadata
@@ -192,7 +191,9 @@ def _ensure_fts_index(table) -> None:
     """Build FTS index if not already present. No-op when already indexed."""
     try:
         table.search("test", query_type='fts').limit(1).to_list()
-    except Exception:
+    except Exception as e:
+        if "permission" in str(e).lower():
+            raise
         print("  [FTS] Building full-text index...", flush=True)
         table.create_fts_index('text', replace=False)
 
@@ -683,59 +684,6 @@ def correct_section(
 
     log_correction(source_file, page, chunk_index, old_section, new_section)
     return True
-def enrich_section(text: str, source_file: str) -> str:
-    payload = _make_ollama_payload(
-        messages=[{"role": "user", "content":
-            f"You are reading a chunk from {source_file}.\nIdentify the section number this chunk belongs to.\n"
-            f"Return ONLY the section number (e.g. '1926.502', '1310.02(13)(b)', '6-02.3').\n"
-            f"If you cannot determine a section number return UNKNOWN.\nDo not explain your answer.\n\nText:\n{text[:500]}",
-        }],
-        options={"temperature": 0, "num_predict": 20},
-    )
-
-    for _attempt in range(3):
-        try:
-            response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
-            response.raise_for_status()
-            result = strip_thinking(response.json()["message"]["content"].strip())
-            if _SECTION_VAL_RE.match(result) and len(result) >= 3:
-                return result
-            return "UNKNOWN"
-        except Exception as _e:
-            if _attempt == 2:
-                print(f"  [enrich_section] all retries failed: {_e}", flush=True)
-                return "UNKNOWN"
-            time.sleep(2)
-    return "UNKNOWN"
-
-def enrich_doc_page(text: str, source_file: str) -> str:
-    """Ask the LLM for the document page number/range of this chunk."""
-    payload = _make_ollama_payload(
-        messages=[{"role": "user", "content":
-            f"You are reading a chunk from {source_file}.\n"
-            f"Identify the document page number this chunk appears on.\n"
-            f"Return ONLY the page number or range (e.g. '142', '142-143').\n"
-            f"If you cannot determine the page number return UNKNOWN.\n"
-            f"Do not explain.\n\nText:\n{text[:500]}",
-        }],
-        options={"temperature": 0, "num_predict": 10},
-    )
-    for _attempt in range(3):
-        try:
-            response = _ollama_session.post(_next_ollama_host() + "/api/chat", json=payload)
-            response.raise_for_status()
-            result = strip_thinking(response.json()["message"]["content"].strip())
-            if _DOCPAGE_VAL_RE.match(result) and len(result) >= 1:
-                return result
-            return "UNKNOWN"
-        except Exception as _e:
-            if _attempt == 2:
-                print(f"  [enrich_doc_page] all retries failed: {_e}", flush=True)
-                return "UNKNOWN"
-            time.sleep(2)
-    return "UNKNOWN"
-
-
 def _chunk_to_dict(c) -> dict:
     return {
         "source_file":           c.source_file,
@@ -766,12 +714,12 @@ def query_prepare(
     _t0 = time.monotonic()
 
     print(f"  [query] {user_query!r}", flush=True)
-    print("  [1/4] Connecting to database...")
+    print("  [1/3] Connecting to database...")
     table = get_db_table()
     print(f"  [time] db connect: {time.monotonic()-_t0:.2f}s", flush=True)
 
     _t1 = time.monotonic()
-    print("  [2/4] Embedding query and retrieving chunks...")
+    print("  [2/3] Embedding query and retrieving chunks...")
     chunks = retrieve_chunks(
         query=user_query,
         table=table,
@@ -793,10 +741,8 @@ def query_prepare(
         print(f"  [threshold] Top rerank score {top} below floor {RERANK_FLOOR} — declining")
         return {"empty": True, "source_groups": [], "chunks": [_chunk_to_dict(c) for c in chunks], "context": ""}
 
-    print("  [3/4] Skipping live enrichment — use ingestion/enrich_file.py", flush=True)
-
     _t3 = time.monotonic()
-    print("  [4/4] Building context...")
+    print("  [3/3] Building context...")
     groups = group_chunks(chunks, table)
     context, source_groups = format_context(groups)
     print(f"  [time] context build: {time.monotonic()-_t3:.2f}s", flush=True)
