@@ -117,7 +117,6 @@ def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
         c.rerank_score = float(score)
     ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
     top = [c for _, c in ranked[:top_k]]
-    print(f"  [rerank] top scores: {[round(float(s),2) for s,_ in ranked[:5]]}", flush=True)
     return [c for c in top if c.rerank_score >= RERANK_FLOOR]
 
 
@@ -733,14 +732,13 @@ def query_prepare(
     print(f"  [time] embed+search: {time.monotonic()-_t1:.2f}s", flush=True)
 
     _t2 = time.monotonic()
-    print(f"  [debug] pre-rerank pool size: {len(chunks)}", flush=True)
     chunks = rerank_chunks(user_query, chunks, top_k=N_RESULTS)
     print(f"  [time] rerank: {time.monotonic()-_t2:.2f}s", flush=True)
     print(f"  Retrieved {len(chunks)} chunks (re-ranked from {RERANK_POOL})")
 
     if not chunks or chunks[0].rerank_score < RERANK_FLOOR:
         top = round(chunks[0].rerank_score, 2) if chunks else None
-        print(f"  [threshold] Top rerank score {top} below floor {RERANK_FLOOR} — declining", flush=True)
+        print(f"  [threshold] Top rerank score {top} below floor {RERANK_FLOOR} — declining")
         return {"empty": True, "source_groups": [], "chunks": [_chunk_to_dict(c) for c in chunks], "context": ""}
 
     _t3 = time.monotonic()

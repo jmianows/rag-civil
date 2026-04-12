@@ -43,7 +43,7 @@ _default_vectordb = Path(__file__).parent.parent / "vectordb"
 VECTORDB_DIR = Path(os.environ.get("CIVIL_VECTORDB_DIR", str(_default_vectordb)))
 
 # Minimum cross-encoder rerank score to accept a result
-RERANK_FLOOR = float(os.environ.get("RERANK_FLOOR", "1.5"))
+RERANK_FLOOR = float(os.environ.get("RERANK_FLOOR", "1.0"))
 
 print(
     f"[env] {ENVIRONMENT.upper()} | model={LLM_MODEL}"
