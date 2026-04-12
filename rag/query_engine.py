@@ -163,7 +163,7 @@ def _next_ollama_host() -> str:
     """Return the next Ollama host in round-robin order. Thread-safe."""
     with _host_lock:
         return next(_host_cycle)
-RERANK_POOL   = 20   # candidate pool fetched before cross-encoder re-ranking
+RERANK_POOL   = 40   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 2
 MAX_CHUNK_CHARS = 1000 
@@ -294,11 +294,11 @@ def retrieve_chunks(
     _tr1 = time.monotonic()
     with ThreadPoolExecutor(max_workers=3) as ex:
         f_vector  = ex.submit(_vector_search, table, embedding, pool_size, user_where)
-        f_fts     = ex.submit(_fts_search,    table, query,     pool_size, user_where)
+        f_fts     = ex.submit(_fts_search,    table, query,     pool_size, user_where) if has_section else None
         f_boosted = ex.submit(_vector_search, table, embedding, pool_size, auto_where) if auto_where else None
 
         vector_rows  = f_vector.result()
-        fts_rows     = f_fts.result()
+        fts_rows     = f_fts.result() if f_fts else []
         boosted_rows = f_boosted.result() if f_boosted else []
 
     print(f"  [time]   vector+fts search: {time.monotonic()-_tr1:.2f}s", flush=True)
