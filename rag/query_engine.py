@@ -117,6 +117,7 @@ def rerank_chunks(query: str, chunks: list, top_k: int = 7) -> list:
         c.rerank_score = float(score)
     ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
     top = [c for _, c in ranked[:top_k]]
+    print(f"  [rerank] top scores: {[round(float(s),2) for s,_ in ranked[:5]]}", flush=True)
     return [c for c in top if c.rerank_score >= RERANK_FLOOR]
 
 
