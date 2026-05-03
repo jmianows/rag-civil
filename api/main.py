@@ -1,7 +1,8 @@
 import sys
+import os as _os
 import json as _json
+import time as _time
 import datetime
-import pathlib
 import threading
 from pathlib import Path
 
@@ -11,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import lancedb
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -23,6 +24,7 @@ from rag.query_engine import (
     get_db_table,
     embed_query,
     _get_reranker,
+    _next_ollama_host,
 )
 from rag.env_config import WARM_ON_STARTUP, ENVIRONMENT, IS_PRODUCTION, VECTORDB_DIR
 
@@ -31,7 +33,6 @@ FRONTEND_DIR   = _PROJECT_ROOT / "frontend"
 REQUEST_LOG    = _PROJECT_ROOT / "code_requests.log"
 ANALYTICS_FILE = _PROJECT_ROOT / "analytics.json"
 RATE_LIMIT_LOG = _PROJECT_ROOT / "rate_limit.log"
-import os as _os
 DAILY_QUERY_LIMIT  = int(_os.environ.get("CIVIL_DAILY_LIMIT", "20"))
 
 # Public API URL — set CIVIL_API_URL to override (e.g. the RunPod proxy URL).
@@ -61,7 +62,6 @@ _filters_lock    = threading.Lock()
 _standards_lock  = threading.Lock()
 _daily_counts: dict[str, tuple[int, str]] = {}  # ip -> (count, date_str)
 
-import time as _time
 _FILTERS_TTL = 3600  # 1 hour — refresh after new documents are ingested
 _filters_cache: dict | None = None
 _filters_cache_ts: float = 0.0
@@ -145,8 +145,43 @@ def health_check():
 
     result["status"] = "ok" if result["ollama"] == "ok" and result["lancedb"] == "ok" else "degraded"
     status_code = 200 if result["status"] == "ok" else 503
-    from fastapi.responses import JSONResponse
     return JSONResponse(content=result, status_code=status_code)
+
+
+@app.get("/smoke")
+def smoke_check():
+    """End-to-end functional smoke test. Verifies embedding, retrieval, reranking, and LLM."""
+    import urllib.request as _urllib
+    result = {"retrieval": "untested", "llm": "untested"}
+
+    try:
+        prep = query_prepare("What is the minimum sidewalk width?")
+        n = len(prep.get("chunks", []))
+        if prep.get("empty") or n == 0:
+            result["retrieval"] = "fail: no chunks returned"
+        else:
+            result["retrieval"] = f"ok ({n} chunks)"
+    except Exception as e:
+        result["retrieval"] = f"fail: {e}"
+
+    try:
+        from rag.env_config import LLM_MODEL, OLLAMA_KEEP_ALIVE
+        payload = _json.dumps({
+            "model": LLM_MODEL,
+            "prompt": "Hi",
+            "stream": False,
+            "options": {"num_predict": 1},
+            "keep_alive": OLLAMA_KEEP_ALIVE,
+        }).encode()
+        req = _urllib.Request(_next_ollama_host() + "/api/generate", data=payload)
+        with _urllib.urlopen(req, timeout=30) as r:
+            result["llm"] = "ok" if r.status == 200 else f"fail: status {r.status}"
+    except Exception as e:
+        result["llm"] = f"fail: {e}"
+
+    ok = all(v.startswith("ok") for v in result.values())
+    result["status"] = "ok" if ok else "fail"
+    return JSONResponse(content=result, status_code=200 if ok else 503)
 
 
 @app.get("/config")
@@ -231,10 +266,7 @@ def _undo_record_query(
     with _analytics_lock:
         if not ANALYTICS_FILE.exists():
             return
-        try:
-            data = _json.loads(ANALYTICS_FILE.read_text())
-        except Exception:
-            return
+        data = _load_analytics()
 
         by_day = data.get("queries_by_day", {})
         if by_day.get(today, 0) > 0:
@@ -258,9 +290,7 @@ def _undo_record_query(
             if fu.get("unfiltered", 0) > 0:
                 fu["unfiltered"] -= 1
 
-        tmp = ANALYTICS_FILE.with_suffix(".tmp")
-        tmp.write_text(_json.dumps(data, indent=2))
-        tmp.replace(ANALYTICS_FILE)
+        _save_analytics(data)
 
 
 @app.post("/query")
@@ -340,17 +370,10 @@ def run_correct(req: CorrectRequest, request: Request):
     if not ok:
         raise HTTPException(status_code=500, detail="Correction failed")
     with _analytics_lock:
-        data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
-        if ANALYTICS_FILE.exists():
-            try:
-                data = _json.loads(ANALYTICS_FILE.read_text())
-            except Exception:
-                pass
+        data = _load_analytics()
         corrections = data.setdefault("correction_count", {})
         corrections[req.source_file] = corrections.get(req.source_file, 0) + 1
-        tmp = ANALYTICS_FILE.with_suffix(".tmp")
-        tmp.write_text(_json.dumps(data, indent=2))
-        tmp.replace(ANALYTICS_FILE)
+        _save_analytics(data)
     return {"ok": True}
 
 
@@ -485,6 +508,21 @@ def get_standards_list():
         raise HTTPException(status_code=500, detail="Failed to load standards list.")
 
 
+def _load_analytics() -> dict:
+    """Read analytics.json, returning defaults if missing or corrupt."""
+    try:
+        return _json.loads(ANALYTICS_FILE.read_text())
+    except Exception:
+        return {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
+
+
+def _save_analytics(data: dict) -> None:
+    """Atomically write analytics data to disk."""
+    tmp = ANALYTICS_FILE.with_suffix(".tmp")
+    tmp.write_text(_json.dumps(data, indent=2))
+    tmp.replace(ANALYTICS_FILE)
+
+
 def _record_query(
     ip: str,
     filter_agency: str | None,
@@ -499,12 +537,7 @@ def _record_query(
     today = datetime.date.today().isoformat()
     hour  = datetime.datetime.utcnow().strftime("%H")
     with _analytics_lock:
-        data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
-        if ANALYTICS_FILE.exists():
-            try:
-                data = _json.loads(ANALYTICS_FILE.read_text())
-            except Exception:
-                pass
+        data = _load_analytics()
 
         # queries_by_day: {"2026-04-07": N, ...}
         by_day = data.setdefault("queries_by_day", {})
@@ -526,21 +559,14 @@ def _record_query(
         else:
             fu["unfiltered"] = fu.get("unfiltered", 0) + 1
 
-        tmp = ANALYTICS_FILE.with_suffix(".tmp")
-        tmp.write_text(_json.dumps(data, indent=2))
-        tmp.replace(ANALYTICS_FILE)
+        _save_analytics(data)
 
 
 @app.post("/analytics/event")
 def log_analytics_event(ev: AnalyticsEvent):
     """Record an anonymous usage event. Thread-safe; persists to analytics.json."""
     with _analytics_lock:
-        data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}}
-        if ANALYTICS_FILE.exists():
-            try:
-                data = _json.loads(ANALYTICS_FILE.read_text())
-            except Exception:
-                pass  # corrupted file — start fresh
+        data = _load_analytics()
 
         if ev.event == "prompt_submitted":
             data["prompts_submitted"] = data.get("prompts_submitted", 0) + 1
@@ -550,9 +576,7 @@ def log_analytics_event(ev: AnalyticsEvent):
             pulls = data.setdefault("manual_pulls", {})
             pulls[ev.source_file] = pulls.get(ev.source_file, 0) + 1
 
-        tmp = ANALYTICS_FILE.with_suffix(".tmp")
-        tmp.write_text(_json.dumps(data, indent=2))
-        tmp.replace(ANALYTICS_FILE)
+        _save_analytics(data)
     return {"ok": True}
 
 
@@ -560,16 +584,9 @@ def log_analytics_event(ev: AnalyticsEvent):
 def get_analytics(request: Request):
     """Return analytics dashboard (HTML for browsers, JSON for API clients)."""
     with _analytics_lock:
-        if not ANALYTICS_FILE.exists():
-            data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}, "queries_by_day": {}}
-        else:
-            try:
-                data = _json.loads(ANALYTICS_FILE.read_text())
-            except Exception:
-                data = {"prompts_submitted": 0, "failed_responses": 0, "manual_pulls": {}, "queries_by_day": {}}
+        data = _load_analytics()
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
-        from fastapi.responses import HTMLResponse
         return HTMLResponse(_build_dashboard_html(data))
     return data
 

@@ -20,8 +20,9 @@ import lancedb
 import ollama
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 import pyarrow as pa
-#DIRECTORY STRUCTURE FOR PROPER INGESTION!!!!!!!    _links.json pass document links onto the parser.
+# Folder layout required for ingestion:
 #docs/
 #├── FEDERAL/
 #│   └── USA/                     ← country code (future: EU, CAN, etc.)
@@ -69,6 +70,24 @@ CHUNK_OVERLAP = 50    # words
 MAX_CHARS     = 900   # characters — roughly 180 words, hard safety ceiling
 
 FAILED_LOG = Path(__file__).parent / "failed_chunks.jsonl"
+
+_TABLE_SCHEMA = pa.schema([
+    pa.field("id",           pa.string()),
+    pa.field("text",         pa.string()),
+    pa.field("vector",       pa.list_(pa.float32(), 1024)),
+    pa.field("source_file",  pa.string()),
+    pa.field("jurisdiction", pa.string()),
+    pa.field("agency",       pa.string()),
+    pa.field("state",        pa.string()),
+    pa.field("locality",     pa.string()),
+    pa.field("file_link",    pa.string()),
+    pa.field("section",      pa.string()),
+    pa.field("llm_corrected_section",  pa.bool_()),
+    pa.field("llm_corrected_doc_page", pa.bool_()),
+    pa.field("doc_page",     pa.string()),
+    pa.field("page",         pa.int32()),
+    pa.field("chunk_index",  pa.int32()),
+])
 
 # Runtime-set by CLI args in __main__
 DOCS_DIR: Path    = _PROJECT_ROOT / "docs"
@@ -164,7 +183,6 @@ def _block_text_and_style(fitz_block: dict) -> tuple[str, float, bool, str]:
     dominant_font = max(set(font_names), key=font_names.count) if font_names else ""
     return text, font_size, is_bold, dominant_font
 
-#for looking at pages with images
 def ocr_pdf_page(page) -> str:
     import pytesseract
     from PIL import Image
@@ -184,12 +202,6 @@ def ocr_pdf_page(page) -> str:
 
     return text.strip()
 
-##What this does:
-##Opens each PDF and reads it page by page
-##Skips pages with less than 50 characters — those are almost certainly images, drawings, or blank pages
-##Prints a warning for skipped pages so you can see which files are image-heavy
-##Returns a list of pages with the text and metadata attached
-##is_scanned_pdf takes files that are just images and tries to turn them into text because some of these are images of text rather than cached text.
 def is_scanned_pdf(doc, sample_size: int = 30, threshold: float = 0.9) -> bool:
     total_pages = len(doc)
     pages_to_check = min(sample_size, total_pages)
@@ -204,58 +216,6 @@ def is_scanned_pdf(doc, sample_size: int = 30, threshold: float = 0.9) -> bool:
     ratio = low_text_count / pages_to_check
     return ratio >= threshold
 
-
-def extract_text_from_pdf(pdf_path: Path) -> list[dict]:
-    pages = []
-    doc = fitz.open(str(pdf_path))
-    try:
-        use_ocr = is_scanned_pdf(doc)
-        if use_ocr:
-            print(f"  [scanned document detected] using OCR for {pdf_path.name}, {len(doc)} pages long.")
-
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            text = page.get_text("text").strip()
-
-            if len(text) < 50:
-                if use_ocr:
-                    print(f"  [OCR] page {page_num + 1}")
-                    try:
-                        text = ocr_pdf_page(page)
-                    except Exception as e:
-                        print(f"  [OCR error] page {page_num + 1}: {e}")
-                        continue
-                else:
-                    print(f"  [low text] page {page_num + 1} — skipping")
-                    continue
-
-            if len(text.strip()) < 50:
-                continue
-
-            is_toc, dot_ratio = is_table_of_contents(text)
-            if is_toc:
-                print(f"  [TOC] page {page_num + 1} in {pdf_path.name} — skipping")
-                import json
-                with open(FAILED_LOG, "a") as f:
-                    json.dump({
-                        "type":       "TOC_skipped",
-                        "file":       pdf_path.name,
-                        "page":       page_num + 1,
-                        "dot_ratio":  dot_ratio,
-                        "text":       text[:300],
-                    }, f)
-                    f.write("\n")
-                continue
-
-            pages.append({
-                "text": text.strip(),
-                "page": page_num + 1,
-                "source_file": pdf_path.name,
-            })
-    finally:
-        doc.close()
-    print(f"  Extracted {len(pages)} text pages from {pdf_path.name}")
-    return pages
 
 def extract_blocks(pdf_path: Path) -> list[Block]:
     """
@@ -367,18 +327,12 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
 
     # ── Pass 2: font consistency filter ───────────────────────────────────────
     # Size-triggered headings are ground truth for what a heading font looks like.
-    # Bold-only headings whose font doesn't match are likely callouts/table rows.
+    # Bold-only headings whose font don't match are likely callouts/table rows.
+    heading_sizes = [x.font_size for x in raw_blocks if x.kind == "heading"]
+    median_heading_size = statistics.median(heading_sizes) * 0.85 if heading_sizes else 0.0
     size_heading_fonts = [
         b.font_name for b in raw_blocks
-        if b.kind == "heading" and b.font_size >= (
-            # recompute per-block: if font_size was the trigger it was >= threshold
-            # we don't store the threshold, but size-triggered blocks have larger fonts
-            # than bold-only blocks, so use the median of heading font sizes as a proxy
-            statistics.median([
-                x.font_size for x in raw_blocks if x.kind == "heading"
-            ]) * 0.85  # slightly below median to capture all size-triggered ones
-        )
-        and b.font_name
+        if b.kind == "heading" and b.font_size >= median_heading_size and b.font_name
     ]
     if size_heading_fonts:
         # Top 2 most common font names among size-triggered headings
@@ -411,6 +365,9 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
 
         block.doc_page = current_doc_page
 
+        if is_table_of_contents(block.text)[0]:
+            continue
+
         if block.kind == "heading":
             # Skip boilerplate blank-page markers entirely.
             if "intentionally left blank" in block.text.lower():
@@ -422,15 +379,9 @@ def extract_blocks(pdf_path: Path) -> list[Block]:
             if _looks_like_real_section(candidate) or not _looks_like_real_section(current_section):
                 current_section = candidate
             block.section = current_section
-            is_toc, _ = is_table_of_contents(block.text)
-            if is_toc:
-                continue
             output.append(block)
 
         else:  # body
-            is_toc, _ = is_table_of_contents(block.text)
-            if is_toc:
-                continue
             block.section = current_section
             output.append(block)
 
@@ -530,7 +481,6 @@ def chunk_blocks(blocks: list[Block]) -> list[dict]:
     return results
 
 
-##a bunch of periods break things
 def is_table_of_contents(text: str) -> tuple[bool, float]:
     dot_chars = text.count(".") + text.count("\u2026")
     total_chars = len(text)
@@ -538,71 +488,6 @@ def is_table_of_contents(text: str) -> tuple[bool, float]:
         return False, 0.0
     dot_ratio = dot_chars / total_chars
     return dot_ratio > 0.15, round(dot_ratio, 3)
-
-##What this does:
-
-##First tries to split text at section headings using pattern matching — this handles numbered sections like 4.3.2, Section 4, or 4 GENERAL REQUIREMENTS
-##If no section headings are found it falls back to sliding window chunks of 512 tokens with 50 token overlap
-##If a section is longer than 512 tokens it splits it further with the sliding window
-##Anything under 100 characters gets discarded — too short to be useful
-##Every chunk carries the page number and source file forward from Block 2
-def chunk_text(page_data: dict) -> list[dict]:
-    text = page_data["text"]
-    chunks = []
-    
-    section_pattern = re.compile(
-        r'(?=(\n|^)('
-        r'\d+\.\d+[\.\d]*'        # matches 1.2, 1.2.3, 1.2.3.4
-        r'|Section\s+\d+'          # matches Section 4
-        r'|SECTION\s+\d+'          # matches SECTION 4
-        r'|\d+\s+[A-Z][A-Z\s]{4,}' # matches 4 GENERAL REQUIREMENTS
-        r'))'
-    )
-    
-    splits = section_pattern.split(text)
-    splits = [s.strip() for s in splits if s and len(s.strip()) > 100]
-    
-    if len(splits) <= 1:
-        words = text.split()
-        for i in range(0, len(words), CHUNK_SIZE - CHUNK_OVERLAP):
-            chunk_words = words[i:i + CHUNK_SIZE]
-            chunk = " ".join(chunk_words)
-            if len(chunk.strip()) > 50:
-                chunks.append({
-                    **page_data,
-                    "text": chunk,
-                    "chunk_index": len(chunks),
-                })
-    else:
-        for i, split in enumerate(splits):
-            words = split.split()
-            if len(words) > CHUNK_SIZE:
-                for j in range(0, len(words), CHUNK_SIZE - CHUNK_OVERLAP):
-                    chunk = " ".join(words[j:j + CHUNK_SIZE])
-                    if len(chunk.strip()) > 100:
-                        chunks.append({
-                            **page_data,
-                            "text": chunk,
-                            "chunk_index": len(chunks),
-                        })
-            else:
-                chunks.append({
-                    **page_data,
-                    "text": split,
-                    "chunk_index": len(chunks),
-                })
-    
-    return chunks
-##What this does:
-
-##Reads the folder path of each PDF to automatically determine jurisdiction (FEDERAL, STATE, LOCAL) and agency (FHWA, OSHA, USACE, ADA, EPA, WSDOT)
-##Detects the section number from the start of the chunk text if present
-##Carries all metadata forward so every chunk stored in the database knows exactly where it came from
-##Folder structure drives all metadata — no hardcoded agency lookup dicts needed.
-##  FEDERAL/{Country}/{Agency}/file.pdf  →  jurisdiction=FEDERAL, state=USA, agency=OSHA
-##  STATE/{ST}/{Agency}/file.pdf         →  jurisdiction=STATE,   state=WA,  agency=WSDOT
-##  LOCAL/{ST}/{Locality}/{Agency}/file  →  jurisdiction=LOCAL,   state=WA,  locality=Seattle, agency=SDOT
-
 
 def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
     try:
@@ -652,11 +537,6 @@ def tag_metadata(chunk: dict, pdf_path: Path, root: Path) -> dict:
         "page":         chunk.get("page", 0),
         "chunk_index":  chunk.get("chunk_index", 0),
     }
-#What this does:
-#get_embedding — sends each chunk of text to your local nomic-embed-text model via Ollama and gets back a vector of numbers representing the meaning of that text.
-#init_chromadb — creates or opens your persistent ChromaDB database in the vectordb/ folder. Using cosine similarity which is the best metric for text retrieval. If you re-run ingestion it won't duplicate chunks — upsert updates existing ones.
-#store_chunks — builds up batches of chunks with their embeddings and metadata and writes them to ChromaDB in one operation. Wraps each embedding in a try/except so one bad chunk doesn't crash the whole ingestion run.
-#The chunk ID format filename__p142__c3 means page 142, chunk index 3 — unique and human readable so you can trace any retrieved chunk back to its exact location.
 def _write_standards_json(table, out_path: Path) -> None:
     rows = table.search().select(
         ["source_file", "agency", "jurisdiction", "state", "locality", "file_link"]
@@ -686,10 +566,6 @@ def get_embedding(text: str) -> list[float]:
     embed_text = re.sub(r'[\u2026\.]{3,}', ' ', text)
     embed_text = re.sub(r'[ \t]+', ' ', embed_text).strip()
 
-    words = embed_text.split()
-    if len(words) > 250:
-        embed_text = " ".join(words[:250])
-
     try:
         response = ollama.embeddings(
             model=EMBED_MODEL,
@@ -706,7 +582,6 @@ def get_embedding(text: str) -> list[float]:
                 )
                 return response["embedding"]
             except Exception as e2:
-                import json
                 with open(FAILED_LOG, "a") as f:
                     json.dump({
                         "error":      str(e2),
@@ -722,32 +597,12 @@ def get_embedding(text: str) -> list[float]:
 
 def init_db() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
-    
-    schema = pa.schema([
-        pa.field("id",           pa.string()),
-        pa.field("text",         pa.string()),
-        pa.field("vector",       pa.list_(pa.float32(), 1024)),
-        pa.field("source_file",  pa.string()),
-        pa.field("jurisdiction", pa.string()),
-        pa.field("agency",       pa.string()),
-        pa.field("state",        pa.string()),
-        pa.field("locality",     pa.string()),
-        pa.field("file_link",    pa.string()),
-        pa.field("section",      pa.string()),
-        pa.field("llm_corrected_section",  pa.bool_()),
-        pa.field("llm_corrected_doc_page", pa.bool_()),
-        pa.field("doc_page",     pa.string()),
-        pa.field("page",         pa.int32()),
-        pa.field("chunk_index",  pa.int32()),
-    ])
-
     try:
         table = db.open_table("civil_engineering_codes")
         print(f"  LanceDB opened — {table.count_rows()} existing chunks")
     except Exception:
-        table = db.create_table("civil_engineering_codes", schema=schema)
+        table = db.create_table("civil_engineering_codes", schema=_TABLE_SCHEMA)
         print("  LanceDB created new table")
-
     return table
 
 
@@ -790,15 +645,21 @@ def store_chunks(table: lancedb.table.LanceTable, chunks: list[dict]) -> None:
     if rows:
         table.add(rows)
         print(f"  Stored {len(rows)} chunks")
-#skip already added data if enabled
+
+
+def _sql_str(value: str) -> str:
+    """Escape a string value for use in a LanceDB SQL WHERE clause."""
+    return value.replace("'", "''").replace("\\", "\\\\")
+
+
 def already_ingested(pdf_path: Path, table: lancedb.table.LanceTable) -> bool:
-    safe = pdf_path.name.replace("'", "''").replace("\\", "\\\\")
     results = table.search() \
-        .where(f"source_file = '{safe}'") \
+        .where(f"source_file = '{_sql_str(pdf_path.name)}'") \
         .limit(1) \
         .to_list()
     return len(results) > 0
-#copies metadata if it isn't found 
+
+
 def propagate_missing_metadata(chunks: list[dict]) -> list[dict]:
     last_section = "UNKNOWN"
     last_doc_page = "UNKNOWN"
@@ -825,65 +686,12 @@ def clean_page_text(text: str) -> str:
     return text.strip()
 
 
-def detect_repeating_lines(pages: list[dict], zone: str = 'header', zone_size: int = 4) -> set[str]:
-    """
-    Identify lines that repeat in the header or footer zone across most pages.
-    A line must appear on ≥50% of pages and on at least 3 pages.
-    Returns a set of stripped line strings to remove.
-    """
-    section_pat = re.compile(r'^\s*\d[\d\.\-\(\)a-zA-Z]{1,20}\s')
-    candidate_counts: dict[str, int] = {}
-    n_pages = len(pages)
-
-    for page in pages:
-        lines = [l for l in page["text"].splitlines() if l.strip()]
-        zone_lines = lines[:zone_size] if zone == 'header' else (
-            lines[-zone_size:] if len(lines) >= zone_size else lines
-        )
-        seen_this_page: set[str] = set()
-        for line in zone_lines:
-            key = line.strip()
-            if not key or len(key) < 5 or len(key) > 120:
-                continue
-            if section_pat.match(key):   # looks like a code section — keep it
-                continue
-            if key not in seen_this_page:
-                candidate_counts[key] = candidate_counts.get(key, 0) + 1
-                seen_this_page.add(key)
-
-    min_pages = max(3, int(n_pages * 0.50))
-    return {line for line, count in candidate_counts.items() if count >= min_pages}
-
-
-def strip_repeating_lines(text: str, header_set: set[str], footer_set: set[str]) -> str:
-    """
-    Remove identified header/footer lines from the top/bottom of page text.
-    Stops at the first line not in the removal set (does not skip over content).
-    Reverts to the original if stripping would leave < 100 chars.
-    """
-    lines = text.splitlines()
-
-    start = 0
-    while start < len(lines) and lines[start].strip() in header_set:
-        start += 1
-
-    end = len(lines)
-    while end > start and lines[end - 1].strip() in footer_set:
-        end -= 1
-
-    result = "\n".join(lines[start:end]).strip()
-    if len(result) < 100 and len(text.strip()) >= 100:
-        return text   # safety: reverted — stripping removed too much
-    return result if result else text
-
-
 def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable, root: Path) -> None:
     if not DRY_RUN and already_ingested(pdf_path, table):
         if not FORCE_RERUN:
             print(f"  [skipped] already in database: {pdf_path.name}")
             return
-        safe = pdf_path.name.replace("'", "''").replace("\\", "\\\\")
-        table.delete(f"source_file = '{safe}'")
+        table.delete(f"source_file = '{_sql_str(pdf_path.name)}'")
         print(f"  [force] deleted existing rows for {pdf_path.name}, re-ingesting")
 
     print(f"\nProcessing: {pdf_path.name}")
@@ -912,39 +720,20 @@ def process_pdf(pdf_path: Path, table: lancedb.table.LanceTable, root: Path) -> 
     print(f"  Generated {len(all_chunks)} chunks")
     store_chunks(table, all_chunks)
 
-#delete old data when rerunning
+
 def reset_db() -> lancedb.table.LanceTable:
     db = lancedb.connect(str(VECTORDB_DIR))
-    
     try:
         db.drop_table("civil_engineering_codes")
         print("  Existing table deleted")
     except Exception:
         pass
-
-    schema = pa.schema([
-        pa.field("id",           pa.string()),
-        pa.field("text",         pa.string()),
-        pa.field("vector",       pa.list_(pa.float32(), 1024)),
-        pa.field("source_file",  pa.string()),
-        pa.field("jurisdiction", pa.string()),
-        pa.field("agency",       pa.string()),
-        pa.field("state",        pa.string()),
-        pa.field("locality",     pa.string()),
-        pa.field("file_link",    pa.string()),
-        pa.field("section",      pa.string()),
-        pa.field("llm_corrected_section",  pa.bool_()),
-        pa.field("llm_corrected_doc_page", pa.bool_()),
-        pa.field("doc_page",     pa.string()),
-        pa.field("page",         pa.int32()),
-        pa.field("chunk_index",  pa.int32()),
-    ])
-
-    table = db.create_table("civil_engineering_codes", schema=schema)
+    table = db.create_table("civil_engineering_codes", schema=_TABLE_SCHEMA)
     print("  New table created")
     return table
 
-def main(docs_dir: Path, force: bool, only: str | None, dry_run: bool = False) -> None:
+
+def main(docs_dir: Path, force: bool, only: Optional[str] = None, dry_run: bool = False) -> None:
     global DOCS_DIR, FORCE_RERUN, DRY_RUN
     DOCS_DIR    = docs_dir
     FORCE_RERUN = force

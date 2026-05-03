@@ -28,6 +28,13 @@ sed "s|REPO_DIR|$REPO_DIR|g; s|HOME_DIR|$HOME|g" \
 launchctl load "$PLIST_DEST"
 echo "Service loaded: $PLIST_DEST"
 
+# Install smoke-check plist (daily 9am health check via WhatsApp)
+SMOKE_DEST="$HOME/Library/LaunchAgents/com.civilsmartdictionary.smoke.plist"
+sed "s|REPO_DIR|$REPO_DIR|g; s|HOME_DIR|$HOME|g" \
+    "$REPO_DIR/deploy/rag-civil-smoke.plist" > "$SMOKE_DEST"
+launchctl load "$SMOKE_DEST"
+echo "Smoke check scheduled: $SMOKE_DEST"
+
 # nginx config
 NGINX_CONF="$(brew --prefix)/etc/nginx/servers/rag-civil.conf"
 sed "s|REPO_DIR|$REPO_DIR|g" "$REPO_DIR/deploy/mac_nginx.conf" > "$NGINX_CONF"

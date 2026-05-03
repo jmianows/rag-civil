@@ -100,7 +100,7 @@ def _get_reranker():
                 except ImportError:
                     device = "cpu"
                 _reranker = CrossEncoder(
-                    "cross-encoder/ms-marco-MiniLM-L-6-v2",
+                    "mixedbread-ai/mxbai-rerank-base-v1",
                     device=device,
                     max_length=512,
                 )
@@ -163,7 +163,7 @@ def _next_ollama_host() -> str:
     """Return the next Ollama host in round-robin order. Thread-safe."""
     with _host_lock:
         return next(_host_cycle)
-RERANK_POOL   = 40   # candidate pool fetched before cross-encoder re-ranking
+RERANK_POOL   = 30   # candidate pool fetched before cross-encoder re-ranking
 CONTEXT_WINDOW_BEFORE = 1
 CONTEXT_WINDOW_AFTER  = 2
 MAX_CHUNK_CHARS = 1000 

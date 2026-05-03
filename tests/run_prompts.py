@@ -267,7 +267,7 @@ EXPECTED = {
 _SRC_RE = re.compile(r'\^\^\^\d+\^\^\^')
 
 
-def _stream_query(host: str, prompt: str) -> tuple[str, list[dict], float | None]:
+def _stream_query(host: str, prompt: str):
     """POST to /query/stream, consume SSE, return (raw_response, chunks, ttfl_s)."""
     url = host.rstrip("/") + "/query/stream"
     body = json.dumps({"query": prompt}).encode()
@@ -275,7 +275,7 @@ def _stream_query(host: str, prompt: str) -> tuple[str, list[dict], float | None
 
     parts: list[str] = []
     chunks: list[dict] = []
-    t_first_line: float | None = None
+    t_first_line = None
     t0 = time.time()
 
     with urllib.request.urlopen(req, timeout=300) as resp:
@@ -312,7 +312,7 @@ def _get_llm_model(host: str) -> str:
 
 
 def run(prompt_nums: list[int], log_path: Path, json_path: Path,
-        host: str = DEFAULT_HOST, compare_path: str | None = None):
+        host: str = DEFAULT_HOST, compare_path=None):
     sep = "=" * 70
     results = []
     times = {}
